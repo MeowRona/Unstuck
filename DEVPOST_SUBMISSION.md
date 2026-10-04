@@ -211,7 +211,9 @@ No login is required. The Qloo API key is server-side.
 
 ### Demo URL
 
-**Do not paste a placeholder into the final submission.** Add the verified public deployment URL here after the live Qloo smoke test and deployment pass.
+**https://unstuck-g5pc.onrender.com**
+
+Deployment smoke: root and `/api/health` returned HTTP 200, and a public `search -> reject all first 3 -> next alternatives` flow passed. The hosted build remains in fixture-taste mode until the live Qloo credential is intentionally enabled near submission.
 
 ### Video
 
@@ -220,7 +222,7 @@ Not required by the current Qloo hackathon submission baseline. If an optional s
 ## Public links
 
 - Repository: https://github.com/MeowRona/Unstuck
-- Demo: **TBD after verified live deployment**
+- Demo: https://unstuck-g5pc.onrender.com
 
 ## Final release gate
 

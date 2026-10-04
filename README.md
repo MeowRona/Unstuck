@@ -210,7 +210,7 @@ The engine does not hard-code a winning venue for this demo.
 
 `render.yaml` is prepared for a zero-cost Render web service using the live Qloo mode. Before deploying it, set the `QLOO_API_KEY` secret in the service environment. Free hosting can cold-start and its limits can change, so verify the current free-plan behavior before submission and test the public URL from a clean browser session.
 
-Public deployment, public repository creation, and Devpost submission are intentionally not performed by the local build step.
+Stable public demo: **https://unstuck-g5pc.onrender.com**. It runs on Render independently of the development PC. The current hosted build intentionally uses `fixture` taste mode with the real Warsaw catalog until live Qloo is enabled near submission. Devpost submission remains a separate final action.
 
 ## Limitations
 
