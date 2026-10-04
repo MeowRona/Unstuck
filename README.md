@@ -2,6 +2,8 @@
 
 **Find the smallest change that saves your plan.**
 
+Repository: https://github.com/MeowRona/Unstuck
+
 Unstuck is a compact agentic web application for the Qloo Agentic Hackathon 2026. It is built for the moment when an outing plan stops working: the original venue is closed, too expensive, too far away, or no longer fits the available time. Instead of restarting discovery from scratch, Unstuck looks for a feasible substitute while preserving as much of the original intent as possible.
 
 The current MVP is deliberately narrow in data scope: **one outing in Warsaw**, one shared brief, an auditable pilot catalog, and at most three non-dominated alternatives. Warsaw is the first test city, not the product thesis. The failure mode — a plan becomes infeasible and the user needs the smallest acceptable change — is city-independent.

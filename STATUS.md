@@ -1,5 +1,7 @@
 # Unstuck — current status
 
+Canonical repository: https://github.com/MeowRona/Unstuck
+
 Last updated: 2026-10-04
 
 ## Working now
