@@ -56,6 +56,8 @@ class SearchBrief:
     negotiable_extra_travel_minutes: int = 0
     negotiable_stay_reduction_minutes: int = 0
     allow_category_change: bool = False
+    origin_lat: float | None = None
+    origin_lon: float | None = None
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "SearchBrief":
@@ -91,6 +93,23 @@ class SearchBrief:
             raise ValueError("budget_total must be numeric") from exc
         if budget <= 0 or budget > 100000:
             raise ValueError("budget_total must be greater than 0")
+
+        def optional_coord(name: str, minimum: float, maximum: float) -> float | None:
+            raw = payload.get(name)
+            if raw in (None, ""):
+                return None
+            try:
+                value = float(raw)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be numeric") from exc
+            if not minimum <= value <= maximum:
+                raise ValueError(f"{name} is outside the Warsaw pilot area")
+            return value
+
+        origin_lat = optional_coord("origin_lat", 52.05, 52.40)
+        origin_lon = optional_coord("origin_lon", 20.75, 21.35)
+        if (origin_lat is None) != (origin_lon is None):
+            raise ValueError("origin_lat and origin_lon must be provided together")
 
         return cls(
             original_plan=str(payload.get("original_plan", "")).strip(),
@@ -128,6 +147,8 @@ class SearchBrief:
                 maximum=120,
             ),
             allow_category_change=bool(payload.get("allow_category_change", False)),
+            origin_lat=origin_lat,
+            origin_lon=origin_lon,
         )
 
     def patched(self, patch: dict[str, Any]) -> "SearchBrief":
@@ -158,6 +179,8 @@ class SearchBrief:
             "negotiable_extra_travel_minutes": self.negotiable_extra_travel_minutes,
             "negotiable_stay_reduction_minutes": self.negotiable_stay_reduction_minutes,
             "allow_category_change": self.allow_category_change,
+            "origin_lat": self.origin_lat,
+            "origin_lon": self.origin_lon,
         }
 
 

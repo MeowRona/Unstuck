@@ -6,3 +6,6 @@
     buildCommand: "python -m compileall -q ."
     startCommand: "python app.py --host 0.0.0.0 --mode fixture --catalog real"
     healthCheckPath: /api/health
+    envVars:
+      - key: GOOGLE_PLACES_ENABLED
+        value: 'false'

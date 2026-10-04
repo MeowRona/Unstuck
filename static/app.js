@@ -21,12 +21,24 @@ function localPlanningDefaults(now = new Date()) {
   };
 }
 
+function judgeDemoEvening(now = new Date()) {
+  const demo = new Date(now);
+  if (demo.getHours() > 17 || (demo.getHours() === 17 && demo.getMinutes() > 30)) {
+    demo.setDate(demo.getDate() + 1);
+  }
+  return {
+    date: localDateString(demo),
+    start_time: '18:30',
+    return_by: '22:00',
+  };
+}
+
 function makeDefaultBrief() {
   const local = localPlanningDefaults();
   return {
-  original_plan: 'Dinner somewhere calm where we can actually talk',
-  failed_place: 'Closed Place',
-  failure_reason: 'It is closed tonight',
+  original_plan: 'Dinner',
+  failed_place: '',
+  failure_reason: '',
   goal: 'meal',
   city: 'Warsaw',
   date: local.date,
@@ -37,6 +49,8 @@ function makeDefaultBrief() {
   budget_total: 200,
   currency: 'PLN',
   origin: 'Warszawa Centralna',
+  origin_lat: null,
+  origin_lon: null,
   travel_mode: 'transit',
   max_one_way_minutes: 20,
   categories: ['restaurant'],
@@ -55,7 +69,6 @@ const $$ = selector => [...document.querySelectorAll(selector)];
 
 const workspace = $('.workspace');
 const firstRun = $('#firstRun');
-const quickStartForm = $('#quickStartForm');
 const searchingState = $('#searchingState');
 const resultContent = $('#resultContent');
 const cardsEl = $('#cards');
@@ -64,6 +77,7 @@ const resultActions = $('#resultActions');
 const chooseButton = $('#chooseButton');
 const lockCompromiseButton = $('#lockCompromiseButton');
 const resultMeta = $('#resultMeta');
+const routePanel = $('#routePanel');
 const dataStatus = $('#dataStatus');
 const editorModal = $('#editorModal');
 const editorBackdrop = $('#editorBackdrop');
@@ -71,14 +85,21 @@ const editorForm = $('#editorForm');
 const editorError = $('#editorError');
 const menuButton = $('#menuButton');
 const menuPopover = $('#menuPopover');
+const themeToggle = $('#themeToggle');
+const menuThemeLabel = $('#menuThemeLabel');
 const choiceModal = $('#choiceModal');
 const choiceBackdrop = $('#choiceBackdrop');
+const originInput = $('#originInput');
+const originSuggestions = $('#originSuggestions');
+const originResolution = $('#originResolution');
+const useCurrentLocation = $('#useCurrentLocation');
 
 let draftBrief = structuredClone(DEFAULT_BRIEF);
 let sessionId = null;
 let activeResult = null;
 let selectedIndex = 0;
 let requestSerial = 0;
+let routeRequestSerial = 0;
 let statusInfo = null;
 let origins = [];
 let editorWheelsReady = false;
@@ -89,6 +110,8 @@ let map = null;
 let tileLayer = null;
 let resultLayer = null;
 let guideLayer = null;
+let actualRouteLayer = null;
+let routeBadgeMarker = null;
 let markerRefs = [];
 let originMarker = null;
 let tileErrorCount = 0;
@@ -113,7 +136,39 @@ const ICONS = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
   arrow: '<path d="M5 12h14M14 7l5 5-5 5"/>',
+  moon: '<path d="M20.5 14.3A8.2 8.2 0 0 1 9.7 3.5 8.7 8.7 0 1 0 20.5 14.3Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  crosshair: '<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
 };
+
+function preferredTheme() {
+  const saved = localStorage.getItem('unstuck-theme');
+  if (saved === 'light' || saved === 'dark') return saved;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme, {persist = false} = {}) {
+  const next = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  if (persist) localStorage.setItem('unstuck-theme', next);
+  const dark = next === 'dark';
+  if (themeToggle) {
+    themeToggle.dataset.iconState = dark ? 'sun' : 'moon';
+    themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    themeToggle.title = dark ? 'Light mode' : 'Dark mode';
+    const slot = themeToggle.querySelector('[data-icon]');
+    if (slot) {
+      slot.dataset.icon = dark ? 'sun' : 'moon';
+      slot.innerHTML = iconSvg(slot.dataset.icon);
+    }
+  }
+  if (menuThemeLabel) menuThemeLabel.textContent = dark ? 'Light mode' : 'Dark mode';
+  setTimeout(() => map?.invalidateSize(false), 0);
+}
+
+function toggleTheme() {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', {persist: true});
+}
 
 function iconSvg(name) {
   return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ICONS.info}</svg>`;
@@ -207,13 +262,6 @@ function planTitle(brief) {
   return `${noun} for ${peoplePhrase(Number(brief.people))}.`;
 }
 
-function failureSummary(brief) {
-  const reason = String(brief.failure_reason || '').trim();
-  if (reason) return reason.endsWith('.') ? reason : `${reason}.`;
-  if (brief.failed_place) return `${brief.failed_place} no longer works.`;
-  return 'The original plan no longer works.';
-}
-
 function tasteSummary(brief) {
   const refs = brief.taste_refs || [];
   if (!refs.length) return 'Not set';
@@ -223,7 +271,6 @@ function tasteSummary(brief) {
 
 function updateSummary(brief) {
   $('#summaryPlanTitle').textContent = planTitle(brief);
-  $('#summaryFailure').textContent = failureSummary(brief);
   $('#summaryBudget').textContent = `${Number(brief.budget_total).toFixed(Number(brief.budget_total) % 1 ? 2 : 0)} ${brief.currency || 'PLN'}`;
   $('#summaryReturn').textContent = brief.return_by;
   $('#summaryTravel').textContent = `${brief.max_one_way_minutes} min`;
@@ -301,6 +348,20 @@ function originCoords(name) {
   return fallbacks[name] || [52.2297, 21.0122];
 }
 
+function hasFiniteCoordinates(lat, lon) {
+  return lat !== null && lat !== undefined && lat !== ''
+    && lon !== null && lon !== undefined && lon !== ''
+    && Number.isFinite(Number(lat))
+    && Number.isFinite(Number(lon));
+}
+
+function briefOriginCoords(brief) {
+  if (hasFiniteCoordinates(brief?.origin_lat, brief?.origin_lon)) {
+    return [Number(brief.origin_lat), Number(brief.origin_lon)];
+  }
+  return originCoords(brief?.origin || 'Warszawa Centralna');
+}
+
 function initMap() {
   if (!window.L) {
     $('#mapFallback').classList.remove('hidden');
@@ -322,6 +383,7 @@ function initMap() {
   });
   resultLayer = L.layerGroup().addTo(map);
   guideLayer = L.layerGroup().addTo(map);
+  actualRouteLayer = L.layerGroup().addTo(map);
 }
 
 function placeIcon(letter, selected) {
@@ -346,7 +408,7 @@ function refreshGuideLine() {
   guideLayer.clearLayers();
   const card = activeResult.cards[selectedIndex];
   if (!validCardLocation(card)) return;
-  const from = originCoords(activeResult.brief.origin);
+  const from = briefOriginCoords(activeResult.brief);
   const to = [Number(card.location.lat), Number(card.location.lon)];
   L.polyline([from, to], {color: '#275de8', weight: 3, opacity: .76, dashArray: '7 8', lineCap: 'round'}).addTo(guideLayer);
   $('#mapGuideLabel').textContent = 'Approx. straight-line guide · not a routed journey';
@@ -359,7 +421,7 @@ function renderMap(result, fitView = true) {
   markerRefs = [];
   originMarker = null;
   const points = [];
-  const origin = originCoords(result.brief.origin);
+  const origin = briefOriginCoords(result.brief);
   originMarker = L.marker(origin, {icon: originIcon(), keyboard: true, title: `Start: ${result.brief.origin}`}).addTo(resultLayer);
   originMarker.bindTooltip(`Start · ${escapeHtml(result.brief.origin)}`, {direction: 'top'});
   points.push(origin);
@@ -452,7 +514,7 @@ function cardHtml(card, index, brief) {
       <div class="why-block"><strong>Why it fits</strong><p>${escapeHtml(card.why_this_fits)}</p></div>
       <div class="metrics-row">
         <div class="metric">${iconSvg('coins')}<div class="metric-copy"><strong>${escapeHtml(formatMoney(card))}</strong><span>est. total · ${card.cost.for_people} people</span></div></div>
-        <div class="metric">${iconSvg('car')}<div class="metric-copy"><strong>${card.timing.travel_one_way_minutes} min${travelDelta ? `<span class="metric-delta">+${travelDelta}</span>` : ''}</strong><span>one-way · estimated</span></div></div>
+        <div class="metric route-time-metric">${iconSvg('car')}<div class="metric-copy"><strong>${card.timing.travel_one_way_minutes} min${travelDelta ? `<span class="metric-delta">+${travelDelta}</span>` : ''}</strong><span>one-way · search estimate</span></div></div>
         <div class="metric">${iconSvg('hourglass')}<div class="metric-copy"><strong>${card.timing.stay_minutes} min${stayDelta ? `<span class="metric-delta">−${stayDelta}</span>` : ''}</strong><span>stay</span></div></div>
       </div>
       <div class="taste-row"><strong>Taste profile</strong>${tasteTags(card)}</div>
@@ -506,6 +568,7 @@ function selectCard(index, {fromMap = false} = {}) {
   $$('.recommendation-card').forEach((card, cardIndex) => card.classList.toggle('selected', cardIndex === index));
   updateMarkerSelection();
   updateResultActions();
+  loadSelectedRoute();
   if (fromMap) {
     const card = document.querySelector(`[data-card-index="${index}"]`);
     card?.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest'});
@@ -525,23 +588,138 @@ function updateResultActions() {
     return;
   }
   resultActions.classList.remove('hidden');
-  chooseButton.innerHTML = `Choose ${escapeHtml(card.name)} ${iconSvg('arrow')}`;
+  chooseButton.innerHTML = `<span class="action-button-icon">${iconSvg('check')}</span><span class="action-button-copy"><strong>Choose this plan</strong><small>${escapeHtml(card.name)}</small></span>`;
   const change = selectedCompromise();
   if (!change) {
     lockCompromiseButton.disabled = true;
-    lockCompromiseButton.textContent = 'No compromise to lock';
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>All constraints kept</strong><small>No compromise to undo</small></span>`;
   } else if (change.field === 'one-way travel') {
     lockCompromiseButton.disabled = false;
-    lockCompromiseButton.innerHTML = `${iconSvg('car')} Keep travel at ${activeResult.brief.max_one_way_minutes} min`;
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('car')}</span><span class="action-button-copy"><strong>Keep travel at ${activeResult.brief.max_one_way_minutes} min</strong><small>Re-run without extra travel</small></span>`;
   } else if (change.field === 'minimum stay') {
     lockCompromiseButton.disabled = false;
-    lockCompromiseButton.innerHTML = `${iconSvg('hourglass')} Keep stay at ${activeResult.brief.min_stay_minutes} min`;
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('hourglass')}</span><span class="action-button-copy"><strong>Keep stay at ${activeResult.brief.min_stay_minutes} min</strong><small>Re-run without shorter stay</small></span>`;
   } else if (change.field === 'category') {
     lockCompromiseButton.disabled = false;
-    lockCompromiseButton.innerHTML = `${iconSvg('tag')} Keep original category`;
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('tag')}</span><span class="action-button-copy"><strong>Keep original category</strong><small>Re-run without category change</small></span>`;
   } else {
     lockCompromiseButton.disabled = true;
-    lockCompromiseButton.textContent = 'No compromise to lock';
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>All constraints kept</strong><small>No compromise to undo</small></span>`;
+  }
+}
+
+function routeColor(routeType, color) {
+  if (color && /^[0-9a-f]{6}$/i.test(color)) return `#${color}`;
+  if (routeType === 0) return '#b60000';
+  if (routeType === 1 || routeType === 2) return '#3159a6';
+  return '#5c4aa6';
+}
+
+function clearActualRoute() {
+  actualRouteLayer?.clearLayers();
+  if (routeBadgeMarker && map) {
+    map.removeLayer(routeBadgeMarker);
+    routeBadgeMarker = null;
+  }
+}
+
+function routeStepHtml(leg) {
+  if (leg.type === 'walk') {
+    return `<div class="route-step walk"><div class="route-step-dot">${iconSvg('pin')}</div><div><strong>Walk ${escapeHtml(leg.duration_minutes)} min</strong><span>${escapeHtml(leg.from)} → ${escapeHtml(leg.to)}</span></div></div>`;
+  }
+  if (leg.type === 'transfer') {
+    return `<div class="route-step transfer"><div class="route-step-dot">${iconSvg('arrow')}</div><div><strong>Transfer at ${escapeHtml(leg.from)} · ${escapeHtml(leg.duration_minutes)} min</strong><span>Platform/stop change inside the same interchange</span></div></div>`;
+  }
+  const color = routeColor(leg.route_type, leg.color);
+  const intermediate = Array.isArray(leg.intermediate_stops) ? leg.intermediate_stops : [];
+  const stopNames = [leg.from, ...intermediate, leg.to].filter(Boolean);
+  return `<div class="route-step transit"><div class="route-line-badge" style="--route-color:${color}">${escapeHtml(leg.route)}</div><div><strong>${escapeHtml(leg.departure)} → ${escapeHtml(leg.arrival)} · ${escapeHtml(leg.stop_count)} stop${Number(leg.stop_count) === 1 ? '' : 's'}</strong><span>${escapeHtml(leg.from)} → ${escapeHtml(leg.to)}${leg.headsign ? ` · toward ${escapeHtml(leg.headsign)}` : ''}</span>${stopNames.length > 2 ? `<details class="route-stop-details"><summary>Show stops</summary><div>${stopNames.map(name => `<span>${escapeHtml(name)}</span>`).join('')}</div></details>` : ''}</div></div>`;
+}
+
+function renderActualRoute(route) {
+  clearActualRoute();
+  guideLayer?.clearLayers();
+  const card = activeResult?.cards?.[selectedIndex];
+  if (card) card._actualRoute = route;
+  const points = [];
+  if (route.mode === 'walk') {
+    if (route.geometry?.length) {
+      L.polyline(route.geometry, {color: '#275de8', weight: 5, opacity: .9, lineCap: 'round'}).addTo(actualRouteLayer);
+      points.push(...route.geometry);
+    }
+    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min walk · ${escapeHtml(route.distance_km)} km</strong><span>Shortest street route from Valhalla / OpenStreetMap</span></div><span class="route-source-badge">street route</span></div>`;
+  } else {
+    const legs = route.legs || [];
+    legs.forEach(leg => {
+      const geometry = leg.geometry || [];
+      if (geometry.length < 2) return;
+      const style = leg.type === 'transit'
+        ? {color: routeColor(leg.route_type, leg.color), weight: 6, opacity: .9, lineCap: 'round'}
+        : {color: '#51627e', weight: 3, opacity: .74, dashArray: '4 7', lineCap: 'round'};
+      L.polyline(geometry, style).addTo(actualRouteLayer);
+      points.push(...geometry);
+    });
+    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min · ${escapeHtml(route.summary || 'Public transport')}</strong><span>Leave ${escapeHtml(route.departure)} · arrive ${escapeHtml(route.arrival)} · ${escapeHtml(route.transfers)} transfer${Number(route.transfers) === 1 ? '' : 's'} · scheduled, not realtime</span></div><span class="route-source-badge">schedule</span></div><div class="route-steps">${legs.map(routeStepHtml).join('')}</div><div class="route-attribution">Schedule: ZTM Warszawa · GTFS: Mikołaj Kuranowski · route shapes: © OpenStreetMap contributors</div>`;
+  }
+  routePanel.classList.remove('hidden');
+  const allowedTravel = Number(activeResult?.brief?.max_one_way_minutes || 0) + Number(activeResult?.brief?.negotiable_extra_travel_minutes || 0);
+  if (Number(route.duration_minutes) > allowedTravel) {
+    routePanel.classList.add('route-conflict');
+    routePanel.insertAdjacentHTML('afterbegin', `<div class="route-warning"><strong>Route check changed the answer.</strong><span>The detailed route is ${escapeHtml(route.duration_minutes)} min, above the currently allowed ${escapeHtml(allowedTravel)} min. Treat this option as provisional and adjust travel tolerance or choose another card.</span></div>`);
+  } else {
+    routePanel.classList.remove('route-conflict');
+  }
+  if (points.length && map) {
+    const midpoint = points[Math.floor(points.length / 2)];
+    routeBadgeMarker = L.marker(midpoint, {
+      interactive: false,
+      icon: L.divIcon({
+        className: 'route-time-marker',
+        html: `<div>${escapeHtml(route.duration_minutes)} min${route.mode === 'transit' && route.summary ? ` · ${escapeHtml(route.summary)}` : ''}</div>`,
+        iconSize: [150, 34],
+        iconAnchor: [75, 17],
+      }),
+    }).addTo(map);
+  }
+  const metric = document.querySelector(`[data-card-index="${selectedIndex}"] .route-time-metric .metric-copy`);
+  if (metric) metric.innerHTML = `<strong>${escapeHtml(route.duration_minutes)} min</strong><span>${route.mode === 'transit' ? 'scheduled route' : 'street route'}</span>`;
+  $('#mapGuideLabel').textContent = route.mode === 'transit'
+    ? 'Scheduled WTP route · walking legs use OSM streets'
+    : 'Shortest pedestrian route · OpenStreetMap streets';
+}
+
+async function loadSelectedRoute() {
+  const card = activeResult?.cards?.[selectedIndex];
+  if (!card || !validCardLocation(card)) {
+    routePanel.classList.add('hidden');
+    clearActualRoute();
+    return;
+  }
+  const serial = ++routeRequestSerial;
+  routePanel.classList.remove('hidden');
+  routePanel.innerHTML = `<div class="route-loading"><span class="mini-spinner"></span><span>Building ${activeResult.brief.travel_mode === 'walk' ? 'street' : 'scheduled public-transport'} route…</span></div>`;
+  const origin = briefOriginCoords(activeResult.brief);
+  try {
+    const route = await fetchJson('/api/route', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        origin_lat: origin[0],
+        origin_lon: origin[1],
+        destination_lat: Number(card.location.lat),
+        destination_lon: Number(card.location.lon),
+        mode: activeResult.brief.travel_mode,
+        date: activeResult.brief.date,
+        start_time: activeResult.brief.start_time,
+      }),
+    });
+    if (serial !== routeRequestSerial) return;
+    renderActualRoute(route);
+  } catch (error) {
+    if (serial !== routeRequestSerial) return;
+    clearActualRoute();
+    refreshGuideLine();
+    routePanel.innerHTML = `<div class="route-panel-head route-unavailable"><div><strong>Detailed route unavailable</strong><span>${escapeHtml(error.message)} · the card still shows the conservative search estimate.</span></div></div>`;
   }
 }
 
@@ -565,12 +743,16 @@ function renderResult(result) {
   draftBrief = structuredClone(result.brief);
   selectedIndex = 0;
   updateSummary(result.brief);
-  resultMeta.innerHTML = `<span>Round ${result.round} · ${escapeHtml(result.strategy_used)} search</span><span>${result.result_status === 'confirmed' ? 'Current facts support these options' : result.result_status === 'requires_checking' ? 'Some facts still need checking' : 'No feasible result'}</span>`;
+  const confirmedCount = result.cards.filter(card => card.feasibility_status === 'confirmed').length;
+  const checkCount = result.cards.length - confirmedCount;
+  resultMeta.innerHTML = `<span>Round ${result.round} · ${escapeHtml(result.strategy_used)} search · ${escapeHtml(result.scope?.candidate_count || 0)} shortlisted</span><span>${confirmedCount ? `${confirmedCount} confirmed` : ''}${confirmedCount && checkCount ? ' · ' : ''}${checkCount ? `${checkCount} needs checking` : ''}</span>`;
 
   if (result.empty || !result.cards.length) {
     cardsEl.innerHTML = '';
     emptyState.classList.remove('hidden');
     resultActions.classList.add('hidden');
+    routePanel.classList.add('hidden');
+    clearActualRoute();
     const reasons = (result.empty_explanation || []).map(item => `<li>${escapeHtml(item.reason)}${item.count ? ` (${item.count})` : ''}</li>`).join('');
     emptyState.innerHTML = `<h3>No feasible rescue in the checked pool.</h3><p>Unstuck kept your locked conditions instead of silently breaking them.</p>${reasons ? `<ul>${reasons}</ul>` : ''}<button class="secondary-button" type="button" id="editEmpty">Edit allowed changes</button>`;
     $('#editEmpty')?.addEventListener('click', () => openEditor('travel'));
@@ -583,22 +765,8 @@ function renderResult(result) {
   }
   renderFooter(result);
   renderMap(result, true);
+  if (!result.empty && result.cards.length) loadSelectedRoute();
 }
-
-function quickFormIntoDraft() {
-  const fd = new FormData(quickStartForm);
-  draftBrief.original_plan = String(fd.get('original_plan') || '').trim();
-  draftBrief.failed_place = String(fd.get('failed_place') || '').trim();
-  draftBrief.failure_reason = String(fd.get('failure_reason') || '').trim();
-  draftBrief.meal_required = draftBrief.goal === 'meal';
-  updateSummary(draftBrief);
-}
-
-quickStartForm.addEventListener('submit', async event => {
-  event.preventDefault();
-  quickFormIntoDraft();
-  await runLatest('/api/search', draftBrief);
-});
 
 function nearestIndex(values, wanted) {
   const numeric = Number(wanted);
@@ -611,37 +779,44 @@ function wheelMarkup(values, padded = false, unit = '') {
 
 function bindWheel(picker, values, onSelect, initialValue) {
   let ready = false;
-  let settleTimer = null;
   let suppressScroll = false;
   let suppressTimer = null;
+  let paintFrame = null;
+  let settleTimer = null;
   const options = () => [...picker.querySelectorAll('.wheel-option')];
-  function selectIndex(index, smooth = false) {
+  function paintIndex(index) {
     const bounded = Math.max(0, Math.min(values.length - 1, index));
-    if (settleTimer) {
-      clearTimeout(settleTimer);
-      settleTimer = null;
-    }
     options().forEach((option, optionIndex) => {
       const selected = optionIndex === bounded;
       option.classList.toggle('selected', selected);
       option.setAttribute('aria-selected', selected ? 'true' : 'false');
     });
     onSelect(values[bounded]);
+    return bounded;
+  }
+  function selectIndex(index, smooth = false) {
+    const bounded = paintIndex(index);
     suppressScroll = true;
     if (suppressTimer) clearTimeout(suppressTimer);
     picker.scrollTo({top: bounded * WHEEL_ROW_HEIGHT, behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto'});
     suppressTimer = setTimeout(() => {
       suppressScroll = false;
-    }, 140);
+    }, smooth ? 320 : 80);
   }
   picker.addEventListener('scroll', () => {
     if (!ready || suppressScroll) return;
+    if (paintFrame) cancelAnimationFrame(paintFrame);
+    paintFrame = requestAnimationFrame(() => {
+      paintIndex(Math.round(picker.scrollTop / WHEEL_ROW_HEIGHT));
+    });
     if (settleTimer) clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
-      selectIndex(Math.round(picker.scrollTop / WHEEL_ROW_HEIGHT), false);
-    }, 90);
+      if (suppressScroll) return;
+      const target = Math.max(0, Math.min(values.length - 1, Math.round(picker.scrollTop / WHEEL_ROW_HEIGHT)));
+      selectIndex(target, true);
+    }, 105);
   });
-  options().forEach((option, index) => option.addEventListener('click', () => selectIndex(index, false)));
+  options().forEach((option, index) => option.addEventListener('click', () => selectIndex(index, true)));
   picker.addEventListener('keydown', event => {
     if (!['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(event.key)) return;
     event.preventDefault();
@@ -652,7 +827,7 @@ function bindWheel(picker, values, onSelect, initialValue) {
     if (event.key === 'PageDown') index += 2;
     if (event.key === 'Home') index = 0;
     if (event.key === 'End') index = values.length - 1;
-    selectIndex(index, false);
+    selectIndex(index, true);
   });
   const initialIndex = nearestIndex(values, initialValue);
   selectIndex(initialIndex, false);
@@ -698,9 +873,219 @@ function ensureEditorWheels() {
   editorWheelsReady = true;
 }
 
+function foldOriginText(value) {
+  return String(value || '')
+    .toLocaleLowerCase('pl-PL')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function savedOriginMatch(value) {
+  const needle = foldOriginText(value);
+  return origins.find(row => foldOriginText(row.label) === needle || foldOriginText(row.id) === needle) || null;
+}
+
+function applySavedOrigin(row) {
+  originInput.value = row.label;
+  originInput.dataset.lat = String(row.lat);
+  originInput.dataset.lon = String(row.lon);
+  originResolution.textContent = `${row.district} · saved point · ready without geocoding`;
+}
+
+function useBrowserCurrentLocation() {
+  if (!navigator.geolocation) {
+    originResolution.textContent = 'This browser does not provide geolocation. Enter an address instead.';
+    return;
+  }
+  useCurrentLocation.disabled = true;
+  useCurrentLocation.classList.add('loading');
+  originResolution.textContent = 'Waiting for browser location permission…';
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      const lat = Number(position.coords.latitude);
+      const lon = Number(position.coords.longitude);
+      useCurrentLocation.disabled = false;
+      useCurrentLocation.classList.remove('loading');
+      if (!(lat >= 52.05 && lat <= 52.40 && lon >= 20.75 && lon <= 21.35)) {
+        delete originInput.dataset.lat;
+        delete originInput.dataset.lon;
+        originResolution.textContent = 'Current location is outside the Warsaw pilot area. Enter a Warsaw address or landmark.';
+        return;
+      }
+      hideOriginSuggestions();
+      originInput.value = 'Current location';
+      originInput.dataset.lat = String(lat);
+      originInput.dataset.lon = String(lon);
+      originResolution.textContent = `Current location ready · ±${Math.round(Number(position.coords.accuracy) || 0)} m accuracy · used only for this plan`;
+    },
+    error => {
+      useCurrentLocation.disabled = false;
+      useCurrentLocation.classList.remove('loading');
+      const messages = {
+        1: 'Location permission was denied. You can still enter an address.',
+        2: 'Current location is unavailable. You can still enter an address.',
+        3: 'Location request timed out. You can still enter an address.',
+      };
+      originResolution.textContent = messages[error.code] || 'Could not read current location. Enter an address instead.';
+    },
+    {enableHighAccuracy: true, timeout: 10000, maximumAge: 60000},
+  );
+}
+
+async function resolveBriefOrigin(brief) {
+  if (hasFiniteCoordinates(brief.origin_lat, brief.origin_lon)) return brief;
+  const saved = savedOriginMatch(brief.origin);
+  if (saved) {
+    brief.origin = saved.label;
+    brief.origin_lat = Number(saved.lat);
+    brief.origin_lon = Number(saved.lon);
+    if (originInput && originInput.value === saved.label) applySavedOrigin(saved);
+    return brief;
+  }
+  if (!String(brief.origin || '').trim()) throw new Error('Enter a Warsaw start address or choose a saved landmark.');
+  if (originResolution) originResolution.textContent = 'Resolving this exact Warsaw address once…';
+  const resolved = await fetchJson('/api/geocode', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({address: brief.origin}),
+  });
+  brief.origin = resolved.label || brief.origin;
+  brief.origin_lat = Number(resolved.lat);
+  brief.origin_lon = Number(resolved.lon);
+  if (originInput) {
+    originInput.value = brief.origin;
+    originInput.dataset.lat = String(brief.origin_lat);
+    originInput.dataset.lon = String(brief.origin_lon);
+  }
+  if (originResolution) {
+    originResolution.textContent = resolved.local_index
+      ? 'Exact address resolved locally from the Warsaw OpenStreetMap address index.'
+      : 'Exact address resolved in the Warsaw pilot area · OpenStreetMap/Nominatim';
+  }
+  return brief;
+}
+
+let streetSuggestTimer = null;
+let originSuggestionSerial = 0;
+
+function hideOriginSuggestions() {
+  originSuggestions.classList.add('hidden');
+  originInput.setAttribute('aria-expanded', 'false');
+}
+
+function renderOriginSuggestions(savedRows, streets) {
+  const items = [
+    ...savedRows.map(row => ({kind: 'saved', label: row.label, meta: `${row.district} · saved point`, row})),
+    ...streets.map(street => ({kind: 'street', label: street, meta: 'Warsaw street · add a house number'})),
+  ].slice(0, 12);
+  if (!items.length) {
+    hideOriginSuggestions();
+    return;
+  }
+  originSuggestions.innerHTML = items.map((item, index) => `<button type="button" class="origin-suggestion" role="option" data-index="${index}" data-kind="${item.kind}"><span>${escapeHtml(item.label)}</span><small>${escapeHtml(item.meta)}</small></button>`).join('');
+  originSuggestions.classList.remove('hidden');
+  originInput.setAttribute('aria-expanded', 'true');
+  [...originSuggestions.querySelectorAll('.origin-suggestion')].forEach((button, index) => {
+    const item = items[index];
+    button.addEventListener('mousedown', event => event.preventDefault());
+    button.addEventListener('click', () => {
+      if (item.kind === 'saved') {
+        applySavedOrigin(item.row);
+        hideOriginSuggestions();
+        originInput.focus();
+      } else {
+        originInput.value = `${item.label} `;
+        delete originInput.dataset.lat;
+        delete originInput.dataset.lon;
+        originResolution.textContent = 'Street selected · add the house number, then save/search.';
+        hideOriginSuggestions();
+        originInput.focus();
+        originInput.setSelectionRange(originInput.value.length, originInput.value.length);
+      }
+    });
+  });
+}
+
+async function updateOriginSuggestions() {
+  const query = originInput.value.trim();
+  delete originInput.dataset.lat;
+  delete originInput.dataset.lon;
+  const serial = ++originSuggestionSerial;
+  if (query.length < 2) {
+    hideOriginSuggestions();
+    return;
+  }
+  const folded = foldOriginText(query);
+  const savedRows = origins
+    .filter(row => foldOriginText(row.label).includes(folded))
+    .sort((a, b) => foldOriginText(a.label).startsWith(folded) === foldOriginText(b.label).startsWith(folded) ? a.label.localeCompare(b.label, 'pl') : (foldOriginText(a.label).startsWith(folded) ? -1 : 1))
+    .slice(0, 5);
+  let streets = [];
+  try {
+    const payload = await fetchJson(`/api/streets?q=${encodeURIComponent(query)}`);
+    streets = Array.isArray(payload.suggestions) ? payload.suggestions.slice(0, 8) : [];
+  } catch {
+    streets = [];
+  }
+  if (serial !== originSuggestionSerial) return;
+  renderOriginSuggestions(savedRows, streets);
+}
+
+originInput.addEventListener('input', () => {
+  delete originInput.dataset.lat;
+  delete originInput.dataset.lon;
+  originResolution.textContent = 'Searching the local Warsaw street index…';
+  if (streetSuggestTimer) clearTimeout(streetSuggestTimer);
+  streetSuggestTimer = setTimeout(updateOriginSuggestions, 90);
+});
+useCurrentLocation.addEventListener('click', useBrowserCurrentLocation);
+originInput.addEventListener('keydown', event => {
+  const buttons = [...originSuggestions.querySelectorAll('.origin-suggestion')];
+  if (!buttons.length || originSuggestions.classList.contains('hidden')) return;
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    buttons[0].focus();
+  } else if (event.key === 'Escape') {
+    hideOriginSuggestions();
+  }
+});
+originSuggestions.addEventListener('keydown', event => {
+  const buttons = [...originSuggestions.querySelectorAll('.origin-suggestion')];
+  const current = buttons.indexOf(document.activeElement);
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    buttons[Math.min(buttons.length - 1, current + 1)]?.focus();
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (current <= 0) originInput.focus();
+    else buttons[current - 1]?.focus();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    hideOriginSuggestions();
+    originInput.focus();
+  }
+});
+originInput.addEventListener('blur', () => {
+  setTimeout(() => {
+    if (!originSuggestions.contains(document.activeElement)) hideOriginSuggestions();
+    const saved = savedOriginMatch(originInput.value);
+    if (saved) applySavedOrigin(saved);
+  }, 80);
+});
+
 function fillEditor(brief) {
-  const fields = ['original_plan','failed_place','failure_reason','goal','people','budget_total','date','origin','travel_mode'];
+  const fields = ['goal','people','budget_total','date','origin','travel_mode'];
   fields.forEach(name => { if (editorForm.elements[name]) editorForm.elements[name].value = brief[name] ?? ''; });
+  originInput.dataset.lat = brief.origin_lat ?? '';
+  originInput.dataset.lon = brief.origin_lon ?? '';
+  if (brief.origin_lat != null && brief.origin_lon != null) {
+    originResolution.textContent = 'Exact start location resolved and will be used for travel/routing.';
+  } else {
+    originResolution.textContent = 'Saved landmarks work instantly; street autocomplete is local and exact addresses are geocoded only after you submit.';
+  }
   editorForm.elements.taste_refs.value = (brief.taste_refs || []).join(', ');
   editorForm.elements.allow_category_change.checked = Boolean(brief.allow_category_change);
   $$('#editorForm input[name="category"]').forEach(input => { input.checked = (brief.categories || []).includes(input.value); });
@@ -716,9 +1101,9 @@ function editorPayload() {
   const fd = new FormData(editorForm);
   const goal = String(fd.get('goal'));
   return {
-    original_plan: String(fd.get('original_plan') || '').trim(),
-    failed_place: String(fd.get('failed_place') || '').trim(),
-    failure_reason: String(fd.get('failure_reason') || '').trim(),
+    original_plan: goal === 'meal' ? 'Dinner' : goal === 'coffee' ? 'Coffee and talk' : goal === 'culture' ? 'Culture outing' : 'Outing',
+    failed_place: '',
+    failure_reason: '',
     goal,
     city: 'Warsaw',
     date: String(fd.get('date')),
@@ -729,6 +1114,8 @@ function editorPayload() {
     budget_total: Number(fd.get('budget_total')),
     currency: 'PLN',
     origin: String(fd.get('origin')),
+    origin_lat: originInput.dataset.lat ? Number(originInput.dataset.lat) : null,
+    origin_lon: originInput.dataset.lon ? Number(originInput.dataset.lon) : null,
     travel_mode: String(fd.get('travel_mode')),
     max_one_way_minutes: Number(fd.get('max_one_way_minutes')),
     categories: $$('#editorForm input[name="category"]:checked').map(input => input.value),
@@ -741,7 +1128,6 @@ function editorPayload() {
 }
 
 function validateEditor(brief) {
-  if (!brief.original_plan) return 'Describe the original plan.';
   if (!brief.date) return 'Choose a date.';
   if (!brief.origin) return 'Choose a start location.';
   if (!brief.categories.length && brief.goal !== 'flexible') return 'Choose at least one preferred category.';
@@ -787,15 +1173,20 @@ editorForm.addEventListener('submit', async event => {
     return;
   }
   editorError.classList.add('hidden');
+  try {
+    await resolveBriefOrigin(nextBrief);
+  } catch (error) {
+    editorError.textContent = error.message;
+    editorError.classList.remove('hidden');
+    originInput.focus();
+    return;
+  }
   closeEditor();
   if (sessionId) {
     await runLatest('/api/update', {session_id: sessionId, patch: nextBrief});
   } else {
     draftBrief = nextBrief;
     updateSummary(draftBrief);
-    quickStartForm.elements.original_plan.value = draftBrief.original_plan;
-    quickStartForm.elements.failed_place.value = draftBrief.failed_place;
-    quickStartForm.elements.failure_reason.value = draftBrief.failure_reason;
   }
 });
 
@@ -803,18 +1194,35 @@ $('#cancelEditor').addEventListener('click', closeEditor);
 $('#closeEditor').addEventListener('click', closeEditor);
 editorBackdrop.addEventListener('click', closeEditor);
 $('#openFullEditor').addEventListener('click', () => openEditor('plan'));
+$('#runCurrentPlan').addEventListener('click', async () => {
+  const nextBrief = structuredClone(draftBrief);
+  try {
+    await resolveBriefOrigin(nextBrief);
+  } catch (error) {
+    openEditor('budget');
+    editorError.textContent = error.message;
+    editorError.classList.remove('hidden');
+    originInput.focus();
+    return;
+  }
+  draftBrief = nextBrief;
+  updateSummary(draftBrief);
+  await runLatest('/api/search', draftBrief);
+});
 $$('.summary-edit').forEach(button => button.addEventListener('click', () => openEditor(button.dataset.editTarget || 'plan')));
+themeToggle.addEventListener('click', toggleTheme);
 
 function openChoice() {
   const card = activeResult?.cards?.[selectedIndex];
   if (!card) return;
+  const actualRoute = card._actualRoute;
   choiceReturnFocus = document.activeElement;
   $('#choiceTitle').textContent = card.name;
   $('#choiceWhy').textContent = card.why_this_fits;
   $('#choiceSummary').innerHTML = `
     <div><strong>${escapeHtml(formatMoney(card))}</strong><span>estimated total</span></div>
-    <div><strong>${card.timing.travel_one_way_minutes} min</strong><span>one-way estimate</span></div>
-    <div><strong>${card.timing.estimated_return}</strong><span>estimated return</span></div>`;
+    <div><strong>${actualRoute?.duration_minutes ?? card.timing.travel_one_way_minutes} min</strong><span>${actualRoute ? 'routed outbound' : 'one-way estimate'}</span></div>
+    <div><strong>${actualRoute?.arrival ?? card.timing.arrival}</strong><span>arrive at venue</span></div>`;
   choiceBackdrop.classList.remove('hidden');
   choiceModal.classList.remove('hidden');
   choiceBackdrop.setAttribute('aria-hidden', 'false');
@@ -872,22 +1280,22 @@ $$('[data-menu-action]').forEach(button => button.addEventListener('click', () =
   menuButton.setAttribute('aria-expanded', 'false');
   if (action === 'edit') openEditor('plan');
   if (action === 'demo') loadJudgeDemo();
+  if (action === 'theme') toggleTheme();
   if (action === 'reset') resetSession();
 }));
 
 async function loadJudgeDemo() {
+  const demoTime = judgeDemoEvening();
   draftBrief = {
     ...makeDefaultBrief(),
-    date: '2026-10-10',
-    start_time: '18:30',
-    return_by: '22:00',
+    date: demoTime.date,
+    start_time: demoTime.start_time,
+    return_by: demoTime.return_by,
     max_one_way_minutes: 25,
     negotiable_extra_travel_minutes: 10,
     negotiable_stay_reduction_minutes: 15,
   };
-  quickStartForm.elements.original_plan.value = draftBrief.original_plan;
-  quickStartForm.elements.failed_place.value = draftBrief.failed_place;
-  quickStartForm.elements.failure_reason.value = draftBrief.failure_reason;
+  await resolveBriefOrigin(draftBrief);
   updateSummary(draftBrief);
   await runLatest('/api/search', draftBrief);
 }
@@ -900,16 +1308,14 @@ function resetSession() {
   activeResult = null;
   selectedIndex = 0;
   draftBrief = makeDefaultBrief();
-  quickStartForm.reset();
-  quickStartForm.elements.original_plan.value = draftBrief.original_plan;
-  quickStartForm.elements.failed_place.value = draftBrief.failed_place;
-  quickStartForm.elements.failure_reason.value = draftBrief.failure_reason;
   updateSummary(draftBrief);
   searchingState.classList.add('hidden');
   resultContent.classList.add('hidden');
   firstRun.classList.remove('hidden');
   resultLayer?.clearLayers();
   guideLayer?.clearLayers();
+  clearActualRoute();
+  routePanel.classList.add('hidden');
   map?.setView([52.2297, 21.0122], 12, {animate: false});
   renderFooter({provider_mode: statusInfo?.provider_mode || 'fixture', cards: []});
 }
@@ -963,13 +1369,22 @@ async function loadOrigins() {
   try {
     const payload = await fetchJson('/api/origins');
     origins = Array.isArray(payload.origins) ? payload.origins : [];
-    $('#originList').innerHTML = origins.map(origin => `<option value="${escapeHtml(origin.label)}">${escapeHtml(origin.district)} · ${escapeHtml(origin.label)}</option>`).join('');
-    $('#originCount').textContent = `${origins.length} saved points across ${Object.keys(payload.districts || {}).length} districts`;
+    const streetCount = Number(statusInfo?.street_count || 0);
+    const addressCount = Number(statusInfo?.address_count || 0);
+    const streetLabel = streetCount ? streetCount.toLocaleString('en-US') : '6k+';
+    const addressLabel = addressCount ? addressCount.toLocaleString('en-US') : '125k+';
+    $('#originCount').textContent = `${origins.length} saved points + ${streetLabel} streets + ${addressLabel} exact addresses`;
+    const defaultOrigin = savedOriginMatch(draftBrief.origin);
+    if (defaultOrigin) {
+      draftBrief.origin_lat = Number(defaultOrigin.lat);
+      draftBrief.origin_lon = Number(defaultOrigin.lon);
+    }
   } catch {
     $('#originCount').textContent = 'start-point catalog unavailable';
   }
 }
 
+applyTheme(preferredTheme());
 hydrateIcons();
 updateSummary(draftBrief);
 initMap();

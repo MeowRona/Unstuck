@@ -22,6 +22,9 @@
         </div>
         <div class="top-separator" aria-hidden="true"></div>
         <button id="dataStatus" class="status-pill" type="button">Checking data…</button>
+        <button id="themeToggle" class="icon-button theme-toggle" type="button" aria-label="Switch to dark mode" title="Dark mode">
+          <span class="icon-slot" data-icon="moon"></span>
+        </button>
         <button id="menuButton" class="icon-button menu-button" type="button" aria-label="Open menu" aria-expanded="false">
           <span class="icon-slot" data-icon="menu"></span>
         </button>
@@ -33,7 +36,7 @@
         <span class="summary-icon icon-slot" data-icon="meal"></span>
         <span class="summary-plan-copy">
           <strong id="summaryPlanTitle">Dinner for two.</strong>
-          <span id="summaryFailure">Our first choice is closed.</span>
+          <span>Smallest feasible change</span>
         </span>
         <span class="icon-slot summary-pencil" data-icon="edit"></span>
       </button>
@@ -89,26 +92,13 @@
 
       <section id="resultsPane" class="results-pane" aria-live="polite">
         <div id="firstRun" class="first-run-card">
-          <div class="first-run-kicker">Rescue this plan</div>
-          <h1>What went wrong?</h1>
-          <p>Start with the failed plan. Your locked conditions and optional compromises are already visible above and can be edited before searching.</p>
-          <form id="quickStartForm" class="quick-start-form">
-            <label>Original plan
-              <input name="original_plan" value="Dinner somewhere calm where we can actually talk" required>
-            </label>
-            <div class="quick-grid">
-              <label>Place that failed
-                <input name="failed_place" value="Closed Place" placeholder="Optional place name">
-              </label>
-              <label>Why it failed
-                <input name="failure_reason" value="It is closed tonight" placeholder="Closed, too far, too expensive…">
-              </label>
-            </div>
-            <div class="first-run-actions">
-              <button id="openFullEditor" class="secondary-button" type="button">Review all conditions</button>
-              <button class="primary-button" type="submit">Find the smallest rescue <span aria-hidden="true">→</span></button>
-            </div>
-          </form>
+          <div class="first-run-kicker">Warsaw pilot · constraints first</div>
+          <h1>Keep what matters. Change as little as possible.</h1>
+          <p>Set the conditions that actually affect the answer: where you start, time, budget, travel, stay length and taste. Unstuck checks feasibility first, then uses taste to rank what survives.</p>
+          <div class="first-run-actions">
+            <button id="openFullEditor" class="secondary-button" type="button">Review conditions</button>
+            <button id="runCurrentPlan" class="primary-button" type="button">Find the smallest rescue <span aria-hidden="true">→</span></button>
+          </div>
           <button id="loadJudgeDemo" class="text-button" type="button">Load the judge-friendly demo settings</button>
         </div>
 
@@ -122,6 +112,7 @@
           <div id="resultMeta" class="result-meta"></div>
           <div id="cards" class="recommendation-list"></div>
           <div id="emptyState" class="empty-state hidden"></div>
+          <div id="routePanel" class="route-panel hidden"></div>
           <div id="resultActions" class="result-actions hidden">
             <button id="chooseButton" class="choose-button" type="button"></button>
             <button id="lockCompromiseButton" class="lock-button" type="button"></button>
@@ -144,6 +135,7 @@
   <div id="menuPopover" class="menu-popover hidden" role="menu">
     <button type="button" data-menu-action="edit">Edit full plan</button>
     <button type="button" data-menu-action="demo">Load judge demo</button>
+    <button type="button" data-menu-action="theme"><span id="menuThemeLabel">Dark mode</span></button>
     <button type="button" data-menu-action="reset">Start over</button>
   </div>
 
@@ -158,18 +150,7 @@
     </header>
     <form id="editorForm" class="editor-form">
       <section class="editor-section" data-section="plan">
-        <div class="editor-section-title"><span>01</span><div><strong>Plan</strong><small>What failed and what still needs to happen.</small></div></div>
-        <div class="editor-grid two">
-          <label>Original plan
-            <input name="original_plan" required>
-          </label>
-          <label>Place that failed
-            <input name="failed_place" placeholder="Optional">
-          </label>
-        </div>
-        <label>Why it failed
-          <input name="failure_reason" placeholder="Closed, too expensive, too far…">
-        </label>
+        <div class="editor-section-title"><span>01</span><div><strong>Plan essentials</strong><small>Only inputs that can change the result.</small></div></div>
         <div class="editor-grid four">
           <label>Goal
             <select name="goal">
@@ -215,8 +196,15 @@
         </div>
         <div class="editor-grid two">
           <label>Start from <span id="originCount" class="field-hint">Loading Warsaw points…</span>
-            <input name="origin" id="originInput" list="originList" autocomplete="off" required>
-            <datalist id="originList"></datalist>
+            <div class="origin-combobox">
+              <input name="origin" id="originInput" autocomplete="off" placeholder="Landmark or exact address, e.g. Marszałkowska 10" role="combobox" aria-autocomplete="list" aria-controls="originSuggestions" aria-expanded="false" required>
+              <button id="useCurrentLocation" class="current-location-button" type="button" aria-label="Use current location" title="Use current location">
+                <span class="icon-slot" data-icon="crosshair"></span>
+                <span>Current location</span>
+              </button>
+              <div id="originSuggestions" class="origin-suggestions hidden" role="listbox"></div>
+            </div>
+            <span id="originResolution" class="field-hint">Saved landmarks work instantly; street autocomplete is local and exact addresses are geocoded only after you submit. Current location is used only for this plan.</span>
           </label>
           <label>Max one-way travel
             <input name="max_one_way_minutes" type="hidden">

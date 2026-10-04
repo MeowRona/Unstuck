@@ -60,6 +60,12 @@ class HttpFlowTests(unittest.TestCase):
         self.assertEqual(health["catalog_mode"], "real")
         self.assertEqual(health["provider_mode"], "fixture")
         self.assertEqual(health["google_places_api_key_present"], bool(os.environ.get("GOOGLE_PLACES_API_KEY")))
+        self.assertFalse(health["google_places_enabled"])
+        self.assertGreaterEqual(health["street_count"], 5000)
+        self.assertTrue(health["transit_index_present"])
+
+        streets = self.get_json("/api/streets?q=Marsza")
+        self.assertTrue(any("Marsza" in row for row in streets["suggestions"]))
 
         payload = {
             "original_plan": "Dinner and talk",
@@ -105,12 +111,24 @@ class HttpFlowTests(unittest.TestCase):
         self.assertIn(rejected_id, third["rejected_ids"])
         self.assertNotIn(rejected_id, {card["id"] for card in third["cards"]})
 
-    def test_google_place_media_without_key_is_honest(self):
-        if os.environ.get("GOOGLE_PLACES_API_KEY"):
-            self.skipTest("This test covers the no-key behavior")
-        payload = self.get_json(
-            "/api/place-media?place_id=ChIJM-LLX_HMHkcRPDiwF3WzN4Q"
-        )
+    def test_google_place_media_is_disabled_by_default_even_with_key(self):
+        place_id = "ChIJM-LLX_HMHkcRPDiwF3WzN4Q"
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_PLACES_API_KEY": "reserved-for-jury", "GOOGLE_PLACES_ENABLED": "false"},
+        ), patch("app.urlopen") as mocked_urlopen:
+            payload = google_place_media(place_id, {place_id})
+        self.assertFalse(payload["available"])
+        self.assertEqual(payload["reason"], "GOOGLE_PLACES_DISABLED")
+        mocked_urlopen.assert_not_called()
+
+    def test_google_place_media_enabled_without_key_is_honest(self):
+        place_id = "ChIJM-LLX_HMHkcRPDiwF3WzN4Q"
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_PLACES_API_KEY": "", "GOOGLE_PLACES_ENABLED": "true"},
+        ):
+            payload = google_place_media(place_id, {place_id})
         self.assertFalse(payload["available"])
         self.assertIn("GOOGLE_PLACES_API_KEY", payload["reason"])
         self.assertTrue(payload["google_maps_uri"].startswith("https://www.google.com/maps/"))
@@ -131,7 +149,7 @@ class HttpFlowTests(unittest.TestCase):
             ],
         }
         media = {"photoUri": "https://lh3.googleusercontent.com/example-photo"}
-        with patch.dict(os.environ, {"GOOGLE_PLACES_API_KEY": "test-key"}), patch(
+        with patch.dict(os.environ, {"GOOGLE_PLACES_API_KEY": "test-key", "GOOGLE_PLACES_ENABLED": "true"}), patch(
             "app.urlopen",
             side_effect=[FakeJsonResponse(details), FakeJsonResponse(media)],
         ):

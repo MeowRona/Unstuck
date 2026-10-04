@@ -15,6 +15,10 @@ from .models import Place
 
 
 HACKATHON_BASE_URL = "https://hackathon.api.qloo.com"
+# Official @qloo/qloo-harness 0.1.26 qloo_rank accepts at most 10 options.
+# Keep the live adapter inside that canonical workflow boundary so one Unstuck
+# ranking round stays comparable and quota-bounded.
+QLOO_MAX_RANK_OPTIONS = 10
 
 
 @dataclass(frozen=True)
@@ -259,9 +263,14 @@ class RealQlooProvider:
         refs = [x.strip() for x in taste_refs if x.strip()]
         if not refs:
             return [TasteResult(p.id, None, None, (), "qloo") for p in places]
+        # The engine orders this pool using feasibility/fact quality/geography
+        # before taste is considered. Qloo then ranks one shared shortlist, which
+        # matches the official qloo_rank workflow and avoids spending quota on
+        # every discovered Warsaw venue.
+        qloo_places = places[:QLOO_MAX_RANK_OPTIONS]
         interests = [self.resolve_interest(ref) for ref in refs]
         resolved_place_ids: dict[str, str] = {}
-        for place in places:
+        for place in qloo_places:
             resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_place(place.name)[0]
         candidate_ids = list(resolved_place_ids.values())
         params = {
@@ -285,6 +294,10 @@ class RealQlooProvider:
                     source="qloo",
                 )
         return [
-            by_entity.get(resolved_place_ids[p.id], TasteResult(p.id, None, None, (), "qloo"))
+            (
+                by_entity.get(resolved_place_ids[p.id], TasteResult(p.id, None, None, (), "qloo"))
+                if p.id in resolved_place_ids
+                else TasteResult(p.id, None, None, (), "qloo")
+            )
             for p in places
         ]

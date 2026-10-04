@@ -72,8 +72,11 @@ The backend models:
 
 The current Warsaw pilot has:
 
-- 16 real destination places across restaurant, cafe and culture categories;
+- 417 Warsaw destination places, including 406 restaurants; curated records and provisional OpenStreetMap discoveries are clearly distinguished;
 - 158 saved starting locations across all 18 Warsaw districts;
+- 6,049 locally indexed Warsaw street names and 125,217 exact OpenStreetMap addresses, plus browser Current Location inside the pilot bounds;
+- scheduled Warsaw public-transport routing with departure/arrival times, line numbers, transfers, stop lists and map geometry;
+- pedestrian street routing through Valhalla/OpenStreetMap;
 - per-field provenance/status for material place facts;
 - diacritic-insensitive start-location matching for international testers;
 - deterministic fixtures for local development;
@@ -124,10 +127,11 @@ The first dataset is Warsaw because it can be audited deeply. The UI therefore t
 - A budget or constraint change recomputes the same session instead of restarting from scratch.
 - Cross-midnight opening windows and return-time calculations are covered by tests.
 - Compromise minimality is tested directly with Pareto dominance cases.
-- The Warsaw pilot now supports 158 start points across all 18 districts rather than a few centre presets.
-- Start-location matching works even when a tester types Polish names without Polish diacritics.
+- The Warsaw pilot supports 158 saved start points, 6,049 street names, 125,217 exact addresses and browser Current Location inside Warsaw.
+- Selecting a result builds a real pedestrian street route or scheduled Warsaw transit itinerary; transit output includes departure/arrival, lines, transfers and stops and is explicitly labelled as scheduled rather than realtime.
+- The discovery catalog now contains 406 restaurants. Places with insufficient price/hour evidence are shown as provisional instead of being silently treated as hard-constraint passes.
 - The Qloo adapter evaluates an explicitly fixed place pool through `filter.results.entities` instead of comparing unrelated discovery queries.
-- The current automated suite passes **27/27 tests**, including an HTTP end-to-end `search -> reject -> update` flow.
+- The current automated suite passes **37/37 tests**, including HTTP end-to-end state flow, large Warsaw data coverage, address lookup and routing checks.
 - Fixture taste data is clearly labelled and never presented as live Qloo output.
 
 ## What I learned
@@ -163,18 +167,19 @@ After the hackathon, the next product step would be a second city using the same
 
 ## Built with
 
-Python, JavaScript, HTML, CSS, Qloo API, REST API, OpenStreetMap Nominatim, Git, Render
+Python, JavaScript, HTML, CSS, Qloo API, REST API, Leaflet, OpenStreetMap, Valhalla, Warsaw GTFS/WTP data, Nominatim fallback, Git, Render
 
 ## Testing instructions for judges
 
 1. Open the public demo URL.
 2. Click **Load a judge-friendly demo**. No Warsaw knowledge is required.
-3. Inspect the locked constraints: two people, total budget, return time, minimum stay and maximum one-way travel.
-4. Click **Find the smallest rescue**.
-5. Inspect each result's **Keep**, **Change**, **Why this fits**, timing/cost values and source status.
-6. Reject the top option. The next round must keep that place excluded.
-7. Change the budget or lock one of the offered compromises. The same session recomputes with the new condition.
-8. For final live judging, the status badge must show **REAL PLACE FACTS · LIVE QLOO**.
+3. Inspect the locked constraints: two people, total budget, return time, minimum stay and maximum one-way travel. The preset runs immediately and uses the nearest sensible evening rather than a stale fixed date.
+4. Select different A/B/C cards. The map marker and detailed route must change with the selected result.
+5. In transit mode, inspect scheduled departure/arrival times, line number(s), transfers and stop list. Switch to walking mode to see the routed pedestrian street path.
+6. Open **Review conditions** and enter **Chmielna 26** as the start point. It should resolve from the bundled Warsaw address index without per-keystroke network autocomplete.
+7. Reject the top option. The next round must keep that place excluded. Change the budget or lock one of the offered compromises to recompute the same session.
+8. Toggle dark mode and, if physically inside Warsaw, optionally test **Current location**.
+9. For final live judging, the status badge must show the verified live-Qloo mode rather than fixture taste.
 
 No login is required. The Qloo API key is server-side.
 

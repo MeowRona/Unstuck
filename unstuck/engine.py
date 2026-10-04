@@ -81,7 +81,11 @@ def _haversine_km(a_lat: float, a_lon: float, b_lat: float, b_lon: float) -> flo
 
 
 def estimate_travel_minutes(brief: SearchBrief, place: Place) -> int:
-    origin = resolve_origin(brief.origin)
+    origin = (
+        (brief.origin_lat, brief.origin_lon)
+        if brief.origin_lat is not None and brief.origin_lon is not None
+        else resolve_origin(brief.origin)
+    )
     distance = _haversine_km(origin[0], origin[1], place.lat, place.lon)
     if brief.travel_mode == "walk":
         return max(4, int(math.ceil(distance / 4.6 * 60)))
@@ -356,6 +360,37 @@ class UnstuckEngine:
         ]
         log: list[str] = []
         log.append(f"Round {state.round_no}: {len(candidates)} candidates remain after exclusions.")
+        # Qloo should rank a relevant pool, not spend API calls resolving every restaurant in Warsaw.
+        # This prefilter uses only hard feasibility / geography; taste is intentionally not considered here.
+        allowed_travel = brief.max_one_way_minutes + brief.negotiable_extra_travel_minutes
+        prefiltered: list[tuple[tuple[Any, ...], Place]] = []
+        for place in candidates:
+            if brief.meal_required and not place.serves_meal:
+                continue
+            travel = estimate_travel_minutes(brief, place)
+            if travel > allowed_travel:
+                continue
+            if (
+                place.price.maximum is not None
+                and place.price.unit == brief.currency
+                and place.price.status in {"confirmed", "fixture"}
+                and place.price.maximum * brief.people > brief.budget_total
+            ):
+                continue
+            category_penalty = 0 if not brief.categories or place.category in brief.categories else 1
+            fact_penalty = int(place.price.status not in {"confirmed", "fixture"}) + int(
+                place.hours_status not in {"confirmed", "fixture"}
+            )
+            prefiltered.append(((category_penalty, fact_penalty, travel, place.name.casefold()), place))
+        prefiltered.sort(key=lambda row: row[0])
+        if len(prefiltered) > 28:
+            candidates = [place for _key, place in prefiltered[:28]]
+            log.append(
+                f"Hard-feasibility/geography prefilter reduced the taste-ranking pool to {len(candidates)} candidates."
+            )
+        else:
+            candidates = [place for _key, place in prefiltered]
+            log.append(f"Taste-ranking pool contains {len(candidates)} candidates after hard prefiltering.")
         taste_results = self.taste_provider.rank(candidates, brief.taste_refs)
         taste_by_place = {row.place_id: row for row in taste_results}
         log.append(f"Taste provider '{self.taste_provider.mode}' ranked the current candidate pool.")
@@ -393,6 +428,7 @@ class UnstuckEngine:
 
         viable: list[Evaluation] = []
         provisional: list[Evaluation] = []
+        same_strategy_provisional: list[Evaluation] = []
         strategy_used = "strict"
         last_evaluated: list[Evaluation] = []
         for strategy_name, travel_limit, stay_minutes, category_relaxed in strategies:
@@ -415,6 +451,7 @@ class UnstuckEngine:
             )
             if current:
                 viable = current
+                same_strategy_provisional = current_provisional
                 strategy_used = strategy_name
                 break
             if current_provisional and not provisional:
@@ -427,9 +464,53 @@ class UnstuckEngine:
         front = pareto_front(chosen_pool)
         front.sort(key=_sort_key)
         selected = front[:3]
+        if viable and same_strategy_provisional:
+            provisional_front = pareto_front(same_strategy_provisional)
+            # A provisional slot is useful when it expands real choice, but it must remain
+            # visibly provisional. For this slot, taste/travel are more useful than simply
+            # preferring the same few fully-sourced seed venues every time.
+            provisional_front.sort(
+                key=lambda ev: (
+                    ev.travel_minutes,
+                    -(ev.affinity if ev.affinity is not None else -1.0),
+                    len(ev.needs_checking),
+                    ev.place.name.casefold(),
+                )
+            )
+            if len(selected) < 3:
+                needed = 3 - len(selected)
+                additions = provisional_front[:needed]
+                selected.extend(additions)
+                if additions:
+                    log.append(
+                        f"Filled {len(additions)} remaining result slot(s) with clearly marked provisional alternatives to preserve useful choice."
+                    )
+            exploratory = provisional_front[0] if provisional_front else None
+            if len(selected) >= 3 and exploratory is not None and exploratory not in selected:
+                confirmed_affinities = [ev.affinity for ev in selected if ev.affinity is not None]
+                best_affinity = max(confirmed_affinities) if confirmed_affinities else None
+                improves_taste = (
+                    exploratory.affinity is not None
+                    and best_affinity is not None
+                    and exploratory.affinity >= best_affinity
+                )
+                improves_travel = exploratory.travel_minutes + 5 <= max(ev.travel_minutes for ev in selected)
+                if improves_taste or improves_travel:
+                    selected = selected[:2] + [exploratory]
+                    log.append(
+                        "Included one clearly marked provisional alternative because it materially improves taste or travel."
+                    )
         if selected:
             if viable:
-                log.append(f"Removed dominated alternatives and kept {len(selected)} confirmed non-dominated option(s).")
+                confirmed_count = sum(1 for ev in selected if ev.confirmed)
+                provisional_count = len(selected) - confirmed_count
+                if provisional_count:
+                    log.append(
+                        f"Removed dominated alternatives and kept {confirmed_count} confirmed + "
+                        f"{provisional_count} clearly marked provisional option(s)."
+                    )
+                else:
+                    log.append(f"Removed dominated alternatives and kept {confirmed_count} confirmed non-dominated option(s).")
             else:
                 log.append(
                     f"No option could be confirmed from available facts; showing {len(selected)} non-dominated option(s) that require checking."

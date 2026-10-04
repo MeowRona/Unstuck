@@ -1,4 +1,4 @@
-﻿# Unstuck — current status
+# Unstuck — current status
 
 Canonical repository: https://github.com/MeowRona/Unstuck
 
@@ -10,7 +10,11 @@ Last updated: 2026-10-04
 - Responsive English **City Compass** UI: compact plan summary, real OpenStreetMap pane on desktop, vertically stacked result cards, synchronized card/marker selection, explicit compromise badges, source/assumption disclosure, and mobile List/Map switching.
 - Full plan editor preserves wheel pickers for time/minute fields. Save refreshes the existing session through `/api/update`; Cancel and Escape restore the previous brief instead of leaking unsaved wheel state.
 - Default planning date/start time now comes from the user's browser-local clock (5-minute rounding); the judge demo keeps its fixed reproducible time.
-- Five real restaurant records carry persistent Google Place IDs. Optional `/api/place-media` enrichment fetches rating/review count/photo attribution live only when `GOOGLE_PLACES_API_KEY` exists; Google Maps content is not written to disk or presented as locally sourced data.
+- Start location now supports browser Current Location in addition to saved landmarks and exact Warsaw addresses; coordinates feed the same routing/feasibility path and remain limited to the Warsaw pilot bounds.
+- Light/dark mode is implemented across City Compass and remembered locally in the browser.
+- Scheduled Warsaw transit routing is active from the bundled 2026-10-04 GTFS-derived index (6,946 stops, 19,005 patterns, 324 routes), including departure/arrival times, lines, transfers, stop lists and map geometry; it is explicitly not realtime.
+- Wheel pickers use native momentum scrolling with proximity snapping plus a short settle snap, instead of fighting every scroll tick.
+- Five real restaurant records carry persistent Google Place IDs. Optional `/api/place-media` enrichment fetches rating/review count/photo attribution live only when `GOOGLE_PLACES_API_KEY` exists **and** `GOOGLE_PLACES_ENABLED=true`; the flag remains false during development to preserve judging quota. Google Maps content is not written to disk or presented as locally sourced data.
 - Searchable Warsaw start-point catalog: 158 saved origins across all 18 districts, loaded from data instead of three hard-coded origins. Origins are geocoded once, validated for unique coordinates/Warsaw bounds, and require no runtime geocoding dependency. Matching ignores diacritics for easier international testing.
 - Judge-facing copy explicitly frames Warsaw as the first pilot dataset and explains that no local Warsaw knowledge is required to assess cost/time/constraint correctness.
 - Validated state separating locked constraints, allowed compromises, and taste preferences.
@@ -19,7 +23,8 @@ Last updated: 2026-10-04
 - Cross-midnight timing and Warsaw CET/CEST handling without an external tzdata dependency.
 - Non-dominated/Pareto filtering; max three result cards; no mixed money/minutes/affinity score.
 - Unknown or estimated material facts cannot become a confirmed result.
-- Real Warsaw seed catalog: 16 places, 3 categories, field-level source/status dates.
+- Warsaw catalog: 417 places total, including 406 restaurants. Five restaurants plus the original cafe/culture seed records have curated fact sources; 401 OSM restaurant discoveries stay provisional when price/hours are unknown.
+- Local start-location search includes 158 saved points, 6,049 Warsaw street names and 125,217 exact OpenStreetMap addresses; exact coordinates can come from the local address index, a rate-limited Nominatim fallback, or browser Current Location inside pilot bounds.
 - Deterministic taste fixtures that are clearly identified as fixtures.
 - Feasibility-only baseline provider for later Qloo comparison.
 - Live Qloo adapter using `/search` plus same-pool `/v2/insights` place ranking.
@@ -31,7 +36,7 @@ Last updated: 2026-10-04
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Python compile | PASS | `python -m compileall -q .` |
-| Logic/unit suite | PASS | 30/30 tests: `python -m unittest discover -s tests -v` |
+| Logic/unit suite | PASS | 37/37 tests: `python -m unittest discover -s tests -v` |
 | HTTP end-to-end | PASS | automated `search -> reject -> update` test on the real catalog with fixture taste |
 | Browser UI load | PASS | local page loaded successfully; City Compass rendered at 1600x1000 and 1280x800; true 390x844 emulation has no document overflow; editor wheel Save/Cancel/Escape flow verified |
 | Live Qloo | BLOCKED_NO_API_KEY | `python live_smoke.py` exits blocked when `QLOO_API_KEY` is absent |
@@ -68,4 +73,3 @@ Live integration gate:
 $env:QLOO_API_KEY="..."
 python live_smoke.py
 ```
-

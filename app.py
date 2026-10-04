@@ -13,9 +13,11 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
 from unstuck.engine import UnstuckEngine
+from unstuck.geocoding import address_index, geocoder, street_index
 from unstuck.models import Place, SearchBrief, SearchState
 from unstuck.origins import public_origin_payload
 from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTransport, RealQlooProvider
+from unstuck.routing import route_transit, route_walk
 
 
 ROOT = Path(__file__).resolve().parent
@@ -28,10 +30,17 @@ def google_place_media(place_id: str, allowed_ids: set[str]) -> dict:
     if place_id not in allowed_ids:
         raise ValueError("Unknown Google place ID")
     key = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
+    enabled = os.environ.get("GOOGLE_PLACES_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     maps_uri = (
         "https://www.google.com/maps/search/?api=1"
         f"&query={quote(place_id)}&query_place_id={quote(place_id)}"
     )
+    if not enabled:
+        return {
+            "available": False,
+            "reason": "GOOGLE_PLACES_DISABLED",
+            "google_maps_uri": maps_uri,
+        }
     if not key:
         return {
             "available": False,
@@ -177,12 +186,29 @@ class Handler(BaseHTTPRequestHandler):
                     "catalog_mode": getattr(self.app_state.engine, "catalog_mode", "unknown"),
                     "qloo_api_key_present": bool(os.environ.get("QLOO_API_KEY")),
                     "google_places_api_key_present": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+                    "google_places_enabled": os.environ.get("GOOGLE_PLACES_ENABLED", "false").strip().lower()
+                    in {"1", "true", "yes", "on"},
                     "origin_count": origins["count"],
+                    "street_count": street_index.count,
+                    "address_count": address_index.count,
+                    "transit_index_present": (DATA / "transit_warsaw.json.gz").exists(),
                 },
             )
             return
         if path == "/api/origins":
             self._json(200, public_origin_payload())
+            return
+        if path == "/api/streets":
+            query = str((parse_qs(parsed.query).get("q") or [""])[0]).strip()
+            self._json(
+                200,
+                {
+                    "query": query,
+                    "suggestions": street_index.suggest(query),
+                    "count": street_index.count,
+                    "source": "OpenStreetMap local street index",
+                },
+            )
             return
         if path == "/api/place-media":
             query = parse_qs(parsed.query)
@@ -228,6 +254,42 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             payload = self._read_json()
+            if path == "/api/geocode":
+                address = str(payload.get("address", "")).strip()
+                self._json(200, geocoder.geocode(address))
+                return
+            if path == "/api/route":
+                try:
+                    start = (float(payload["origin_lat"]), float(payload["origin_lon"]))
+                    end = (float(payload["destination_lat"]), float(payload["destination_lon"]))
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise ValueError("Route requires numeric origin/destination coordinates") from exc
+                for lat, lon in (start, end):
+                    if not (52.05 <= lat <= 52.40 and 20.75 <= lon <= 21.35):
+                        raise ValueError("Route coordinates must stay inside the Warsaw pilot area")
+                mode = str(payload.get("mode", "transit")).strip().lower()
+                if mode == "walk":
+                    result = route_walk(start, end)
+                elif mode == "transit":
+                    from datetime import date as _date
+
+                    try:
+                        service_date = _date.fromisoformat(str(payload.get("date", "")))
+                    except ValueError as exc:
+                        raise ValueError("date must use YYYY-MM-DD") from exc
+                    departure_time = str(payload.get("start_time", "")).strip()
+                    if len(departure_time) != 5 or departure_time[2] != ":":
+                        raise ValueError("start_time must use HH:MM")
+                    result = route_transit(
+                        start,
+                        end,
+                        service_date=service_date,
+                        departure_time=departure_time,
+                    )
+                else:
+                    raise ValueError("mode must be walk or transit")
+                self._json(200, result)
+                return
             if path == "/api/search":
                 brief = SearchBrief.from_payload(payload)
                 session_id, result = self.app_state.create(brief)

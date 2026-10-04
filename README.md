@@ -32,11 +32,17 @@ The search policy is deterministic and stateful. It is an agentic tool policy, n
 
 The current interface is the **City Compass** layout: a light plan-summary shell with a real OpenStreetMap view on desktop, up to three vertically stacked recommendation cards, synchronized card/marker selection, explicit compromise badges, source/assumption disclosure, and a full plan editor with wheel pickers for time and minute-based constraints. On mobile the same flow switches to a **List / Map** toggle instead of squeezing both panes side by side. Venue photography is never invented: when a verified image is not available, the UI shows a neutral labeled fallback.
 
-The map line is intentionally an **approximate straight-line guide**, not a turn-by-turn route. OpenStreetMap attribution remains visible in the map and footer. Leaflet 1.9.4 is vendored as static browser code under `static/vendor/leaflet/`; its license is included alongside the files. No JavaScript package manager or runtime dependency is required.
+The map starts with a conservative straight-line guide while results are being ranked, then the selected card is enriched with a **real route**: pedestrian street geometry from Valhalla/OpenStreetMap or scheduled Warsaw public-transport geometry from the bundled GTFS-derived index. The routed time is shown separately from the coarse search estimate so the app never pretends the heuristic is live routing. OpenStreetMap attribution remains visible in the map/footer. Leaflet 1.9.4 is vendored under `static/vendor/leaflet/`; its license is included alongside the files. No JavaScript package manager or runtime dependency is required.
 
-The default brief uses the **browser's local date and local clock**. Start time is rounded up to the next 5-minute step, and the initial return-by time is three hours later. The judge-demo preset remains fixed so the competition walkthrough is reproducible.
+The default brief uses the **browser's local date and local clock**. Start time is rounded up to the next 5-minute step, and the initial return-by time is three hours later. The judge-demo preset uses the nearest sensible 18:30–22:00 evening (today if there is still enough lead time, otherwise tomorrow), so the judging-period walkthrough never opens on a stale past date.
 
-Restaurant cards can optionally enrich their existing thumbnail with a **live Google Places photo and Google Maps rating**. Only stable Google Place IDs are stored in the catalog. The actual rating, review count, photo URI and required author attribution are requested at runtime from Places API when `GOOGLE_PLACES_API_KEY` is present; Unstuck does not persist or rehost Google Maps content. Without that key, the app keeps the neutral photo fallback and exposes a direct Google Maps listing link instead. This keeps the default zero-key demo honest and avoids scraping Google Maps.
+Start location supports saved Warsaw landmarks, local street autocomplete + exact-address resolution, and **Current location** through the browser Geolocation API. The local data bundle contains **6,049 Warsaw street names and 125,217 exact OpenStreetMap addresses**, so ordinary exact-address resolution usually requires no network call. Nominatim is a rate-limited fallback only for missing addresses and is never used as per-keystroke autocomplete. Browser geolocation permission is required for Current Location; coordinates are used for the active plan/routing and are not written into the project dataset. Current-location searches are intentionally restricted to the Warsaw pilot bounds.
+
+Public-transport directions use the bundled Warsaw scheduled GTFS index (6,946 stops / 19,005 patterns / 324 routes in the current 2026-10-04 build). The UI shows departure/arrival times, line numbers, transfers, stop lists and route geometry. These are **scheduled, not realtime** departures. Walking and access/egress legs use street routing where available; same-interchange transfers are labeled as transfers rather than fake zero-distance walks.
+
+The interface also includes a persistent **light/dark theme toggle**. The preference is stored only in browser `localStorage`; without a saved preference Unstuck follows the device color-scheme preference.
+
+Restaurant cards can optionally enrich their existing thumbnail with a **live Google Places photo and Google Maps rating**. Only stable Google Place IDs are stored in the catalog. The actual rating, review count, photo URI and required author attribution are requested at runtime from Places API only when **both** `GOOGLE_PLACES_API_KEY` is present **and** `GOOGLE_PLACES_ENABLED=true`. Unstuck does not persist or rehost Google Maps content. The feature flag is intentionally `false` during development so free quota is preserved for the judging window; without it, the app keeps the neutral fallback and a direct Google Maps listing link.
 
 Each result card exposes:
 
@@ -54,9 +60,9 @@ The same business logic is used in all modes.
 
 | Mode | Operational place facts | Taste signal | Intended use |
 | --- | --- | --- | --- |
-| `fixture` + `real` catalog | 16 real Warsaw seed places | deterministic authored taste fixtures | default local development before a Qloo key is available |
-| `baseline` + `real` catalog | same real Warsaw seed places | none | controlled no-Qloo comparison |
-| `live` + `real` catalog | same real Warsaw seed places | live Qloo | final integration / judging |
+| `fixture` + `real` catalog | 417 Warsaw places (406 restaurants; curated + OSM discovery pool) | deterministic authored taste fixtures | default local development before a Qloo key is available |
+| `baseline` + `real` catalog | same real Warsaw catalog | none | controlled no-Qloo comparison |
+| `live` + `real` catalog | same real Warsaw catalog | live Qloo | final integration / judging |
 | `fixture` + `fixture` catalog | synthetic places | deterministic fixtures | fully deterministic engine tests |
 
 Fixture taste data is always labeled as fixture data and is never presented as a Qloo response.
@@ -84,7 +90,7 @@ The public Qloo terms can be supplemented by account-specific API terms. Before 
 
 ## Place facts and scope
 
-`data/places_warsaw.json` is the operational seed catalog and source-of-truth for this MVP. It currently contains **16 real Warsaw places across restaurant, cafe, and culture categories**. `data/origins_warsaw.json` contains **158 recognizable starting points across all 18 Warsaw districts**, so travel constraints are not limited to a handful of centre presets. Start-point matching is diacritic-insensitive, which makes the demo usable for judges typing Polish place names on non-Polish keyboards.
+`data/places_warsaw.json` is the operational catalog/source-of-truth for this MVP. It currently contains **417 Warsaw places**, including **406 restaurants**. Five restaurant records plus the original culture/cafe seed set carry hand-checked fact sources; 401 additional restaurants come from the Warsaw OpenStreetMap discovery import and are intentionally marked provisional when price/hours are not strong enough for a hard guarantee. `data/origins_warsaw.json` contains **158 recognizable starting points across all 18 Warsaw districts**, while `data/streets_warsaw.json` contains a local searchable index of **6,049 street names**. This keeps autocomplete local and avoids using public Nominatim as a forbidden per-keystroke autocomplete service.
 
 Each material field carries a status and provenance where available:
 
@@ -92,7 +98,9 @@ Each material field carries a status and provenance where available:
 - `estimated` — usable only with a visible warning;
 - `unknown` — never sufficient to confirm a locked constraint.
 
-Coordinates were geocoded from the listed addresses with OpenStreetMap Nominatim on 2026-10-04. Travel time is intentionally shown as an estimate derived from straight-line distance and a simple city model; it is **not** a live route or punctuality guarantee. The catalog is a seed set, not a claim about everything available in Warsaw.
+Saved-origin coordinates were geocoded from the listed addresses with OpenStreetMap Nominatim on 2026-10-04. Search feasibility still starts from a conservative city estimate, but the selected option is validated visually with a routed walking path or scheduled transit itinerary. Transit remains **scheduled, not realtime**, and provisional OSM discovery restaurants are never promoted to confirmed hard-budget/hours fits without stronger facts.
+
+The compressed exact-address bundle is reproducible with `python tools/build_warsaw_address_index.py`. The builder can fetch Warsaw address objects from OpenStreetMap Overpass directly, or rebuild deterministically from a saved raw Overpass JSON via `--input`.
 
 ## Run locally on Windows
 
@@ -101,7 +109,8 @@ Requirements: Python 3.12+; no pip packages are required for the current MVP.
 Optional environment variables:
 
 - `QLOO_API_KEY` — enables the live Qloo taste adapter.
-- `GOOGLE_PLACES_API_KEY` — enables live restaurant photo/rating enrichment from Google Places; the key remains server-side.
+- `GOOGLE_PLACES_API_KEY` — stores the server-side Google Places credential.
+- `GOOGLE_PLACES_ENABLED=true` — separately enables live Google Places calls. Keep this `false` during development to preserve the free quota for judging.
 
 ```powershell
 cd D:\Unstuck
@@ -205,7 +214,7 @@ Public deployment, public repository creation, and Devpost submission are intent
 
 ## Limitations
 
-- Warsaw only and a deliberately small seed catalog.
+- Warsaw only by design: one deeply auditable pilot city rather than shallow multi-city coverage.
 - No reservations or live table availability.
 - Travel is an estimate, not a routing engine.
 - Some restaurant/cafe prices or hours are deliberately unknown when a strong current source was not confirmed.
