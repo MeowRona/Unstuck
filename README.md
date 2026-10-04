@@ -60,7 +60,7 @@ The same business logic is used in all modes.
 
 | Mode | Operational place facts | Taste signal | Intended use |
 | --- | --- | --- | --- |
-| `fixture` + `real` catalog | 417 Warsaw places (406 restaurants; curated + OSM discovery pool) | deterministic authored taste fixtures | default local development before a Qloo key is available |
+| `fixture` + `real` catalog | 1,993 Warsaw places (1,982 restaurants; curated + complete recorded OSM restaurant layer) | deterministic authored taste fixtures | default local development before a Qloo key is available |
 | `baseline` + `real` catalog | same real Warsaw catalog | none | controlled no-Qloo comparison |
 | `live` + `real` catalog | same real Warsaw catalog | live Qloo | final integration / judging |
 | `fixture` + `fixture` catalog | synthetic places | deterministic fixtures | fully deterministic engine tests |
@@ -90,7 +90,7 @@ The public Qloo terms can be supplemented by account-specific API terms. Before 
 
 ## Place facts and scope
 
-`data/places_warsaw.json` is the operational catalog/source-of-truth for this MVP. It currently contains **417 Warsaw places**, including **406 restaurants**. Five restaurant records plus the original culture/cafe seed set carry hand-checked fact sources; 401 additional restaurants come from the Warsaw OpenStreetMap discovery import and are intentionally marked provisional when price/hours are not strong enough for a hard guarantee. `data/origins_warsaw.json` contains **158 recognizable starting points across all 18 Warsaw districts**, while `data/streets_warsaw.json` contains a local searchable index of **6,049 street names**. This keeps autocomplete local and avoids using public Nominatim as a forbidden per-keystroke autocomplete service.
+`data/places_warsaw.json` is the operational catalog/source-of-truth for this MVP. It currently contains **1,993 Warsaw places**, including **1,982 restaurants**. The restaurant layer is built from the recorded OpenStreetMap Overpass snapshot dated **2026-10-04**: 1,979 `amenity=restaurant` features were returned, 1,977 are represented as imported OSM records, and 2 duplicate OSM entries are replaced by stronger curated records; 5 curated restaurant records are retained in total. Uncurated price/hour facts remain provisional when the source is not strong enough for a hard guarantee. `data/origins_warsaw.json` contains **158 recognizable starting points across all 18 Warsaw districts**, while `data/streets_warsaw.json` contains a local searchable index of **6,049 street names**. This keeps autocomplete local and avoids using public Nominatim as a forbidden per-keystroke autocomplete service.
 
 Each material field carries a status and provenance where available:
 
@@ -100,7 +100,7 @@ Each material field carries a status and provenance where available:
 
 Saved-origin coordinates were geocoded from the listed addresses with OpenStreetMap Nominatim on 2026-10-04. Search feasibility still starts from a conservative city estimate, but the selected option is validated visually with a routed walking path or scheduled transit itinerary. Transit remains **scheduled, not realtime**, and provisional OSM discovery restaurants are never promoted to confirmed hard-budget/hours fits without stronger facts.
 
-The compressed exact-address bundle is reproducible with `python tools/build_warsaw_address_index.py`. The builder can fetch Warsaw address objects from OpenStreetMap Overpass directly, or rebuild deterministically from a saved raw Overpass JSON via `--input`.
+The compressed exact-address bundle is reproducible with `python tools/build_warsaw_address_index.py`. The builder can fetch Warsaw address objects from OpenStreetMap Overpass directly, or rebuild deterministically from a saved raw Overpass JSON via `--input`. The restaurant discovery layer is likewise reproducible with `python tools/build_warsaw_restaurants.py`; curated venue records take precedence over duplicate OSM features, and missing prices/hours remain explicitly unknown or estimated.
 
 ## Run locally on Windows
 

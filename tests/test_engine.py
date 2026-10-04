@@ -133,6 +133,56 @@ class ConstraintTests(unittest.TestCase):
         second = engine.search(state)
         self.assertNotIn(rejected, {card["id"] for card in second["cards"]})
 
+    def test_rejecting_first_three_yields_next_taste_layer(self):
+        class StableTasteProvider:
+            mode = "fixture"
+
+            def rank(self, places, taste_refs):
+                return [
+                    TasteResult(
+                        place_id=place.id,
+                        affinity=1.0 - index * 0.05,
+                        rank=index + 1,
+                        evidence=("Amelie",),
+                        source="fixture",
+                    )
+                    for index, place in enumerate(places)
+                ]
+
+        template = json.loads((ROOT / "data" / "places_fixture.json").read_text(encoding="utf-8"))["places"][0]
+        places = []
+        for index in range(12):
+            row = dict(template)
+            row["id"] = f"fixture:queue-{index:02d}"
+            row["name"] = f"Queue Venue {index:02d}"
+            row["lat"] = 52.231 + index * 0.00005
+            row["lon"] = 21.0105 + index * 0.00005
+            places.append(Place.from_dict(row))
+
+        engine = UnstuckEngine(places, StableTasteProvider())
+        state = SearchState(brief(budget_total=200, max_one_way_minutes=30))
+
+        first = engine.search(state)
+        self.assertEqual(len(first["cards"]), 3)
+        first_ids = [card["id"] for card in first["cards"]]
+        for place_id in first_ids:
+            state.reject(place_id)
+
+        second = engine.search(state)
+        self.assertEqual(len(second["cards"]), 3)
+        second_ids = [card["id"] for card in second["cards"]]
+        self.assertTrue(set(first_ids).isdisjoint(second_ids))
+        self.assertLess(
+            max(card["taste"]["affinity"] for card in second["cards"]),
+            min(card["taste"]["affinity"] for card in first["cards"]),
+        )
+
+        for place_id in second_ids:
+            state.reject(place_id)
+        third = engine.search(state)
+        self.assertEqual(len(third["cards"]), 3)
+        self.assertTrue(set(first_ids + second_ids).isdisjoint({card["id"] for card in third["cards"]}))
+
     def test_failed_place_name_is_excluded(self):
         engine = load_fixture_engine()
         result = engine.search(SearchState(brief(failed_place="Quiet Table (demo)")))

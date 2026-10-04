@@ -23,7 +23,7 @@ Last updated: 2026-10-04
 - Cross-midnight timing and Warsaw CET/CEST handling without an external tzdata dependency.
 - Non-dominated/Pareto filtering; max three result cards; no mixed money/minutes/affinity score.
 - Unknown or estimated material facts cannot become a confirmed result.
-- Warsaw catalog: 417 places total, including 406 restaurants. Five restaurants plus the original cafe/culture seed records have curated fact sources; 401 OSM restaurant discoveries stay provisional when price/hours are unknown.
+- Warsaw catalog: 1,993 places total, including 1,982 restaurants. The recorded 2026-10-04 OSM snapshot returned 1,979 restaurant features; 1,977 are imported records and 2 duplicates are replaced by stronger curated records. Five restaurant records remain curated; uncurated price/hour facts stay provisional when unknown.
 - Local start-location search includes 158 saved points, 6,049 Warsaw street names and 125,217 exact OpenStreetMap addresses; exact coordinates can come from the local address index, a rate-limited Nominatim fallback, or browser Current Location inside pilot bounds.
 - Deterministic taste fixtures that are clearly identified as fixtures.
 - Feasibility-only baseline provider for later Qloo comparison.
@@ -36,12 +36,12 @@ Last updated: 2026-10-04
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Python compile | PASS | `python -m compileall -q .` |
-| Logic/unit suite | PASS | 37/37 tests: `python -m unittest discover -s tests -v` |
+| Logic/unit suite | PASS | 40/40 tests: `python -m unittest discover -s tests -v` |
 | HTTP end-to-end | PASS | automated `search -> reject -> update` test on the real catalog with fixture taste |
 | Browser UI load | PASS | local page loaded successfully; City Compass rendered at 1600x1000 and 1280x800; true 390x844 emulation has no document overflow; editor wheel Save/Cancel/Escape flow verified |
 | Live Qloo | BLOCKED_NO_API_KEY | `python live_smoke.py` exits blocked when `QLOO_API_KEY` is absent |
 | Human blind comparison | NOT RUN | protocol documented in README; no fabricated result |
-| Public deployment | TEMPORARY | Cloudflare Quick Tunnel is live while the local server/tunnel process runs; stable hosted deployment is still pending |
+| Public deployment | TEMPORARY | Cloudflare Quick Tunnel is live while the local server/tunnel process runs; Render account is created but stable deployment is waiting only for email verification |
 | Public open-source repository | PASS | https://github.com/MeowRona/Unstuck |
 | Devpost submission | NOT DONE | submission is a later action after live validation/deployment |
 

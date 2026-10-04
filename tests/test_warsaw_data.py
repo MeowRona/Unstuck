@@ -67,12 +67,17 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertAlmostEqual(float(result["lat"]), 52.23218, places=4)
         self.assertAlmostEqual(float(result["lon"]), 21.01334, places=4)
 
-    def test_catalog_has_hundreds_of_restaurants(self):
-        rows = json.loads((ROOT / "data" / "places_warsaw.json").read_text(encoding="utf-8"))["places"]
+    def test_catalog_tracks_complete_recorded_osm_restaurant_snapshot(self):
+        payload = json.loads((ROOT / "data" / "places_warsaw.json").read_text(encoding="utf-8"))
+        rows = payload["places"]
         restaurants = [row for row in rows if row.get("category") == "restaurant"]
-        self.assertGreaterEqual(len(restaurants), 400)
         imported = [row for row in restaurants if str(row.get("id", "")).startswith("warsaw:osm:")]
-        self.assertGreaterEqual(len(imported), 390)
+        meta = payload["catalog"]
+        self.assertGreaterEqual(len(restaurants), 1500)
+        self.assertGreaterEqual(int(meta["osm_restaurant_feature_count"]), 1500)
+        self.assertEqual(int(meta["osm_restaurant_imported_count"]), len(imported))
+        self.assertEqual(int(meta["curated_restaurant_count"]), 5)
+        self.assertEqual(meta["osm_restaurant_snapshot"], "2026-10-04")
         self.assertTrue(all((row.get("price") or {}).get("status") == "unknown" for row in imported))
 
     def test_exact_origin_coordinates_bypass_saved_origin_lookup(self):
@@ -85,7 +90,7 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(result["brief"]["origin_lat"], 52.225)
         self.assertEqual(result["brief"]["origin_lon"], 21.015)
 
-    def test_large_catalog_is_prefiltered_before_taste_provider(self):
+    def test_fixture_or_baseline_can_rank_full_feasible_pool(self):
         engine = build_engine("baseline", "real")
         provider = RecordingProvider()
         engine.taste_provider = provider
@@ -100,7 +105,42 @@ class WarsawPilotDataTests(unittest.TestCase):
         )
         engine.search(SearchState(brief))
         self.assertTrue(provider.pool_sizes)
-        self.assertLessEqual(max(provider.pool_sizes), 28)
+        self.assertGreater(max(provider.pool_sizes), 28)
+
+    def test_live_mode_keeps_qloo_window_at_ten(self):
+        class RecordingLiveProvider:
+            mode = "live"
+
+            def __init__(self):
+                self.pool_sizes = []
+
+            def rank(self, places, taste_refs):
+                self.pool_sizes.append(len(places))
+                return [
+                    TasteResult(place.id, 1.0 - index * 0.01, index + 1, (), "qloo")
+                    for index, place in enumerate(places)
+                ]
+
+        engine = build_engine("baseline", "real")
+        provider = RecordingLiveProvider()
+        engine.taste_provider = provider
+        brief = SearchBrief.from_payload(
+            payload(
+                budget_total=500,
+                max_one_way_minutes=60,
+                negotiable_extra_travel_minutes=0,
+                origin_lat=52.2297,
+                origin_lon=21.0122,
+            )
+        )
+        state = SearchState(brief)
+        first = engine.search(state)
+        self.assertLessEqual(max(provider.pool_sizes), 10)
+        for card in first["cards"]:
+            state.reject(card["id"])
+        second = engine.search(state)
+        self.assertTrue(second["cards"])
+        self.assertLessEqual(max(provider.pool_sizes), 10)
 
     def test_transit_index_returns_real_scheduled_legs_and_geometry(self):
         router = get_transit_index()

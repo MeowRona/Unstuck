@@ -263,7 +263,27 @@ def _dominates(a: Evaluation, b: Evaluation) -> bool:
 
 
 def pareto_front(evaluations: list[Evaluation]) -> list[Evaluation]:
-    return [ev for ev in evaluations if not any(_dominates(other, ev) for other in evaluations if other is not ev)]
+    # Many venues share the exact same compromise vector (especially in the
+    # strict strategy where it is commonly (0, 0, 0)). Comparing every venue
+    # against every other venue makes the cost quadratic in catalog size even
+    # though dominance depends only on the three-value vector. Group by vector,
+    # find the non-dominated vectors, then expand the surviving groups. This is
+    # semantically identical to the brute-force definition while keeping a full
+    # Warsaw restaurant catalog responsive.
+    by_vector: dict[tuple[int, int, int], list[Evaluation]] = {}
+    for ev in evaluations:
+        by_vector.setdefault(_change_vector(ev), []).append(ev)
+    vectors = list(by_vector)
+
+    def vector_dominates(a: tuple[int, int, int], b: tuple[int, int, int]) -> bool:
+        return all(x <= y for x, y in zip(a, b)) and any(x < y for x, y in zip(a, b))
+
+    surviving = {
+        vector
+        for vector in vectors
+        if not any(vector_dominates(other, vector) for other in vectors if other != vector)
+    }
+    return [ev for vector in vectors if vector in surviving for ev in by_vector[vector]]
 
 
 def _sort_key(ev: Evaluation) -> tuple[Any, ...]:
@@ -351,20 +371,20 @@ class UnstuckEngine:
     def search(self, state: SearchState) -> dict[str, Any]:
         brief = state.brief
         excluded_names = {brief.failed_place.casefold()} if brief.failed_place else set()
-        candidates = [
+        ranked_universe = [
             p
             for p in self.places
             if p.city.casefold() == brief.city.casefold()
-            and p.id not in state.rejected_ids
             and p.name.casefold() not in excluded_names
         ]
+        remaining_count = sum(1 for p in ranked_universe if p.id not in state.rejected_ids)
         log: list[str] = []
-        log.append(f"Round {state.round_no}: {len(candidates)} candidates remain after exclusions.")
+        log.append(f"Round {state.round_no}: {remaining_count} candidates remain after exclusions/rejections.")
         # Qloo should rank a relevant pool, not spend API calls resolving every restaurant in Warsaw.
         # This prefilter uses only hard feasibility / geography; taste is intentionally not considered here.
         allowed_travel = brief.max_one_way_minutes + brief.negotiable_extra_travel_minutes
         prefiltered: list[tuple[tuple[Any, ...], Place]] = []
-        for place in candidates:
+        for place in ranked_universe:
             if brief.meal_required and not place.serves_meal:
                 continue
             travel = estimate_travel_minutes(brief, place)
@@ -383,17 +403,35 @@ class UnstuckEngine:
             )
             prefiltered.append(((category_penalty, fact_penalty, travel, place.name.casefold()), place))
         prefiltered.sort(key=lambda row: row[0])
-        if len(prefiltered) > 28:
-            candidates = [place for _key, place in prefiltered[:28]]
+        ordered_prefiltered = [place for _key, place in prefiltered]
+
+        # Keep ranking stable across reject rounds. In fixture/baseline mode we can
+        # rank the whole feasible universe cheaply. In live mode, Qloo's canonical
+        # rank workflow accepts up to 10 options, so keep a stable 10-place window
+        # until it is almost exhausted, then advance to the next layer. This means
+        # one rejection does not trigger a totally new taste universe or burn a new
+        # Qloo request unnecessarily.
+        if self.taste_provider.mode == "live":
+            head = ordered_prefiltered[:10]
+            head_remaining = [p for p in head if p.id not in state.rejected_ids]
+            if len(head_remaining) >= 3 or len(ordered_prefiltered) <= 10:
+                rank_pool = head
+            else:
+                carry = head_remaining
+                tail = [p for p in ordered_prefiltered[10:] if p.id not in state.rejected_ids]
+                rank_pool = carry + tail[: max(0, 10 - len(carry))]
             log.append(
-                f"Hard-feasibility/geography prefilter reduced the taste-ranking pool to {len(candidates)} candidates."
+                f"Live Qloo ranking window contains {len(rank_pool)} option(s); rejected options stay in-window until the tier is nearly exhausted."
             )
         else:
-            candidates = [place for _key, place in prefiltered]
-            log.append(f"Taste-ranking pool contains {len(candidates)} candidates after hard prefiltering.")
-        taste_results = self.taste_provider.rank(candidates, brief.taste_refs)
+            rank_pool = ordered_prefiltered
+            log.append(f"Taste-ranking pool contains {len(rank_pool)} candidates after hard prefiltering.")
+
+        taste_results = self.taste_provider.rank(rank_pool, brief.taste_refs)
         taste_by_place = {row.place_id: row for row in taste_results}
         log.append(f"Taste provider '{self.taste_provider.mode}' ranked the current candidate pool.")
+
+        candidates = [place for place in rank_pool if place.id not in state.rejected_ids]
 
         strategies: list[tuple[str, int, int, bool]] = [
             ("strict", brief.max_one_way_minutes, brief.min_stay_minutes, False)
@@ -540,6 +578,7 @@ class UnstuckEngine:
             "scope": {
                 "city": brief.city,
                 "candidate_count": len(candidates),
+                "rank_pool_count": len(rank_pool),
                 "catalog_size": len(self.places),
                 "travel_note": "Travel is a straight-line-derived city estimate, not a live route guarantee.",
             },

@@ -72,7 +72,7 @@ The backend models:
 
 The current Warsaw pilot has:
 
-- 417 Warsaw destination places, including 406 restaurants; curated records and provisional OpenStreetMap discoveries are clearly distinguished;
+- 1,993 Warsaw destination places, including 1,982 restaurants from the recorded 2026-10-04 OpenStreetMap snapshot plus curated overrides; provisional operational facts are clearly distinguished;
 - 158 saved starting locations across all 18 Warsaw districts;
 - 6,049 locally indexed Warsaw street names and 125,217 exact OpenStreetMap addresses, plus browser Current Location inside the pilot bounds;
 - scheduled Warsaw public-transport routing with departure/arrival times, line numbers, transfers, stop lists and map geometry;
@@ -129,9 +129,9 @@ The first dataset is Warsaw because it can be audited deeply. The UI therefore t
 - Compromise minimality is tested directly with Pareto dominance cases.
 - The Warsaw pilot supports 158 saved start points, 6,049 street names, 125,217 exact addresses and browser Current Location inside Warsaw.
 - Selecting a result builds a real pedestrian street route or scheduled Warsaw transit itinerary; transit output includes departure/arrival, lines, transfers and stops and is explicitly labelled as scheduled rather than realtime.
-- The discovery catalog now contains 406 restaurants. Places with insufficient price/hour evidence are shown as provisional instead of being silently treated as hard-constraint passes.
+- The discovery catalog now contains 1,982 restaurants. The recorded 2026-10-04 OpenStreetMap snapshot returned 1,979 restaurant features; curated records replace two duplicates. Places with insufficient price/hour evidence are shown as provisional instead of being silently treated as hard-constraint passes.
 - The Qloo adapter evaluates an explicitly fixed place pool through `filter.results.entities` instead of comparing unrelated discovery queries.
-- The current automated suite passes **37/37 tests**, including HTTP end-to-end state flow, large Warsaw data coverage, address lookup and routing checks.
+- The current automated suite passes **40/40 tests**, including HTTP end-to-end state flow, large Warsaw data coverage, address lookup and routing checks.
 - Fixture taste data is clearly labelled and never presented as live Qloo output.
 
 ## What I learned

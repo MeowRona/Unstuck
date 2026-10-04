@@ -745,7 +745,9 @@ function renderResult(result) {
   updateSummary(result.brief);
   const confirmedCount = result.cards.filter(card => card.feasibility_status === 'confirmed').length;
   const checkCount = result.cards.length - confirmedCount;
-  resultMeta.innerHTML = `<span>Round ${result.round} · ${escapeHtml(result.strategy_used)} search · ${escapeHtml(result.scope?.candidate_count || 0)} shortlisted</span><span>${confirmedCount ? `${confirmedCount} confirmed` : ''}${confirmedCount && checkCount ? ' · ' : ''}${checkCount ? `${checkCount} needs checking` : ''}</span>`;
+  const rejectedCount = Number(result.rejected_ids?.length || 0);
+  const depthCopy = rejectedCount > 0 ? ` · deeper alternatives after ${rejectedCount} rejection${rejectedCount === 1 ? '' : 's'} · taste fit may be looser` : '';
+  resultMeta.innerHTML = `<span>Round ${result.round} · ${escapeHtml(result.strategy_used)} search · ${escapeHtml(result.scope?.candidate_count || 0)} candidates left${depthCopy}</span><span>${confirmedCount ? `${confirmedCount} confirmed` : ''}${confirmedCount && checkCount ? ' · ' : ''}${checkCount ? `${checkCount} needs checking` : ''}</span>`;
 
   if (result.empty || !result.cards.length) {
     cardsEl.innerHTML = '';
