@@ -1,0 +1,11 @@
+{
+  "note": "Deterministic taste fixtures. These values are authored test data and are never Qloo responses.",
+  "reference_tags": {
+    "blade runner": {"cinematic": 1.0, "neon": 0.9, "minimal": 0.5, "moody": 0.4},
+    "aphex twin": {"electronic": 1.0, "experimental": 0.9, "minimal": 0.5},
+    "amelie": {"cozy": 1.0, "romantic": 0.9, "artsy": 0.6},
+    "daft punk": {"electronic": 1.0, "stylish": 0.8, "night": 0.6},
+    "radiohead": {"indie": 1.0, "moody": 0.8, "artsy": 0.5},
+    "wes anderson": {"artsy": 1.0, "stylish": 0.7, "cozy": 0.5}
+  }
+}

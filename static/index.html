@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unstuck — save the plan with the smallest change</title>
+  <meta name="description" content="Unstuck finds the smallest acceptable change that saves a plan.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">UNSTUCK · WARSAW PILOT</div>
+        <h1>Find the smallest change<br>that saves your plan.</h1>
+        <p class="hero-copy">Tell us what failed, what cannot move, and what matters. Unstuck checks feasibility first, then taste. Warsaw is the first pilot dataset — the problem and decision logic are not Warsaw-specific.</p>
+      </div>
+      <div id="modeBadge" class="mode-badge">Checking mode…</div>
+    </header>
+
+    <section class="judge-note panel">
+      <div>
+        <strong>No Warsaw knowledge required.</strong>
+        <span>The demo translates local facts into universal constraints: total cost, travel minutes, opening hours, return time and taste fit.</span>
+      </div>
+      <button id="loadJudgeDemo" class="secondary" type="button">Load a judge-friendly demo</button>
+    </section>
+
+    <section class="panel input-panel">
+      <div class="section-head">
+        <div>
+          <span class="step">01</span>
+          <h2>Your plan</h2>
+        </div>
+        <span class="scope-pill">Pilot dataset: Warsaw · one-city beta</span>
+      </div>
+      <form id="briefForm">
+        <div class="grid two">
+          <label>What was the original plan?
+            <input name="original_plan" value="Dinner somewhere calm where we can actually talk" required>
+          </label>
+          <label>Which place failed?
+            <input name="failed_place" value="Closed Place" placeholder="e.g. a restaurant that is closed">
+          </label>
+        </div>
+        <label>Why did it fail?
+          <input name="failure_reason" value="It is closed tonight" placeholder="Closed, too expensive, too far…">
+        </label>
+
+        <div class="constraint-title">Locked constraints</div>
+        <div class="grid four">
+          <label>Goal
+            <select name="goal">
+              <option value="meal" selected>Meal required</option>
+              <option value="coffee">Coffee / talk</option>
+              <option value="culture">Culture</option>
+              <option value="flexible">Flexible outing</option>
+            </select>
+          </label>
+          <label>People
+            <input name="people" type="number" min="1" max="12" value="2">
+          </label>
+          <label>Total budget (PLN)
+            <input name="budget_total" type="number" min="1" value="200">
+          </label>
+          <label>Max one-way travel
+            <div class="suffix"><input name="max_one_way_minutes" type="number" min="5" value="18"><span>min</span></div>
+          </label>
+        </div>
+
+        <div class="grid four">
+          <label>Date
+            <input name="date" type="date" value="2026-10-10">
+          </label>
+          <label>Start
+            <input name="start_time" type="time" value="18:30">
+          </label>
+          <label>Back by
+            <input name="return_by" type="time" value="22:00">
+          </label>
+          <label>Minimum stay
+            <div class="suffix"><input name="min_stay_minutes" type="number" min="15" value="75"><span>min</span></div>
+          </label>
+        </div>
+
+        <div class="grid three">
+          <label>Start from <span class="hint" id="originCount">loading Warsaw start points…</span>
+            <input name="origin" id="originInput" list="originList" value="Warszawa Centralna" autocomplete="off">
+            <datalist id="originList"></datalist>
+          </label>
+          <label>Travel mode
+            <select name="travel_mode">
+              <option value="transit" selected>Public transit estimate</option>
+              <option value="walk">Walk estimate</option>
+            </select>
+          </label>
+          <div class="category-field">
+            <span class="field-label">Preferred categories</span>
+            <div class="category-options">
+              <label><input type="checkbox" name="category" value="restaurant" checked> Restaurant</label>
+              <label><input type="checkbox" name="category" value="cafe"> Cafe</label>
+              <label><input type="checkbox" name="category" value="culture"> Culture</label>
+            </div>
+          </div>
+        </div>
+
+        <label>Taste references <span class="hint">(comma-separated; fixture mode supports Blade Runner, Aphex Twin, Amelie, Daft Punk, Radiohead, Wes Anderson)</span>
+          <input name="taste_refs" value="Amelie, Radiohead">
+        </label>
+
+        <div class="constraint-title">Only if needed, I would accept…</div>
+        <div class="grid three compromises">
+          <label>Up to extra travel
+            <div class="suffix"><input name="negotiable_extra_travel_minutes" type="number" min="0" max="60" value="8"><span>min</span></div>
+          </label>
+          <label>Shorter stay by up to
+            <div class="suffix"><input name="negotiable_stay_reduction_minutes" type="number" min="0" max="120" value="15"><span>min</span></div>
+          </label>
+          <label class="check-label"><input name="allow_category_change" type="checkbox"> Change category if the goal still works</label>
+        </div>
+
+        <button class="primary" type="submit">Find the smallest rescue</button>
+      </form>
+      <div id="formError" class="error hidden"></div>
+    </section>
+
+    <section id="resultsSection" class="results hidden">
+      <div class="section-head result-head">
+        <div>
+          <span class="step">02</span>
+          <h2>Best non-dominated options</h2>
+        </div>
+        <div class="round" id="roundLabel"></div>
+      </div>
+      <div id="constraintSummary" class="constraint-summary"></div>
+      <div id="cards" class="cards"></div>
+      <div id="emptyState" class="panel empty hidden"></div>
+
+      <div class="quick-edit panel">
+        <div>
+          <strong>Change a condition</strong>
+          <span>Re-run the same session without forgetting rejected places.</span>
+        </div>
+        <div class="quick-row">
+          <input id="quickBudget" type="number" min="1" placeholder="New total budget">
+          <button id="applyBudget" class="secondary" type="button">Update budget</button>
+        </div>
+      </div>
+
+      <details class="panel trace">
+        <summary>Agent decisions</summary>
+        <ol id="agentLog"></ol>
+      </details>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

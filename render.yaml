@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: unstuck
+    runtime: python
+    plan: free
+    buildCommand: "python -m compileall -q ."
+    startCommand: "python app.py --host 0.0.0.0 --mode live --catalog real"
+    healthCheckPath: /api/health
+    envVars:
+      - key: QLOO_API_KEY
+        sync: false
+

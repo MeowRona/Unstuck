@@ -1,0 +1,114 @@
+﻿[
+    {
+        "name":  "Muzeum Narodowe w Warszawie",
+        "address":  "Aleje Jerozolimskie 3, Warszawa, Poland",
+        "lat":  52.232239,
+        "lon":  21.0253888,
+        "display":  "3, Aleje Jerozolimskie, Powiśle-Solec, Śródmieście Południowe, Śródmieście, Warszawa, województwo mazowieckie, 00-495, Polska"
+    },
+    {
+        "name":  "Muzeum Sztuki Nowoczesnej",
+        "address":  "Marszalkowska 103, Warszawa, Poland",
+        "lat":  52.2331288,
+        "lon":  21.0089838,
+        "display":  "Muzeum Sztuki Nowoczesnej, 103, Marszałkowska, Żelazna Brama, Śródmieście Północne, Śródmieście, Warszawa, województwo mazowieckie, 00-110, Polska"
+    },
+    {
+        "name":  "POLIN",
+        "address":  "Mordechaja Anielewicza 6, Warszawa, Poland",
+        "lat":  52.2493716,
+        "lon":  20.9931609,
+        "display":  "Muzeum Historii Żydów Polskich Polin, 6, Mordechaja Anielewicza, Muranów, Śródmieście, Warszawa, województwo mazowieckie, 00-157, Polska"
+    },
+    {
+        "name":  "Centrum Nauki Kopernik",
+        "address":  "Wybrzeze Kosciuszkowskie 20, Warszawa, Poland",
+        "lat":  52.241776,
+        "lon":  21.0286002,
+        "display":  "Centrum Nauki Kopernik, 20, Wybrzeże Kościuszkowskie, Powiśle-Skarpa, Powiśle, Śródmieście, Warszawa, województwo mazowieckie, 00-390, Polska"
+    },
+    {
+        "name":  "Muzeum Powstania Warszawskiego",
+        "address":  "Grzybowska 79, Warszawa, Poland",
+        "lat":  52.2321024,
+        "lon":  20.9813775,
+        "display":  "Muzeum Powstania Warszawskiego, 79, Grzybowska, Czyste, Wola, Warszawa, województwo mazowieckie, 00-844, Polska"
+    },
+    {
+        "name":  "Zamek Krolewski",
+        "address":  "Plac Zamkowy 4, Warszawa, Poland",
+        "lat":  52.2479003,
+        "lon":  21.0152802,
+        "display":  "Zamek Królewski, 4, Plac Zamkowy, Staromiejskie, Stare Miasto, Śródmieście, Warszawa, województwo mazowieckie, 00-277, Polska"
+    },
+    {
+        "name":  "Muzeum Warszawy",
+        "address":  "Rynek Starego Miasta 42, Warszawa, Poland",
+        "lat":  52.2499728,
+        "lon":  21.0113893,
+        "display":  "Muzeum Warszawy, 42, Strona Hugona Kołłątaja, Staromiejskie, Stare Miasto, Śródmieście, Warszawa, województwo mazowieckie, 00-272, Polska"
+    },
+    {
+        "name":  "Zacheta",
+        "address":  "Plac Malachowskiego 3, Warszawa, Poland",
+        "lat":  52.2392415,
+        "lon":  21.0114907,
+        "display":  "Zachęta, 3, Plac Stanisława Małachowskiego, Centrum, Śródmieście Północne, Śródmieście, Warszawa, województwo mazowieckie, 00-063, Polska"
+    },
+    {
+        "name":  "Muzeum Fryderyka Chopina",
+        "address":  "Okolnik 1, Warszawa, Poland",
+        "lat":  52.23648,
+        "lon":  21.0229695,
+        "display":  "Zamek Ostrogskich, 1, Okólnik, Powiśle-Skarpa, Śródmieście Północne, Śródmieście, Warszawa, województwo mazowieckie, 00-368, Polska"
+    },
+    {
+        "name":  "Coffeedesk Tamka",
+        "address":  "Tamka 2, Warszawa, Poland",
+        "lat":  52.2392634,
+        "lon":  21.0301997,
+        "display":  "Tamka, Powiśle-Skarpa, Powiśle, Śródmieście, Warszawa, województwo mazowieckie, 00-390, Polska"
+    },
+    {
+        "name":  "Green Caffe Nero Nowy Swiat",
+        "address":  "Nowy Swiat 53, Warszawa, Poland",
+        "lat":  52.2357697,
+        "lon":  21.0180355,
+        "display":  "Kamienica Mikulskiego przy Nowym Świecie 53, 53, Nowy Świat, Centrum, Śródmieście Północne, Śródmieście, Warszawa, województwo mazowieckie, 00-042, Polska"
+    },
+    {
+        "name":  "Bibenda",
+        "address":  "Nowogrodzka 10, Warszawa, Poland",
+        "lat":  52.2299336,
+        "lon":  21.0164833,
+        "display":  "10, Nowogrodzka, Krucza, Śródmieście Południowe, Śródmieście, Warszawa, województwo mazowieckie, 00-511, Polska"
+    },
+    {
+        "name":  "Krowarzywa Chmielna",
+        "address":  "Chmielna 23, Warszawa, Poland",
+        "lat":  52.2321599,
+        "lon":  21.0142783,
+        "display":  "23, Chmielna, Centrum, Śródmieście Północne, Śródmieście, Warszawa, województwo mazowieckie, 00-021, Polska"
+    },
+    {
+        "name":  "Vegan Ramen Shop Muranow",
+        "address":  "Aleja Jana Pawla II 52/54, Warszawa, Poland",
+        "lat":  52.244425,
+        "lon":  20.9921797,
+        "display":  "52/54, Aleja Jana Pawła II, Muranów, Śródmieście, Warszawa, województwo mazowieckie, 00-152, Polska"
+    },
+    {
+        "name":  "Restauracja Zapiecek Piwna",
+        "address":  "Piwna 34/36, Warszawa, Poland",
+        "lat":  52.2491546,
+        "lon":  21.0116801,
+        "display":  "34/36, Piwna, Staromiejskie, Stare Miasto, Śródmieście, Warszawa, województwo mazowieckie, 00-265, Polska"
+    },
+    {
+        "name":  "HOZA Steakhouse",
+        "address":  "Hoza 25A, Warszawa, Poland",
+        "lat":  52.2265872,
+        "lon":  21.0167027,
+        "display":  "25A, Hoża, Krucza, Śródmieście Południowe, Śródmieście, Warszawa, województwo mazowieckie, 00-521, Polska"
+    }
+]
