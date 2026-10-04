@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
 from urllib.request import Request, urlopen
+from unittest.mock import patch
 
-from app import AppState, Handler, build_engine
+from app import AppState, Handler, build_engine, google_place_media
+
+
+class FakeJsonResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self, _limit=-1):
+        return json.dumps(self.payload).encode("utf-8")
 
 
 class HttpFlowTests(unittest.TestCase):
@@ -43,6 +59,7 @@ class HttpFlowTests(unittest.TestCase):
         self.assertTrue(health["ok"])
         self.assertEqual(health["catalog_mode"], "real")
         self.assertEqual(health["provider_mode"], "fixture")
+        self.assertEqual(health["google_places_api_key_present"], bool(os.environ.get("GOOGLE_PLACES_API_KEY")))
 
         payload = {
             "original_plan": "Dinner and talk",
@@ -87,6 +104,47 @@ class HttpFlowTests(unittest.TestCase):
         self.assertEqual(third["round"], 3)
         self.assertIn(rejected_id, third["rejected_ids"])
         self.assertNotIn(rejected_id, {card["id"] for card in third["cards"]})
+
+    def test_google_place_media_without_key_is_honest(self):
+        if os.environ.get("GOOGLE_PLACES_API_KEY"):
+            self.skipTest("This test covers the no-key behavior")
+        payload = self.get_json(
+            "/api/place-media?place_id=ChIJM-LLX_HMHkcRPDiwF3WzN4Q"
+        )
+        self.assertFalse(payload["available"])
+        self.assertIn("GOOGLE_PLACES_API_KEY", payload["reason"])
+        self.assertTrue(payload["google_maps_uri"].startswith("https://www.google.com/maps/"))
+
+    def test_google_place_media_parses_live_fields_without_persisting(self):
+        place_id = "ChIJM-LLX_HMHkcRPDiwF3WzN4Q"
+        details = {
+            "rating": 4.6,
+            "userRatingCount": 3672,
+            "googleMapsUri": "https://maps.google.com/example",
+            "photos": [
+                {
+                    "name": f"places/{place_id}/photos/test-photo",
+                    "authorAttributions": [
+                        {"displayName": "Example Author", "uri": "https://example.com/author"}
+                    ],
+                }
+            ],
+        }
+        media = {"photoUri": "https://lh3.googleusercontent.com/example-photo"}
+        with patch.dict(os.environ, {"GOOGLE_PLACES_API_KEY": "test-key"}), patch(
+            "app.urlopen",
+            side_effect=[FakeJsonResponse(details), FakeJsonResponse(media)],
+        ):
+            payload = google_place_media(place_id, {place_id})
+
+        self.assertTrue(payload["available"])
+        self.assertEqual(payload["rating"], 4.6)
+        self.assertEqual(payload["user_rating_count"], 3672)
+        self.assertEqual(payload["photo"]["uri"], media["photoUri"])
+        self.assertEqual(
+            payload["photo"]["author_attributions"][0]["displayName"],
+            "Example Author",
+        )
 
 
 if __name__ == "__main__":

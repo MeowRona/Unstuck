@@ -4,164 +4,280 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Unstuck — save the plan with the smallest change</title>
-  <meta name="description" content="Unstuck finds the smallest acceptable change that saves a plan.">
+  <meta name="description" content="Unstuck finds the smallest acceptable change that saves a real-world plan.">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <div class="eyebrow">UNSTUCK · WARSAW PILOT</div>
-        <h1>Find the smallest change<br>that saves your plan.</h1>
-        <p class="hero-copy">Tell us what failed, what cannot move, and what matters. Unstuck checks feasibility first, then taste. Warsaw is the first pilot dataset — the problem and decision logic are not Warsaw-specific.</p>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup" aria-label="Unstuck home">
+        <div class="wordmark">unstuck</div>
+        <div class="brand-copy">Small changes.<br>Good evenings.</div>
       </div>
-      <div id="modeBadge" class="mode-badge">Checking mode…</div>
+      <div class="topbar-actions">
+        <div class="pilot-label" title="Current pilot city">
+          <span class="icon-slot" data-icon="pin"></span>
+          <span>Warsaw pilot</span>
+        </div>
+        <div class="top-separator" aria-hidden="true"></div>
+        <button id="dataStatus" class="status-pill" type="button">Checking data…</button>
+        <button id="menuButton" class="icon-button menu-button" type="button" aria-label="Open menu" aria-expanded="false">
+          <span class="icon-slot" data-icon="menu"></span>
+        </button>
+      </div>
     </header>
 
-    <section class="judge-note panel">
-      <div>
-        <strong>No Warsaw knowledge required.</strong>
-        <span>The demo translates local facts into universal constraints: total cost, travel minutes, opening hours, return time and taste fit.</span>
+    <section class="summary-strip" aria-label="Plan summary">
+      <button class="summary-plan summary-edit" type="button" data-edit-target="plan">
+        <span class="summary-icon icon-slot" data-icon="meal"></span>
+        <span class="summary-plan-copy">
+          <strong id="summaryPlanTitle">Dinner for two.</strong>
+          <span id="summaryFailure">Our first choice is closed.</span>
+        </span>
+        <span class="icon-slot summary-pencil" data-icon="edit"></span>
+      </button>
+      <div class="summary-constraints">
+        <button class="summary-chip summary-edit" type="button" data-edit-target="budget">
+          <span class="icon-slot" data-icon="coins"></span>
+          <span>Max <strong id="summaryBudget">200 PLN</strong></span>
+          <span class="chip-state icon-slot" data-icon="lock"></span>
+        </button>
+        <button class="summary-chip summary-edit" type="button" data-edit-target="return">
+          <span class="icon-slot" data-icon="clock"></span>
+          <span>Home by <strong id="summaryReturn">22:00</strong></span>
+          <span class="chip-state icon-slot" data-icon="lock"></span>
+        </button>
+        <button class="summary-chip summary-edit" type="button" data-edit-target="travel">
+          <span class="icon-slot" data-icon="car"></span>
+          <span id="summaryTravelWrap">Travel <strong id="summaryTravel">20 min</strong></span>
+          <span id="travelChipState" class="chip-state icon-slot" data-icon="edit"></span>
+        </button>
+        <button class="summary-chip summary-edit" type="button" data-edit-target="stay">
+          <span class="icon-slot" data-icon="hourglass"></span>
+          <span id="summaryStayWrap">Stay <strong id="summaryStay">75 min</strong></span>
+          <span id="stayChipState" class="chip-state icon-slot" data-icon="edit"></span>
+        </button>
+        <button class="summary-chip taste-chip summary-edit" type="button" data-edit-target="taste">
+          <span class="icon-slot" data-icon="tag"></span>
+          <span><span class="chip-label">Taste profile</span><strong id="summaryTaste">Amelie + Radiohead</strong></span>
+          <span class="chip-state icon-slot" data-icon="edit"></span>
+        </button>
       </div>
-      <button id="loadJudgeDemo" class="secondary" type="button">Load a judge-friendly demo</button>
     </section>
 
-    <section class="panel input-panel">
-      <div class="section-head">
-        <div>
-          <span class="step">01</span>
-          <h2>Your plan</h2>
-        </div>
-        <span class="scope-pill">Pilot dataset: Warsaw · one-city beta</span>
-      </div>
-      <form id="briefForm">
-        <div class="grid two">
-          <label>What was the original plan?
-            <input name="original_plan" value="Dinner somewhere calm where we can actually talk" required>
-          </label>
-          <label>Which place failed?
-            <input name="failed_place" value="Closed Place" placeholder="e.g. a restaurant that is closed">
-          </label>
-        </div>
-        <label>Why did it fail?
-          <input name="failure_reason" value="It is closed tonight" placeholder="Closed, too expensive, too far…">
-        </label>
+    <div class="mobile-view-toggle" role="group" aria-label="Choose results view">
+      <button id="showList" class="active" type="button">List</button>
+      <button id="showMap" type="button">Map</button>
+    </div>
 
-        <div class="constraint-title">Locked constraints</div>
-        <div class="grid four">
+    <section class="workspace">
+      <section id="mapPane" class="map-pane" aria-label="Map of recommendations">
+        <div class="map-frame">
+          <div id="map"></div>
+          <div class="map-badge">
+            <span id="mapGuideLabel">Approx. straight-line guide</span>
+            <span class="icon-slot" data-icon="info"></span>
+          </div>
+          <div id="mapFallback" class="map-fallback hidden">
+            <div class="map-fallback-icon icon-slot" data-icon="map"></div>
+            <strong>Map tiles are unavailable.</strong>
+            <span>The results still work. Location coordinates remain unchanged.</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="resultsPane" class="results-pane" aria-live="polite">
+        <div id="firstRun" class="first-run-card">
+          <div class="first-run-kicker">Rescue this plan</div>
+          <h1>What went wrong?</h1>
+          <p>Start with the failed plan. Your locked conditions and optional compromises are already visible above and can be edited before searching.</p>
+          <form id="quickStartForm" class="quick-start-form">
+            <label>Original plan
+              <input name="original_plan" value="Dinner somewhere calm where we can actually talk" required>
+            </label>
+            <div class="quick-grid">
+              <label>Place that failed
+                <input name="failed_place" value="Closed Place" placeholder="Optional place name">
+              </label>
+              <label>Why it failed
+                <input name="failure_reason" value="It is closed tonight" placeholder="Closed, too far, too expensive…">
+              </label>
+            </div>
+            <div class="first-run-actions">
+              <button id="openFullEditor" class="secondary-button" type="button">Review all conditions</button>
+              <button class="primary-button" type="submit">Find the smallest rescue <span aria-hidden="true">→</span></button>
+            </div>
+          </form>
+          <button id="loadJudgeDemo" class="text-button" type="button">Load the judge-friendly demo settings</button>
+        </div>
+
+        <div id="searchingState" class="searching-state hidden">
+          <div class="spinner" aria-hidden="true"></div>
+          <strong>Checking the plan against current facts…</strong>
+          <span>Locked conditions stay locked. Taste only ranks options that survive feasibility checks.</span>
+        </div>
+
+        <div id="resultContent" class="result-content hidden">
+          <div id="resultMeta" class="result-meta"></div>
+          <div id="cards" class="recommendation-list"></div>
+          <div id="emptyState" class="empty-state hidden"></div>
+          <div id="resultActions" class="result-actions hidden">
+            <button id="chooseButton" class="choose-button" type="button"></button>
+            <button id="lockCompromiseButton" class="lock-button" type="button"></button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <footer class="footer-meta">
+      <div id="footerSources"><strong>Sources:</strong> public listings</div>
+      <span class="footer-divider">|</span>
+      <div id="footerMethod"><strong>Method:</strong> hard constraints first, then taste ranking</div>
+      <span class="footer-divider">|</span>
+      <div><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></div>
+      <span class="footer-divider">|</span>
+      <div id="footerNeeds">Needs checking: shown per result</div>
+    </footer>
+  </main>
+
+  <div id="menuPopover" class="menu-popover hidden" role="menu">
+    <button type="button" data-menu-action="edit">Edit full plan</button>
+    <button type="button" data-menu-action="demo">Load judge demo</button>
+    <button type="button" data-menu-action="reset">Start over</button>
+  </div>
+
+  <div id="editorBackdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+  <section id="editorModal" class="editor-modal hidden" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+    <header class="editor-header">
+      <div>
+        <div class="editor-kicker">Plan settings</div>
+        <h2 id="editorTitle">Edit the rescue brief</h2>
+      </div>
+      <button id="closeEditor" class="icon-button" type="button" aria-label="Close editor"><span class="icon-slot" data-icon="close"></span></button>
+    </header>
+    <form id="editorForm" class="editor-form">
+      <section class="editor-section" data-section="plan">
+        <div class="editor-section-title"><span>01</span><div><strong>Plan</strong><small>What failed and what still needs to happen.</small></div></div>
+        <div class="editor-grid two">
+          <label>Original plan
+            <input name="original_plan" required>
+          </label>
+          <label>Place that failed
+            <input name="failed_place" placeholder="Optional">
+          </label>
+        </div>
+        <label>Why it failed
+          <input name="failure_reason" placeholder="Closed, too expensive, too far…">
+        </label>
+        <div class="editor-grid four">
           <label>Goal
             <select name="goal">
-              <option value="meal" selected>Meal required</option>
+              <option value="meal">Meal required</option>
               <option value="coffee">Coffee / talk</option>
               <option value="culture">Culture</option>
               <option value="flexible">Flexible outing</option>
             </select>
           </label>
           <label>People
-            <input name="people" type="number" min="1" max="12" value="2">
+            <input name="people" type="number" min="1" max="12" required>
           </label>
-          <label>Total budget (PLN)
-            <input name="budget_total" type="number" min="1" value="200">
-          </label>
-          <label>Max one-way travel
-            <input name="max_one_way_minutes" type="hidden" value="20">
-            <div class="wheel-shell duration-wheel" data-wheel-input="max_one_way_minutes" data-wheel-values="5,10,15,20,25,30,45,60" aria-label="Maximum one-way travel"></div>
-          </label>
-        </div>
-
-        <div class="grid four">
           <label>Date
-            <input name="date" type="date" value="2026-10-10">
-          </label>
-          <label>Start
-            <input name="start_time" type="hidden" value="18:30">
-            <div class="time-wheel" data-time-input="start_time" data-minute-step="5" aria-label="Start time"></div>
-          </label>
-          <label>Back by
-            <input name="return_by" type="hidden" value="22:00">
-            <div class="time-wheel" data-time-input="return_by" data-minute-step="5" aria-label="Return-by time"></div>
-          </label>
-          <label>Minimum stay
-            <input name="min_stay_minutes" type="hidden" value="75">
-            <div class="wheel-shell duration-wheel" data-wheel-input="min_stay_minutes" data-wheel-values="30,45,60,75,90,120,150,180" aria-label="Minimum stay duration"></div>
-          </label>
-        </div>
-
-        <div class="grid three">
-          <label>Start from <span class="hint" id="originCount">loading Warsaw start points…</span>
-            <input name="origin" id="originInput" list="originList" value="Warszawa Centralna" autocomplete="off">
-            <datalist id="originList"></datalist>
+            <input name="date" type="date" required>
           </label>
           <label>Travel mode
             <select name="travel_mode">
-              <option value="transit" selected>Public transit estimate</option>
+              <option value="transit">Public transit estimate</option>
               <option value="walk">Walk estimate</option>
             </select>
           </label>
-          <div class="category-field">
-            <span class="field-label">Preferred categories</span>
-            <div class="category-options">
-              <label><input type="checkbox" name="category" value="restaurant" checked> Restaurant</label>
-              <label><input type="checkbox" name="category" value="cafe"> Cafe</label>
-              <label><input type="checkbox" name="category" value="culture"> Culture</label>
-            </div>
-          </div>
         </div>
+      </section>
 
-        <label>Taste references <span class="hint">(comma-separated; fixture mode supports Blade Runner, Aphex Twin, Amelie, Daft Punk, Radiohead, Wes Anderson)</span>
-          <input name="taste_refs" value="Amelie, Radiohead">
-          <span class="field-note"><strong>They do not need to match the plan literally.</strong> These are taste anchors, not activity keywords. A musician, film or book can describe the kind of atmosphere you like, and the taste layer uses that signal to rank places after hard constraints are checked.</span>
+      <section class="editor-section" data-section="budget">
+        <div class="editor-section-title"><span>02</span><div><strong>Locked conditions</strong><small>Unstuck will not silently break these.</small></div></div>
+        <div class="editor-grid four time-grid">
+          <label>Total budget (PLN)
+            <input name="budget_total" type="number" min="1" required>
+          </label>
+          <label>Start time
+            <input name="start_time" type="hidden">
+            <div class="time-wheel" data-time-input="start_time" data-minute-step="5" aria-label="Start time"></div>
+          </label>
+          <label>Back by
+            <input name="return_by" type="hidden">
+            <div class="time-wheel" data-time-input="return_by" data-minute-step="5" aria-label="Return-by time"></div>
+          </label>
+          <label>Minimum stay
+            <input name="min_stay_minutes" type="hidden">
+            <div class="wheel-shell duration-wheel" data-wheel-input="min_stay_minutes" data-wheel-values="30,45,60,75,90,120,150,180" aria-label="Minimum stay duration"></div>
+          </label>
+        </div>
+        <div class="editor-grid two">
+          <label>Start from <span id="originCount" class="field-hint">Loading Warsaw points…</span>
+            <input name="origin" id="originInput" list="originList" autocomplete="off" required>
+            <datalist id="originList"></datalist>
+          </label>
+          <label>Max one-way travel
+            <input name="max_one_way_minutes" type="hidden">
+            <div class="wheel-shell duration-wheel" data-wheel-input="max_one_way_minutes" data-wheel-values="5,10,15,20,25,30,45,60" aria-label="Maximum one-way travel"></div>
+          </label>
+        </div>
+        <fieldset class="category-fieldset">
+          <legend>Preferred categories</legend>
+          <label><input type="checkbox" name="category" value="restaurant"> Restaurant</label>
+          <label><input type="checkbox" name="category" value="cafe"> Cafe</label>
+          <label><input type="checkbox" name="category" value="culture"> Culture</label>
+        </fieldset>
+      </section>
+
+      <section class="editor-section" data-section="taste">
+        <div class="editor-section-title"><span>03</span><div><strong>Taste profile</strong><small>Optional ranking signal after feasibility.</small></div></div>
+        <label>Taste references
+          <input name="taste_refs" placeholder="e.g. Amelie, Radiohead, Wes Anderson">
+          <span class="taste-explainer">Your references don’t need to match the activity. They help describe your taste.</span>
         </label>
+      </section>
 
-        <div class="constraint-title">Only if needed, I would accept…</div>
-        <div class="grid three compromises">
+      <section class="editor-section" data-section="travel">
+        <div class="editor-section-title"><span>04</span><div><strong>Allowed compromises</strong><small>Used only if the strict search cannot save the plan.</small></div></div>
+        <div class="editor-grid three compromise-grid">
           <label>Up to extra travel
-            <span class="hint">Only if the strict search fails</span>
-            <input name="negotiable_extra_travel_minutes" type="hidden" value="10">
+            <input name="negotiable_extra_travel_minutes" type="hidden">
             <div class="wheel-shell duration-wheel" data-wheel-input="negotiable_extra_travel_minutes" data-wheel-values="0,5,10,15,20,30,45,60" aria-label="Maximum extra one-way travel"></div>
           </label>
           <label>Shorter stay by up to
-            <span class="hint">Only if keeping the full stay makes the plan impossible</span>
-            <input name="negotiable_stay_reduction_minutes" type="hidden" value="15">
+            <input name="negotiable_stay_reduction_minutes" type="hidden">
             <div class="wheel-shell duration-wheel" data-wheel-input="negotiable_stay_reduction_minutes" data-wheel-values="0,5,10,15,20,30,45,60" aria-label="Maximum stay reduction"></div>
           </label>
-          <label class="check-label"><input name="allow_category_change" type="checkbox"> Change category if the goal still works</label>
+          <label class="toggle-card">
+            <input name="allow_category_change" type="checkbox">
+            <span><strong>Allow category change</strong><small>Only when the core goal still works.</small></span>
+          </label>
         </div>
+      </section>
 
-        <button class="primary" type="submit">Find the smallest rescue</button>
-      </form>
-      <div id="formError" class="error hidden"></div>
-    </section>
+      <div id="editorError" class="form-error hidden"></div>
+      <footer class="editor-actions">
+        <button id="cancelEditor" class="secondary-button" type="button">Cancel</button>
+        <button class="primary-button" type="submit">Save & refresh</button>
+      </footer>
+    </form>
+  </section>
 
-    <section id="resultsSection" class="results hidden">
-      <div class="section-head result-head">
-        <div>
-          <span class="step">02</span>
-          <h2>Best non-dominated options</h2>
-        </div>
-        <div class="round" id="roundLabel"></div>
-      </div>
-      <div id="constraintSummary" class="constraint-summary"></div>
-      <div id="cards" class="cards"></div>
-      <div id="emptyState" class="panel empty hidden"></div>
+  <div id="choiceBackdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+  <section id="choiceModal" class="choice-modal hidden" role="dialog" aria-modal="true" aria-labelledby="choiceTitle">
+    <button id="closeChoice" class="icon-button choice-close" type="button" aria-label="Close"><span class="icon-slot" data-icon="close"></span></button>
+    <div class="choice-check" aria-hidden="true">✓</div>
+    <div class="choice-kicker">Plan selected</div>
+    <h2 id="choiceTitle"></h2>
+    <p id="choiceWhy"></p>
+    <div id="choiceSummary" class="choice-summary"></div>
+    <div class="choice-note">This selects the plan inside Unstuck. It does not make a reservation or confirm table availability.</div>
+    <button id="choiceDone" class="primary-button" type="button">Done</button>
+  </section>
 
-      <div class="quick-edit panel">
-        <div>
-          <strong>Change a condition</strong>
-          <span>Re-run the same session without forgetting rejected places.</span>
-        </div>
-        <div class="quick-row">
-          <input id="quickBudget" type="number" min="1" placeholder="New total budget">
-          <button id="applyBudget" class="secondary" type="button">Update budget</button>
-        </div>
-      </div>
-
-      <details class="panel trace">
-        <summary>Agent decisions</summary>
-        <ol id="agentLog"></ol>
-      </details>
-    </section>
-  </main>
+  <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -8,7 +8,9 @@ import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, quote, urlparse
+from urllib.request import Request, urlopen
 
 from unstuck.engine import UnstuckEngine
 from unstuck.models import Place, SearchBrief, SearchState
@@ -19,6 +21,75 @@ from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTranspo
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DATA = ROOT / "data"
+
+
+def google_place_media(place_id: str, allowed_ids: set[str]) -> dict:
+    """Fetch transient Google Places presentation data without persisting it."""
+    if place_id not in allowed_ids:
+        raise ValueError("Unknown Google place ID")
+    key = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
+    maps_uri = (
+        "https://www.google.com/maps/search/?api=1"
+        f"&query={quote(place_id)}&query_place_id={quote(place_id)}"
+    )
+    if not key:
+        return {
+            "available": False,
+            "reason": "GOOGLE_PLACES_API_KEY is not set",
+            "google_maps_uri": maps_uri,
+        }
+
+    detail_url = f"https://places.googleapis.com/v1/places/{quote(place_id)}"
+    request = Request(
+        detail_url,
+        headers={
+            "X-Goog-Api-Key": key,
+            "X-Goog-FieldMask": "rating,userRatingCount,photos,googleMapsUri",
+            "User-Agent": "Unstuck/0.1",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=5) as response:
+            details = json.loads(response.read(512_000).decode("utf-8"))
+    except HTTPError as exc:
+        raise RuntimeError(f"GOOGLE_PLACES_HTTP_{exc.code}") from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError("GOOGLE_PLACES_UNAVAILABLE") from exc
+
+    photo_payload = None
+    photos = details.get("photos") or []
+    if photos:
+        photo = photos[0]
+        photo_name = str(photo.get("name", "")).strip()
+        if photo_name:
+            media_url = (
+                f"https://places.googleapis.com/v1/{quote(photo_name, safe='/')}/media"
+                "?maxWidthPx=900&skipHttpRedirect=true"
+            )
+            media_request = Request(
+                media_url,
+                headers={"X-Goog-Api-Key": key, "User-Agent": "Unstuck/0.1"},
+                method="GET",
+            )
+            try:
+                with urlopen(media_request, timeout=5) as response:
+                    media = json.loads(response.read(128_000).decode("utf-8"))
+                if media.get("photoUri"):
+                    photo_payload = {
+                        "uri": media["photoUri"],
+                        "author_attributions": photo.get("authorAttributions") or [],
+                    }
+            except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+                photo_payload = None
+
+    return {
+        "available": True,
+        "google_maps_uri": details.get("googleMapsUri") or maps_uri,
+        "rating": details.get("rating"),
+        "user_rating_count": details.get("userRatingCount"),
+        "photo": photo_payload,
+    }
 
 
 def load_places(path: Path) -> list[Place]:
@@ -94,7 +165,8 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/api/health":
             origins = public_origin_payload()
             self._json(
@@ -104,12 +176,31 @@ class Handler(BaseHTTPRequestHandler):
                     "provider_mode": self.app_state.engine.taste_provider.mode,
                     "catalog_mode": getattr(self.app_state.engine, "catalog_mode", "unknown"),
                     "qloo_api_key_present": bool(os.environ.get("QLOO_API_KEY")),
+                    "google_places_api_key_present": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
                     "origin_count": origins["count"],
                 },
             )
             return
         if path == "/api/origins":
             self._json(200, public_origin_payload())
+            return
+        if path == "/api/place-media":
+            query = parse_qs(parsed.query)
+            place_id = str((query.get("place_id") or [""])[0]).strip()
+            if not place_id:
+                self._json(400, {"error": "place_id is required"})
+                return
+            allowed_ids = {
+                place.google_place_id
+                for place in self.app_state.engine.places
+                if place.google_place_id
+            }
+            try:
+                self._json(200, google_place_media(place_id, allowed_ids))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            except RuntimeError as exc:
+                self._json(503, {"error": str(exc)})
             return
         if path == "/favicon.ico":
             self.send_response(204)

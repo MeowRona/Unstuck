@@ -344,6 +344,7 @@
       "ambience": ["shared-table", "social", "seasonal"],
       "taste_tags": ["indie", "artsy", "cozy"],
       "qloo_entity_id": null,
+      "google_place_id": "ChIJM-LLX_HMHkcRPDiwF3WzN4Q",
       "source_note": "Official site confirms regular hours. Price remains unknown, intentionally preventing a confirmed hard-budget PASS.",
       "demo_fixture": false
     },
@@ -367,6 +368,7 @@
       "ambience": ["casual", "ramen", "modern"],
       "taste_tags": ["stylish", "experimental", "electronic"],
       "qloo_entity_id": null,
+      "google_place_id": "ChIJn7Z8yFzNHkcR4eGgi1DwEH8",
       "source_note": "Official site confirms the Muranów address and current ramen prices, but did not expose regular dine-in opening hours clearly enough in the checked page. Hours stay unknown.",
       "demo_fixture": false
     },
@@ -390,6 +392,7 @@
       "ambience": ["polish", "old-town", "casual"],
       "taste_tags": ["cozy", "romantic"],
       "qloo_entity_id": null,
+      "google_place_id": "ChIJLSRZZm_MHkcRGuV5mfuzhhQ",
       "source_note": "Official contact page confirms daily hours. Price is kept unknown rather than recycling an outdated menu PDF.",
       "demo_fixture": false
     },
@@ -413,6 +416,7 @@
       "ambience": ["premium", "evening", "steakhouse"],
       "taste_tags": ["stylish", "night", "cinematic"],
       "qloo_entity_id": null,
+      "google_place_id": "ChIJdR_cxvHMHkcRxphGIEIIJRU",
       "source_note": "The seed uses a concrete low-end full-main scenario rather than a vague price tier. Other mains can be substantially more expensive.",
       "demo_fixture": false
     },
@@ -436,6 +440,7 @@
       "ambience": ["neighborhood", "casual", "social"],
       "taste_tags": ["cozy", "indie"],
       "qloo_entity_id": null,
+      "google_place_id": "ChIJ2-Cf_YrNHkcR7G1SVv7UlBw",
       "source_note": "Official site supplies address, current opening hours and visible main-dish prices. The stored range is deliberately tied to highlighted mains, not every item on the menu.",
       "demo_fixture": false
     }

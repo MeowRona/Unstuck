@@ -30,6 +30,14 @@ The search policy is deterministic and stateful. It is an agentic tool policy, n
 
 `brief -> validated state -> taste ranking -> strict feasibility -> allowed relaxation(s) -> Pareto filtering -> max 3 cards -> reject/change -> re-run`
 
+The current interface is the **City Compass** layout: a light plan-summary shell with a real OpenStreetMap view on desktop, up to three vertically stacked recommendation cards, synchronized card/marker selection, explicit compromise badges, source/assumption disclosure, and a full plan editor with wheel pickers for time and minute-based constraints. On mobile the same flow switches to a **List / Map** toggle instead of squeezing both panes side by side. Venue photography is never invented: when a verified image is not available, the UI shows a neutral labeled fallback.
+
+The map line is intentionally an **approximate straight-line guide**, not a turn-by-turn route. OpenStreetMap attribution remains visible in the map and footer. Leaflet 1.9.4 is vendored as static browser code under `static/vendor/leaflet/`; its license is included alongside the files. No JavaScript package manager or runtime dependency is required.
+
+The default brief uses the **browser's local date and local clock**. Start time is rounded up to the next 5-minute step, and the initial return-by time is three hours later. The judge-demo preset remains fixed so the competition walkthrough is reproducible.
+
+Restaurant cards can optionally enrich their existing thumbnail with a **live Google Places photo and Google Maps rating**. Only stable Google Place IDs are stored in the catalog. The actual rating, review count, photo URI and required author attribution are requested at runtime from Places API when `GOOGLE_PLACES_API_KEY` is present; Unstuck does not persist or rehost Google Maps content. Without that key, the app keeps the neutral photo fallback and exposes a direct Google Maps listing link instead. This keeps the default zero-key demo honest and avoids scraping Google Maps.
+
 Each result card exposes:
 
 - **Keep** — what still satisfies the brief;
@@ -89,6 +97,11 @@ Coordinates were geocoded from the listed addresses with OpenStreetMap Nominatim
 ## Run locally on Windows
 
 Requirements: Python 3.12+; no pip packages are required for the current MVP.
+
+Optional environment variables:
+
+- `QLOO_API_KEY` — enables the live Qloo taste adapter.
+- `GOOGLE_PLACES_API_KEY` — enables live restaurant photo/rating enrichment from Google Places; the key remains server-side.
 
 ```powershell
 cd D:\Unstuck

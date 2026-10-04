@@ -297,6 +297,11 @@ def _card(ev: Evaluation, brief: SearchBrief) -> dict[str, Any]:
         "name": ev.place.name,
         "category": ev.place.category,
         "address": ev.place.address,
+        "location": {
+            "lat": ev.place.lat,
+            "lon": ev.place.lon,
+        },
+        "google_place_id": ev.place.google_place_id,
         "keep": list(ev.preserved),
         "change": list(ev.changes),
         "why_this_fits": fit,

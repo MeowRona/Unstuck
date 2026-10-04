@@ -94,6 +94,14 @@ class ConstraintTests(unittest.TestCase):
             if card["cost"]["max"] is not None:
                 self.assertLessEqual(card["cost"]["max"], 80)
 
+    def test_real_restaurant_cards_expose_google_place_id_only_as_identifier(self):
+        rows = json.loads((ROOT / "data" / "places_warsaw.json").read_text(encoding="utf-8"))["places"]
+        restaurants = [row for row in rows if row.get("category") == "restaurant"]
+        self.assertEqual(sum(bool(row.get("google_place_id")) for row in restaurants), 5)
+        for row in restaurants:
+            if row.get("google_place_id"):
+                self.assertTrue(str(row["google_place_id"]).startswith("ChIJ"))
+
     def test_cost_is_for_two_people(self):
         engine = load_fixture_engine()
         result = engine.search(SearchState(brief(budget_total=70)))

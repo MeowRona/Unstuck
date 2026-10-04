@@ -193,6 +193,7 @@ class Place:
     ambience: tuple[str, ...] = ()
     taste_tags: tuple[str, ...] = ()
     qloo_entity_id: str | None = None
+    google_place_id: str | None = None
     source_note: str = ""
     demo_fixture: bool = False
 
@@ -237,6 +238,7 @@ class Place:
             ambience=tuple(str(x) for x in row.get("ambience", [])),
             taste_tags=tuple(str(x) for x in row.get("taste_tags", [])),
             qloo_entity_id=row.get("qloo_entity_id"),
+            google_place_id=row.get("google_place_id"),
             source_note=str(row.get("source_note", "")),
             demo_fixture=bool(row.get("demo_fixture", False)),
         )
