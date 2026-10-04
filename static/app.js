@@ -10,67 +10,116 @@ const modeBadge = document.getElementById('modeBadge');
 const originList = document.getElementById('originList');
 const originCount = document.getElementById('originCount');
 const loadJudgeDemo = document.getElementById('loadJudgeDemo');
-const extraTravelWheel = document.getElementById('extraTravelWheel');
-const extraTravelValue = document.getElementById('extraTravelValue');
 const quickBudget = document.getElementById('quickBudget');
 const applyBudget = document.getElementById('applyBudget');
 let sessionId = null;
 let currentResult = null;
-let extraTravelWheelReady = false;
-
-const EXTRA_TRAVEL_VALUES = [0, 5, 10, 15, 20, 30, 45, 60];
 const WHEEL_ROW_HEIGHT = 44;
 
-function setExtraTravelWheel(value, {smooth = false} = {}) {
-  const numeric = Number(value);
-  const index = EXTRA_TRAVEL_VALUES.reduce((best, candidate, candidateIndex) => {
-    const currentBest = EXTRA_TRAVEL_VALUES[best];
-    return Math.abs(candidate - numeric) < Math.abs(currentBest - numeric) ? candidateIndex : best;
-  }, 0);
-  const selectedValue = EXTRA_TRAVEL_VALUES[index];
-  extraTravelValue.value = String(selectedValue);
-  extraTravelWheel.querySelectorAll('.wheel-option').forEach((option, optionIndex) => {
-    const selected = optionIndex === index;
-    option.classList.toggle('selected', selected);
-    option.setAttribute('aria-selected', selected ? 'true' : 'false');
-  });
-  extraTravelWheel.scrollTo({top: index * WHEEL_ROW_HEIGHT, behavior: smooth ? 'smooth' : 'auto'});
+function nearestIndex(values, wanted) {
+  const numeric = Number(wanted);
+  return values.reduce((best, candidate, index) =>
+    Math.abs(candidate - numeric) < Math.abs(values[best] - numeric) ? index : best, 0);
 }
 
-function syncExtraTravelFromScroll() {
-  const index = Math.max(0, Math.min(EXTRA_TRAVEL_VALUES.length - 1, Math.round(extraTravelWheel.scrollTop / WHEEL_ROW_HEIGHT)));
-  const selectedValue = EXTRA_TRAVEL_VALUES[index];
-  extraTravelValue.value = String(selectedValue);
-  extraTravelWheel.querySelectorAll('.wheel-option').forEach((option, optionIndex) => {
-    const selected = optionIndex === index;
-    option.classList.toggle('selected', selected);
-    option.setAttribute('aria-selected', selected ? 'true' : 'false');
+function wheelMarkup(values, unit = '') {
+  return `<div class="wheel-fade top"></div><div class="wheel-selection"></div>
+    <div class="wheel-picker" role="listbox" tabindex="0">
+      <div class="wheel-spacer" aria-hidden="true"></div>
+      ${values.map(value => `<button type="button" class="wheel-option" role="option" data-value="${value}">${String(value).padStart(unit === ':' ? 2 : 1, '0')}${unit && unit !== ':' ? ` <span>${unit}</span>` : ''}</button>`).join('')}
+      <div class="wheel-spacer" aria-hidden="true"></div>
+    </div><div class="wheel-fade bottom"></div>`;
+}
+
+function bindWheel(picker, values, onSelect, initialValue) {
+  let ready = false;
+  let frame = null;
+  const options = () => [...picker.querySelectorAll('.wheel-option')];
+
+  function selectIndex(index, smooth = false) {
+    const bounded = Math.max(0, Math.min(values.length - 1, index));
+    options().forEach((option, optionIndex) => {
+      const selected = optionIndex === bounded;
+      option.classList.toggle('selected', selected);
+      option.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+    onSelect(values[bounded]);
+    picker.scrollTo({top: bounded * WHEEL_ROW_HEIGHT, behavior: smooth ? 'smooth' : 'auto'});
+  }
+
+  picker.addEventListener('scroll', () => {
+    if (!ready) return;
+    if (frame) cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      const index = Math.round(picker.scrollTop / WHEEL_ROW_HEIGHT);
+      selectIndex(index, false);
+    });
+  });
+  options().forEach((option, index) => option.addEventListener('click', () => selectIndex(index, true)));
+  picker.addEventListener('keydown', event => {
+    if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = Math.round(picker.scrollTop / WHEEL_ROW_HEIGHT);
+    let next = current;
+    if (event.key === 'ArrowUp') next -= 1;
+    if (event.key === 'ArrowDown') next += 1;
+    if (event.key === 'PageUp') next -= 2;
+    if (event.key === 'PageDown') next += 2;
+    if (event.key === 'Home') next = 0;
+    if (event.key === 'End') next = values.length - 1;
+    selectIndex(next, true);
+  });
+
+  const initialIndex = nearestIndex(values, initialValue);
+  selectIndex(initialIndex, false);
+  requestAnimationFrame(() => {
+    selectIndex(initialIndex, false);
+    ready = true;
+  });
+  return value => selectIndex(nearestIndex(values, value), false);
+}
+
+const durationWheelSetters = new Map();
+function initDurationWheels() {
+  document.querySelectorAll('.duration-wheel').forEach(shell => {
+    const inputName = shell.dataset.wheelInput;
+    const input = form.elements[inputName];
+    const values = String(shell.dataset.wheelValues || '').split(',').map(Number).filter(Number.isFinite);
+    shell.innerHTML = wheelMarkup(values, 'min');
+    const picker = shell.querySelector('.wheel-picker');
+    picker.setAttribute('aria-label', shell.getAttribute('aria-label') || inputName);
+    const setter = bindWheel(picker, values, value => { input.value = String(value); }, Number(input.value));
+    durationWheelSetters.set(inputName, setter);
   });
 }
 
-let wheelScrollFrame = null;
-extraTravelWheel.addEventListener('scroll', () => {
-  if (!extraTravelWheelReady) return;
-  if (wheelScrollFrame) cancelAnimationFrame(wheelScrollFrame);
-  wheelScrollFrame = requestAnimationFrame(syncExtraTravelFromScroll);
-});
-extraTravelWheel.querySelectorAll('.wheel-option').forEach(option => {
-  option.addEventListener('click', () => setExtraTravelWheel(Number(option.dataset.value), {smooth: true}));
-});
-extraTravelWheel.addEventListener('keydown', event => {
-  if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) return;
-  event.preventDefault();
-  const current = EXTRA_TRAVEL_VALUES.indexOf(Number(extraTravelValue.value));
-  let next = current;
-  if (event.key === 'ArrowUp') next -= 1;
-  if (event.key === 'ArrowDown') next += 1;
-  if (event.key === 'PageUp') next -= 2;
-  if (event.key === 'PageDown') next += 2;
-  if (event.key === 'Home') next = 0;
-  if (event.key === 'End') next = EXTRA_TRAVEL_VALUES.length - 1;
-  next = Math.max(0, Math.min(EXTRA_TRAVEL_VALUES.length - 1, next));
-  setExtraTravelWheel(EXTRA_TRAVEL_VALUES[next], {smooth: true});
-});
+const timeWheelSetters = new Map();
+function initTimeWheels() {
+  document.querySelectorAll('.time-wheel').forEach(shell => {
+    const inputName = shell.dataset.timeInput;
+    const input = form.elements[inputName];
+    const minuteStep = Number(shell.dataset.minuteStep || 5);
+    const hours = Array.from({length: 24}, (_, index) => index);
+    const minutes = Array.from({length: Math.ceil(60 / minuteStep)}, (_, index) => index * minuteStep).filter(value => value < 60);
+    shell.innerHTML = `<div class="time-column wheel-shell hour-wheel">${wheelMarkup(hours, ':')}</div><div class="time-separator">:</div><div class="time-column wheel-shell minute-wheel">${wheelMarkup(minutes, ':')}</div>`;
+    const [hourPicker, minutePicker] = shell.querySelectorAll('.wheel-picker');
+    hourPicker.setAttribute('aria-label', `${shell.getAttribute('aria-label') || inputName} hour`);
+    minutePicker.setAttribute('aria-label', `${shell.getAttribute('aria-label') || inputName} minute`);
+
+    let [hour, minute] = String(input.value || '00:00').split(':').map(Number);
+    const write = () => { input.value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`; };
+    const setHour = bindWheel(hourPicker, hours, value => { hour = value; write(); }, hour);
+    const setMinute = bindWheel(minutePicker, minutes, value => { minute = value; write(); }, minute);
+    timeWheelSetters.set(inputName, value => {
+      const [nextHour, nextMinute] = String(value).split(':').map(Number);
+      setHour(nextHour);
+      setMinute(nextMinute);
+      hour = nextHour;
+      minute = minutes[nearestIndex(minutes, nextMinute)];
+      write();
+    });
+  });
+}
 
 function selectedValues(select) {
   return [...select.selectedOptions].map(o => o.value);
@@ -256,19 +305,19 @@ loadJudgeDemo.addEventListener('click', () => {
   form.elements.goal.value = 'meal';
   form.elements.people.value = '2';
   form.elements.budget_total.value = '200';
-  form.elements.max_one_way_minutes.value = '25';
+  durationWheelSetters.get('max_one_way_minutes')?.(25);
   form.elements.date.value = '2026-10-10';
-  form.elements.start_time.value = '18:30';
-  form.elements.return_by.value = '22:00';
-  form.elements.min_stay_minutes.value = '75';
+  timeWheelSetters.get('start_time')?.('18:30');
+  timeWheelSetters.get('return_by')?.('22:00');
+  durationWheelSetters.get('min_stay_minutes')?.(75);
   form.elements.origin.value = 'Warszawa Centralna';
   form.elements.travel_mode.value = 'transit';
   form.querySelectorAll('input[name="category"]').forEach(input => {
     input.checked = input.value === 'restaurant';
   });
   form.elements.taste_refs.value = 'Amelie, Radiohead';
-  setExtraTravelWheel(10);
-  form.elements.negotiable_stay_reduction_minutes.value = '15';
+  durationWheelSetters.get('negotiable_extra_travel_minutes')?.(10);
+  durationWheelSetters.get('negotiable_stay_reduction_minutes')?.(15);
   form.elements.allow_category_change.checked = false;
   form.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
@@ -298,10 +347,6 @@ fetch('/api/origins').then(r => r.json()).then(payload => {
 });
 
 window.addEventListener('load', () => {
-  const initialValue = Number(extraTravelValue.defaultValue || extraTravelValue.value || 10);
-  setExtraTravelWheel(initialValue);
-  requestAnimationFrame(() => {
-    setExtraTravelWheel(initialValue);
-    extraTravelWheelReady = true;
-  });
+  initDurationWheels();
+  initTimeWheels();
 });

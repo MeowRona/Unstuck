@@ -65,6 +65,10 @@ select[multiple] { min-height: 92px; padding: 8px; }
 .wheel-fade { position: absolute; z-index: 3; left: 0; right: 0; height: 38px; pointer-events: none; }
 .wheel-fade.top { top: 0; background: linear-gradient(#0d0f12 15%, rgba(13,15,18,.05)); }
 .wheel-fade.bottom { bottom: 0; background: linear-gradient(rgba(13,15,18,.05), #0d0f12 85%); }
+.time-wheel { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr); align-items: center; gap: 3px; }
+.time-column { min-width: 0; }
+.time-separator { color: var(--muted); font-size: 23px; line-height: 1; font-weight: 700; text-align: center; }
+.time-column .wheel-option { font-variant-numeric: tabular-nums; }
 .check-label { grid-template-columns: auto 1fr; align-items: center; align-content: center; min-height: 68px; border: 1px solid #30353d; border-radius: 11px; padding: 12px; background: #0d0f12; }
 .check-label input { width: 18px; min-height: 18px; accent-color: var(--accent); }
 button { border: 0; border-radius: 11px; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 800; cursor: pointer; }

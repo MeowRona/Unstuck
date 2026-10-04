@@ -64,7 +64,8 @@
             <input name="budget_total" type="number" min="1" value="200">
           </label>
           <label>Max one-way travel
-            <div class="suffix"><input name="max_one_way_minutes" type="number" min="5" value="18"><span>min</span></div>
+            <input name="max_one_way_minutes" type="hidden" value="20">
+            <div class="wheel-shell duration-wheel" data-wheel-input="max_one_way_minutes" data-wheel-values="5,10,15,20,25,30,45,60" aria-label="Maximum one-way travel"></div>
           </label>
         </div>
 
@@ -73,13 +74,16 @@
             <input name="date" type="date" value="2026-10-10">
           </label>
           <label>Start
-            <input name="start_time" type="time" value="18:30">
+            <input name="start_time" type="hidden" value="18:30">
+            <div class="time-wheel" data-time-input="start_time" data-minute-step="5" aria-label="Start time"></div>
           </label>
           <label>Back by
-            <input name="return_by" type="time" value="22:00">
+            <input name="return_by" type="hidden" value="22:00">
+            <div class="time-wheel" data-time-input="return_by" data-minute-step="5" aria-label="Return-by time"></div>
           </label>
           <label>Minimum stay
-            <div class="suffix"><input name="min_stay_minutes" type="number" min="15" value="75"><span>min</span></div>
+            <input name="min_stay_minutes" type="hidden" value="75">
+            <div class="wheel-shell duration-wheel" data-wheel-input="min_stay_minutes" data-wheel-values="30,45,60,75,90,120,150,180" aria-label="Minimum stay duration"></div>
           </label>
         </div>
 
@@ -113,27 +117,13 @@
         <div class="grid three compromises">
           <label>Up to extra travel
             <span class="hint">Only if the strict search fails</span>
-            <input name="negotiable_extra_travel_minutes" id="extraTravelValue" type="hidden" value="10">
-            <div class="wheel-shell">
-              <div class="wheel-fade top"></div>
-              <div class="wheel-selection"></div>
-              <div class="wheel-picker" id="extraTravelWheel" role="listbox" aria-label="Maximum extra one-way travel time" tabindex="0">
-                <div class="wheel-spacer" aria-hidden="true"></div>
-                <button type="button" class="wheel-option" role="option" data-value="0">0 <span>min</span></button>
-                <button type="button" class="wheel-option" role="option" data-value="5">5 <span>min</span></button>
-                <button type="button" class="wheel-option selected" role="option" aria-selected="true" data-value="10">10 <span>min</span></button>
-                <button type="button" class="wheel-option" role="option" data-value="15">15 <span>min</span></button>
-                <button type="button" class="wheel-option" role="option" data-value="20">20 <span>min</span></button>
-                <button type="button" class="wheel-option" role="option" data-value="30">30 <span>min</span></button>
-                <button type="button" class="wheel-option" role="option" data-value="45">45 <span>min</span></button>
-                <button type="button" class="wheel-option" role="option" data-value="60">60 <span>min</span></button>
-                <div class="wheel-spacer" aria-hidden="true"></div>
-              </div>
-              <div class="wheel-fade bottom"></div>
-            </div>
+            <input name="negotiable_extra_travel_minutes" type="hidden" value="10">
+            <div class="wheel-shell duration-wheel" data-wheel-input="negotiable_extra_travel_minutes" data-wheel-values="0,5,10,15,20,30,45,60" aria-label="Maximum extra one-way travel"></div>
           </label>
           <label>Shorter stay by up to
-            <div class="suffix"><input name="negotiable_stay_reduction_minutes" type="number" min="0" max="120" value="15"><span>min</span></div>
+            <span class="hint">Only if keeping the full stay makes the plan impossible</span>
+            <input name="negotiable_stay_reduction_minutes" type="hidden" value="15">
+            <div class="wheel-shell duration-wheel" data-wheel-input="negotiable_stay_reduction_minutes" data-wheel-values="0,5,10,15,20,30,45,60" aria-label="Maximum stay reduction"></div>
           </label>
           <label class="check-label"><input name="allow_category_change" type="checkbox"> Change category if the goal still works</label>
         </div>
