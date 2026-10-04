@@ -10,10 +10,67 @@ const modeBadge = document.getElementById('modeBadge');
 const originList = document.getElementById('originList');
 const originCount = document.getElementById('originCount');
 const loadJudgeDemo = document.getElementById('loadJudgeDemo');
+const extraTravelWheel = document.getElementById('extraTravelWheel');
+const extraTravelValue = document.getElementById('extraTravelValue');
 const quickBudget = document.getElementById('quickBudget');
 const applyBudget = document.getElementById('applyBudget');
 let sessionId = null;
 let currentResult = null;
+let extraTravelWheelReady = false;
+
+const EXTRA_TRAVEL_VALUES = [0, 5, 10, 15, 20, 30, 45, 60];
+const WHEEL_ROW_HEIGHT = 44;
+
+function setExtraTravelWheel(value, {smooth = false} = {}) {
+  const numeric = Number(value);
+  const index = EXTRA_TRAVEL_VALUES.reduce((best, candidate, candidateIndex) => {
+    const currentBest = EXTRA_TRAVEL_VALUES[best];
+    return Math.abs(candidate - numeric) < Math.abs(currentBest - numeric) ? candidateIndex : best;
+  }, 0);
+  const selectedValue = EXTRA_TRAVEL_VALUES[index];
+  extraTravelValue.value = String(selectedValue);
+  extraTravelWheel.querySelectorAll('.wheel-option').forEach((option, optionIndex) => {
+    const selected = optionIndex === index;
+    option.classList.toggle('selected', selected);
+    option.setAttribute('aria-selected', selected ? 'true' : 'false');
+  });
+  extraTravelWheel.scrollTo({top: index * WHEEL_ROW_HEIGHT, behavior: smooth ? 'smooth' : 'auto'});
+}
+
+function syncExtraTravelFromScroll() {
+  const index = Math.max(0, Math.min(EXTRA_TRAVEL_VALUES.length - 1, Math.round(extraTravelWheel.scrollTop / WHEEL_ROW_HEIGHT)));
+  const selectedValue = EXTRA_TRAVEL_VALUES[index];
+  extraTravelValue.value = String(selectedValue);
+  extraTravelWheel.querySelectorAll('.wheel-option').forEach((option, optionIndex) => {
+    const selected = optionIndex === index;
+    option.classList.toggle('selected', selected);
+    option.setAttribute('aria-selected', selected ? 'true' : 'false');
+  });
+}
+
+let wheelScrollFrame = null;
+extraTravelWheel.addEventListener('scroll', () => {
+  if (!extraTravelWheelReady) return;
+  if (wheelScrollFrame) cancelAnimationFrame(wheelScrollFrame);
+  wheelScrollFrame = requestAnimationFrame(syncExtraTravelFromScroll);
+});
+extraTravelWheel.querySelectorAll('.wheel-option').forEach(option => {
+  option.addEventListener('click', () => setExtraTravelWheel(Number(option.dataset.value), {smooth: true}));
+});
+extraTravelWheel.addEventListener('keydown', event => {
+  if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const current = EXTRA_TRAVEL_VALUES.indexOf(Number(extraTravelValue.value));
+  let next = current;
+  if (event.key === 'ArrowUp') next -= 1;
+  if (event.key === 'ArrowDown') next += 1;
+  if (event.key === 'PageUp') next -= 2;
+  if (event.key === 'PageDown') next += 2;
+  if (event.key === 'Home') next = 0;
+  if (event.key === 'End') next = EXTRA_TRAVEL_VALUES.length - 1;
+  next = Math.max(0, Math.min(EXTRA_TRAVEL_VALUES.length - 1, next));
+  setExtraTravelWheel(EXTRA_TRAVEL_VALUES[next], {smooth: true});
+});
 
 function selectedValues(select) {
   return [...select.selectedOptions].map(o => o.value);
@@ -210,7 +267,7 @@ loadJudgeDemo.addEventListener('click', () => {
     input.checked = input.value === 'restaurant';
   });
   form.elements.taste_refs.value = 'Amelie, Radiohead';
-  form.elements.negotiable_extra_travel_minutes.value = '8';
+  setExtraTravelWheel(10);
   form.elements.negotiable_stay_reduction_minutes.value = '15';
   form.elements.allow_category_change.checked = false;
   form.scrollIntoView({behavior: 'smooth', block: 'start'});
@@ -238,4 +295,13 @@ fetch('/api/origins').then(r => r.json()).then(payload => {
   originCount.textContent = `${origins.length} saved points across ${districtCount} districts`;
 }).catch(() => {
   originCount.textContent = 'start-point catalog unavailable';
+});
+
+window.addEventListener('load', () => {
+  const initialValue = Number(extraTravelValue.defaultValue || extraTravelValue.value || 10);
+  setExtraTravelWheel(initialValue);
+  requestAnimationFrame(() => {
+    setExtraTravelWheel(initialValue);
+    extraTravelWheelReady = true;
+  });
 });

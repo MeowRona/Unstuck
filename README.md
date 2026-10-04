@@ -22,6 +22,8 @@ Unstuck does not collapse money, minutes, and taste into one opaque score. It ke
 - **Negotiable constraints** — the user may allow a precise amount of extra travel, a shorter stay, or a category change.
 - **Preferences** — taste signals help rank options that survive feasibility checks.
 
+Taste references are **taste anchors, not activity keywords**. They do not need to be literally related to the plan: a musician, film, book, or creator can express an aesthetic preference that Qloo can use as a cross-domain signal when ranking otherwise feasible places.
+
 The search policy is deterministic and stateful. It is an agentic tool policy, not a simulated chain-of-thought UI: it observes the result of each feasibility pass, chooses whether the next explicitly allowed strategy is necessary, logs the action, remembers rejections and updates, and stops when a useful non-dominated set is found or the allowed search space is exhausted.
 
 ## Current flow

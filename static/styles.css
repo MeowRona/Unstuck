@@ -51,6 +51,20 @@ select[multiple] { min-height: 92px; padding: 8px; }
 .suffix span { padding: 0 11px; color: var(--muted); font-size: 12px; }
 .constraint-title { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding-top: 8px; }
 .hint { color: var(--muted); font-weight: 450; }
+.field-note { color: var(--muted); font-size: 12px; line-height: 1.5; font-weight: 450; max-width: 900px; }
+.field-note strong { color: #d8dde2; font-weight: 750; }
+.wheel-shell { position: relative; height: 132px; border: 1px solid #30353d; border-radius: 12px; background: #0d0f12; overflow: hidden; }
+.wheel-picker { height: 132px; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; scrollbar-width: none; outline: none; position: relative; z-index: 2; }
+.wheel-picker::-webkit-scrollbar { display: none; }
+.wheel-picker:focus-visible { box-shadow: inset 0 0 0 2px #65782e; }
+.wheel-spacer { height: 44px; flex: 0 0 44px; }
+.wheel-option { width: 100%; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #747c86; font-size: 15px; font-weight: 650; scroll-snap-align: center; transition: color .15s ease, transform .15s ease, opacity .15s ease; opacity: .55; }
+.wheel-option span { color: inherit; font-size: 11px; font-weight: 650; }
+.wheel-option.selected { color: var(--text); font-size: 20px; transform: scale(1.04); opacity: 1; }
+.wheel-selection { position: absolute; z-index: 1; top: 44px; left: 8px; right: 8px; height: 44px; border-top: 1px solid #343b44; border-bottom: 1px solid #343b44; background: rgba(255,255,255,.018); pointer-events: none; }
+.wheel-fade { position: absolute; z-index: 3; left: 0; right: 0; height: 38px; pointer-events: none; }
+.wheel-fade.top { top: 0; background: linear-gradient(#0d0f12 15%, rgba(13,15,18,.05)); }
+.wheel-fade.bottom { bottom: 0; background: linear-gradient(rgba(13,15,18,.05), #0d0f12 85%); }
 .check-label { grid-template-columns: auto 1fr; align-items: center; align-content: center; min-height: 68px; border: 1px solid #30353d; border-radius: 11px; padding: 12px; background: #0d0f12; }
 .check-label input { width: 18px; min-height: 18px; accent-color: var(--accent); }
 button { border: 0; border-radius: 11px; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 800; cursor: pointer; }

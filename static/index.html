@@ -106,12 +106,31 @@
 
         <label>Taste references <span class="hint">(comma-separated; fixture mode supports Blade Runner, Aphex Twin, Amelie, Daft Punk, Radiohead, Wes Anderson)</span>
           <input name="taste_refs" value="Amelie, Radiohead">
+          <span class="field-note"><strong>They do not need to match the plan literally.</strong> These are taste anchors, not activity keywords. A musician, film or book can describe the kind of atmosphere you like, and the taste layer uses that signal to rank places after hard constraints are checked.</span>
         </label>
 
         <div class="constraint-title">Only if needed, I would accept…</div>
         <div class="grid three compromises">
           <label>Up to extra travel
-            <div class="suffix"><input name="negotiable_extra_travel_minutes" type="number" min="0" max="60" value="8"><span>min</span></div>
+            <span class="hint">Only if the strict search fails</span>
+            <input name="negotiable_extra_travel_minutes" id="extraTravelValue" type="hidden" value="10">
+            <div class="wheel-shell">
+              <div class="wheel-fade top"></div>
+              <div class="wheel-selection"></div>
+              <div class="wheel-picker" id="extraTravelWheel" role="listbox" aria-label="Maximum extra one-way travel time" tabindex="0">
+                <div class="wheel-spacer" aria-hidden="true"></div>
+                <button type="button" class="wheel-option" role="option" data-value="0">0 <span>min</span></button>
+                <button type="button" class="wheel-option" role="option" data-value="5">5 <span>min</span></button>
+                <button type="button" class="wheel-option selected" role="option" aria-selected="true" data-value="10">10 <span>min</span></button>
+                <button type="button" class="wheel-option" role="option" data-value="15">15 <span>min</span></button>
+                <button type="button" class="wheel-option" role="option" data-value="20">20 <span>min</span></button>
+                <button type="button" class="wheel-option" role="option" data-value="30">30 <span>min</span></button>
+                <button type="button" class="wheel-option" role="option" data-value="45">45 <span>min</span></button>
+                <button type="button" class="wheel-option" role="option" data-value="60">60 <span>min</span></button>
+                <div class="wheel-spacer" aria-hidden="true"></div>
+              </div>
+              <div class="wheel-fade bottom"></div>
+            </div>
           </label>
           <label>Shorter stay by up to
             <div class="suffix"><input name="negotiable_stay_reduction_minutes" type="number" min="0" max="120" value="15"><span>min</span></div>
