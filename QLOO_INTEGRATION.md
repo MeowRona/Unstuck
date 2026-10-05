@@ -70,3 +70,42 @@ Once `QLOO_API_KEY` is available:
 7. Run a small human comparison of Qloo ranking versus the no-taste baseline.
 
 Do not claim live Qloo validation before these steps pass.
+
+
+## Product evidence contract
+
+Unstuck exposes a compact `taste_audit` object with every search result so the jury-facing explanation can be generated from actions the product actually took rather than invented reasoning.
+
+The contract separates:
+
+- `input_references` — the cultural references supplied by the user;
+- `recognized_signals` — live Qloo entities actually resolved from those references, including entity IDs/names safe for a redacted demo;
+- `failed_place_anchor` / `anchor_used` — whether the unavailable original venue was successfully resolved and used as an additional live Qloo signal;
+- `candidate_pool_size` — the same operationally feasible comparison pool;
+- `baseline_order` — ordering of that pool without taste;
+- `ranked_order` — live Qloo ordering of the same pool;
+- `changed_top_choice` — whether Qloo actually changed the top result;
+- `discovery_used` — currently `false`; Unstuck uses Qloo for ranking, not candidate discovery.
+
+This separation matters because discovery and re-ranking are different product effects. If Qloo discovery is added later, it must be reported separately instead of being mixed into the same comparison.
+
+### Before the API key is connected
+
+The hosted beta runs in fixture taste mode. Its `taste_audit.status` is `fixture_preview`.
+
+The interface may show the supplied references and a fixture preview order, but it must also say:
+
+- Qloo was not called;
+- fixture order is not proof of Qloo performance;
+- entity recognition, live ranking impact and the baseline-vs-Qloo comparison become available only after the Qloo connection.
+
+No affinity percentage or fabricated Qloo advantage is shown.
+
+### Failed venue as a taste anchor
+
+The optional unavailable venue has two concrete product effects:
+
+1. it is always excluded from recommendations by the core rescue engine;
+2. in live mode only, Unstuck best-effort resolves that place through Qloo and uses the resolved entity as an additional shared ranking signal.
+
+Failure to resolve the venue as a Qloo entity never re-admits it and never blocks the rescue search. The evidence panel records whether the anchor was actually used.
