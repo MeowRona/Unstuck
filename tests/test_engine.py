@@ -354,12 +354,17 @@ class ConstraintTests(unittest.TestCase):
             [Place.from_dict(row) for row in rows],
             FixtureTasteProvider(ROOT / "data" / "taste_fixtures.json"),
         )
+        origins = json.loads((ROOT / "data" / "origins_warsaw.json").read_text(encoding="utf-8"))["origins"]
+        demo_origin = next(row for row in origins if row["id"] == "warsaw:srodmiescie:warszawa-centralna")
         result = engine.search(
             SearchState(
                 brief(
                     original_plan="Dinner at HOŻA Steakhouse",
                     failed_place="HOŻA Steakhouse",
                     failure_reason="unavailable",
+                    origin=demo_origin["label"],
+                    origin_lat=demo_origin["lat"],
+                    origin_lon=demo_origin["lon"],
                     date="2026-10-09",
                     start_time="18:30",
                     return_by="20:45",
