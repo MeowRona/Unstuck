@@ -30,6 +30,14 @@ class TasteResult:
     source: str
 
 
+class TasteResults(list[TasteResult]):
+    """List-compatible ranking result with a small, redacted evidence trace."""
+
+    def __init__(self, values=(), *, trace: dict | None = None):
+        super().__init__(values)
+        self.trace = trace or {}
+
+
 class FixtureTasteProvider:
     mode = "fixture"
 
@@ -37,9 +45,19 @@ class FixtureTasteProvider:
         payload = json.loads(mapping_path.read_text(encoding="utf-8"))
         self.reference_tags: dict[str, dict[str, float]] = payload.get("reference_tags", {})
 
-    def rank(self, places: list[Place], taste_refs: Iterable[str]) -> list[TasteResult]:
+    def rank(self, places: list[Place], taste_refs: Iterable[str]) -> TasteResults:
+        return self.rank_with_context(places, taste_refs, failed_place=None)
+
+    def rank_with_context(
+        self,
+        places: list[Place],
+        taste_refs: Iterable[str],
+        *,
+        failed_place: str | None,
+    ) -> TasteResults:
         refs = [x.strip() for x in taste_refs if x.strip()]
         scored: list[tuple[float, Place, tuple[str, ...]]] = []
+        matched_refs: set[str] = set()
         for place in places:
             score = 0.0
             evidence: list[str] = []
@@ -49,12 +67,22 @@ class FixtureTasteProvider:
                 if matched:
                     score += sum(float(weights[tag]) for tag in matched)
                     evidence.append(ref)
+                    matched_refs.add(ref)
             if not refs:
                 score = 0.0
             scored.append((score, place, tuple(dict.fromkeys(evidence))))
         scored.sort(key=lambda item: (-item[0], item[1].name.casefold()))
         if not scored:
-            return []
+            return TasteResults(
+                trace={
+                    "status": "fixture_preview",
+                    "input_references": refs,
+                    "fixture_matches": sorted(matched_refs),
+                    "failed_place_anchor": failed_place or None,
+                    "anchor_used": False,
+                    "discovery_used": False,
+                }
+            )
         max_score = max((x[0] for x in scored), default=0.0)
         results: list[TasteResult] = []
         for index, (score, place, evidence) in enumerate(scored, start=1):
@@ -68,7 +96,17 @@ class FixtureTasteProvider:
                     source="fixture",
                 )
             )
-        return results
+        return TasteResults(
+            results,
+            trace={
+                "status": "fixture_preview",
+                "input_references": refs,
+                "fixture_matches": sorted(matched_refs),
+                "failed_place_anchor": failed_place or None,
+                "anchor_used": False,
+                "discovery_used": False,
+            },
+        )
 
 
 class NoTasteProvider:
@@ -76,8 +114,27 @@ class NoTasteProvider:
 
     mode = "baseline"
 
-    def rank(self, places: list[Place], taste_refs: Iterable[str]) -> list[TasteResult]:
-        return [TasteResult(place.id, None, None, (), "baseline") for place in places]
+    def rank(self, places: list[Place], taste_refs: Iterable[str]) -> TasteResults:
+        return self.rank_with_context(places, taste_refs, failed_place=None)
+
+    def rank_with_context(
+        self,
+        places: list[Place],
+        taste_refs: Iterable[str],
+        *,
+        failed_place: str | None,
+    ) -> TasteResults:
+        refs = [x.strip() for x in taste_refs if x.strip()]
+        return TasteResults(
+            [TasteResult(place.id, None, None, (), "baseline") for place in places],
+            trace={
+                "status": "baseline",
+                "input_references": refs,
+                "failed_place_anchor": failed_place or None,
+                "anchor_used": False,
+                "discovery_used": False,
+            },
+        )
 
 
 class QlooTransport:
@@ -259,20 +316,76 @@ class RealQlooProvider:
     def resolve_place(self, name: str) -> tuple[str, str]:
         return self._resolve(name, entity_type="urn:entity:place")
 
-    def rank(self, places: list[Place], taste_refs: Iterable[str]) -> list[TasteResult]:
+    def rank(self, places: list[Place], taste_refs: Iterable[str]) -> TasteResults:
+        return self.rank_with_context(places, taste_refs, failed_place=None)
+
+    def rank_with_context(
+        self,
+        places: list[Place],
+        taste_refs: Iterable[str],
+        *,
+        failed_place: str | None,
+    ) -> TasteResults:
         refs = [x.strip() for x in taste_refs if x.strip()]
-        if not refs:
-            return [TasteResult(p.id, None, None, (), "qloo") for p in places]
+        if not refs and not failed_place:
+            return TasteResults(
+                [TasteResult(p.id, None, None, (), "qloo") for p in places],
+                trace={
+                    "status": "live",
+                    "input_references": [],
+                    "recognized_signals": [],
+                    "failed_place_anchor": None,
+                    "anchor_used": False,
+                    "discovery_used": False,
+                },
+            )
+
         # The engine orders this pool using feasibility/fact quality/geography
         # before taste is considered. Qloo then ranks one shared shortlist, which
         # matches the official qloo_rank workflow and avoids spending quota on
         # every discovered Warsaw venue.
         qloo_places = places[:QLOO_MAX_RANK_OPTIONS]
-        interests = [self.resolve_interest(ref) for ref in refs]
+        interests: list[tuple[str, str]] = []
+        recognized_signals: list[dict[str, str]] = []
+        for ref in refs:
+            entity_id, resolved_name = self.resolve_interest(ref)
+            interests.append((entity_id, resolved_name))
+            recognized_signals.append(
+                {"input": ref, "entity_id": entity_id, "name": resolved_name, "kind": "taste_reference"}
+            )
+
+        anchor_used = False
+        anchor_error = None
+        if failed_place:
+            try:
+                entity_id, resolved_name = self.resolve_place(failed_place)
+                interests.append((entity_id, resolved_name))
+                recognized_signals.append(
+                    {"input": failed_place, "entity_id": entity_id, "name": resolved_name, "kind": "failed_place_anchor"}
+                )
+                anchor_used = True
+            except ValueError as exc:
+                # The failed venue remains excluded by the core engine even when
+                # Qloo cannot resolve it as an optional taste anchor.
+                anchor_error = str(exc)
+
         resolved_place_ids: dict[str, str] = {}
         for place in qloo_places:
             resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_place(place.name)[0]
         candidate_ids = list(resolved_place_ids.values())
+        if not interests:
+            return TasteResults(
+                [TasteResult(p.id, None, None, (), "qloo") for p in places],
+                trace={
+                    "status": "live",
+                    "input_references": refs,
+                    "recognized_signals": recognized_signals,
+                    "failed_place_anchor": failed_place or None,
+                    "anchor_used": anchor_used,
+                    "anchor_error": anchor_error,
+                    "discovery_used": False,
+                },
+            )
         params = {
             "filter.type": "urn:entity:place",
             "signal.interests.entities": ",".join(entity_id for entity_id, _name_value in interests),
@@ -293,11 +406,23 @@ class RealQlooProvider:
                     evidence=_explainability_evidence(row, interests),
                     source="qloo",
                 )
-        return [
-            (
-                by_entity.get(resolved_place_ids[p.id], TasteResult(p.id, None, None, (), "qloo"))
-                if p.id in resolved_place_ids
-                else TasteResult(p.id, None, None, (), "qloo")
-            )
-            for p in places
-        ]
+        return TasteResults(
+            [
+                (
+                    by_entity.get(resolved_place_ids[p.id], TasteResult(p.id, None, None, (), "qloo"))
+                    if p.id in resolved_place_ids
+                    else TasteResult(p.id, None, None, (), "qloo")
+                )
+                for p in places
+            ],
+            trace={
+                "status": "live",
+                "input_references": refs,
+                "recognized_signals": recognized_signals,
+                "failed_place_anchor": failed_place or None,
+                "anchor_used": anchor_used,
+                "anchor_error": anchor_error,
+                "candidate_entity_count": len(candidate_ids),
+                "discovery_used": False,
+            },
+        )
