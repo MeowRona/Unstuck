@@ -81,9 +81,9 @@ def desktop_flow():
         driver.find_element(By.ID, "undoReject").click()
         wait.until(lambda d: "Undo last skip" not in d.find_element(By.ID, "resultMeta").text)
 
-        lock = wait.until(EC.presence_of_element_located((By.ID, "lockCompromiseButton")))
-        if not lock.is_enabled():
-            raise AssertionError(f"demo did not expose a lockable compromise: {lock.text}")
+        lock = wait.until(EC.element_to_be_clickable((By.ID, "lockCompromiseButton")))
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", lock)
+        wait.until(lambda d: lock.is_displayed() and lock.is_enabled())
         lock.click()
         wait.until(EC.visibility_of_element_located((By.ID, "emptyState")))
         assert "No rescue fits" in driver.find_element(By.ID, "emptyState").text
