@@ -37,6 +37,9 @@ jobs:
       name: production
       url: https://unstuck-city-compass.onrender.com
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Trigger exact commit on Render
         env:
           DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
@@ -75,6 +78,8 @@ jobs:
           PY
 
       - name: Production smoke test
+        env:
+          UNSTUCK_PUBLIC_URL: https://unstuck-city-compass.onrender.com
         run: |
-          curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/api/health >/dev/null
           curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/ >/dev/null
+          python tools/production_smoke.py
