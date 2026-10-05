@@ -6,6 +6,7 @@ import mimetypes
 import os
 import threading
 import uuid
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -15,7 +16,7 @@ from urllib.request import Request, urlopen
 from unstuck.engine import UnstuckEngine
 from unstuck.geocoding import address_index, geocoder, street_index
 from unstuck.models import Place, SearchBrief, SearchState
-from unstuck.origins import public_origin_payload
+from unstuck.origins import public_origin_payload, resolve_origin
 from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTransport, RealQlooProvider
 from unstuck.routing import route_transit, route_walk
 
@@ -145,6 +146,85 @@ class AppState:
         if state is None:
             raise KeyError("Unknown session")
         return state
+
+
+def checked_round_trip(state: SearchState, engine: UnstuckEngine, place_id: str) -> dict:
+    current = engine.search(state)
+    card = next((row for row in current["cards"] if row["id"] == place_id), None)
+    if card is None:
+        raise ValueError("Route checking is available for a currently shown recommendation")
+
+    place = next((row for row in engine.places if row.id == place_id), None)
+    if place is None:
+        raise ValueError("Unknown place")
+
+    brief = state.brief
+    if brief.origin_lat is not None and brief.origin_lon is not None:
+        origin = (brief.origin_lat, brief.origin_lon)
+    else:
+        origin = resolve_origin(brief.origin)
+    destination = (place.lat, place.lon)
+    start_dt = datetime.fromisoformat(f"{brief.date}T{brief.start_time}")
+    stay_minutes = int(card["timing"]["stay_minutes"])
+
+    if brief.travel_mode == "walk":
+        outbound = route_walk(origin, destination)
+    else:
+        outbound = route_transit(
+            origin,
+            destination,
+            service_date=start_dt.date(),
+            departure_time=start_dt.strftime("%H:%M"),
+        )
+
+    outbound_minutes = int(outbound["duration_minutes"])
+    arrival_dt = start_dt + timedelta(minutes=outbound_minutes)
+    leave_dt = arrival_dt + timedelta(minutes=stay_minutes)
+
+    if brief.travel_mode == "walk":
+        inbound = route_walk(destination, origin)
+    else:
+        inbound = route_transit(
+            destination,
+            origin,
+            service_date=leave_dt.date(),
+            departure_time=leave_dt.strftime("%H:%M"),
+        )
+
+    return_minutes = int(inbound["duration_minutes"])
+    checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    source = outbound.get("source") if isinstance(outbound.get("source"), dict) else {}
+    inbound_source = inbound.get("source") if isinstance(inbound.get("source"), dict) else {}
+    outbound["checked_at"] = checked_at
+    inbound["checked_at"] = checked_at
+
+    state.set_route_override(
+        place_id,
+        {
+            "outbound_minutes": outbound_minutes,
+            "return_minutes": return_minutes,
+            "source": source.get("name") or ("scheduled public transport" if brief.travel_mode == "transit" else "street route"),
+            "source_url": source.get("url") or inbound_source.get("url"),
+            "checked_at": checked_at,
+            "realtime": bool(outbound.get("realtime", False) or inbound.get("realtime", False)),
+            "scheduled": bool(outbound.get("scheduled", False) or inbound.get("scheduled", False)),
+        },
+    )
+
+    recalculated = engine.search(state)
+    still_shown = any(row["id"] == place_id for row in recalculated["cards"])
+    return {
+        **recalculated,
+        "checked_place_id": place_id,
+        "route": outbound,
+        "return_route": inbound,
+        "route_removed": not still_shown,
+        "route_note": (
+            "Recommendation re-evaluated with checked outbound and return routes."
+            if still_shown
+            else "The checked route made this option worse than the current allowed conditions, so results were reranked."
+        ),
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -318,13 +398,28 @@ class Handler(BaseHTTPRequestHandler):
                 session_id, result = self.app_state.create(brief)
                 self._json(200, {"session_id": session_id, **result})
                 return
+            if path == "/api/route-check":
+                state = self.app_state.get(str(payload.get("session_id", "")))
+                place_id = str(payload.get("place_id", "")).strip()
+                if not place_id:
+                    raise ValueError("place_id is required")
+                checked = checked_round_trip(state, self.app_state.engine, place_id)
+                self._json(200, {"session_id": payload["session_id"], **checked})
+                return
             if path == "/api/reject":
                 state = self.app_state.get(str(payload.get("session_id", "")))
                 place_id = str(payload.get("place_id", "")).strip()
                 if not place_id:
                     raise ValueError("place_id is required")
-                state.reject(place_id)
+                state.reject(place_id, str(payload.get("reason", "skip")))
                 self._json(200, {"session_id": payload["session_id"], **self.app_state.engine.search(state)})
+                return
+            if path == "/api/undo-reject":
+                state = self.app_state.get(str(payload.get("session_id", "")))
+                place_id = str(payload.get("place_id", "")).strip() or None
+                restored = state.undo_reject(place_id)
+                result = self.app_state.engine.search(state)
+                self._json(200, {"session_id": payload["session_id"], "restored_rejection": restored, **result})
                 return
             if path == "/api/update":
                 state = self.app_state.get(str(payload.get("session_id", "")))

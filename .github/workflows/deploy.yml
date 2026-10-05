@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: unstuck-production
+  group: unstuck-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -26,17 +26,40 @@ jobs:
           python-version: '3.12'
       - name: Compile
         run: python -m compileall -q .
+      - name: Check browser JavaScript syntax
+        run: node --check static/app.js
       - name: Test
         run: python -m unittest discover -s tests -q
 
+      - name: Install browser-smoke dependency
+        if: github.event_name == 'pull_request'
+        run: python -m pip install --disable-pip-version-check -q selenium==4.36.0
+
+      - name: Desktop and narrow-mobile browser smoke
+        if: github.event_name == 'pull_request'
+        run: |
+          python app.py --host 127.0.0.1 --port 8817 --mode fixture --catalog real > /tmp/unstuck-browser-smoke.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8817/api/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          python tools/browser_smoke.py
+
   deploy:
-    if: github.event_name != 'pull_request'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
     environment:
       name: production
       url: https://unstuck-city-compass.onrender.com
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Trigger exact commit on Render
         env:
           DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
@@ -75,6 +98,8 @@ jobs:
           PY
 
       - name: Production smoke test
+        env:
+          UNSTUCK_PUBLIC_URL: https://unstuck-city-compass.onrender.com
         run: |
-          curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/api/health >/dev/null
           curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/ >/dev/null
+          python tools/production_smoke.py

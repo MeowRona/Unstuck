@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -55,6 +55,11 @@ class Evaluation:
     needs_checking: tuple[str, ...]
     changes: tuple[dict[str, Any], ...]
     preserved: tuple[str, ...]
+    return_travel_minutes: int | None = None
+    travel_source: str = "estimate"
+    travel_checked_at: str | None = None
+    travel_source_url: str | None = None
+    travel_realtime: bool = False
 
     @property
     def viable(self) -> bool:
@@ -63,6 +68,10 @@ class Evaluation:
     @property
     def confirmed(self) -> bool:
         return self.viable and not self.needs_checking
+
+    @property
+    def max_one_way_minutes(self) -> int:
+        return max(self.travel_minutes, self.return_travel_minutes or self.travel_minutes)
 
 
 def _minutes(text: str) -> int:
@@ -141,12 +150,28 @@ def evaluate_place(
     allowed_travel_minutes: int,
     stay_minutes: int,
     category_relaxed: bool,
+    route_override: dict[str, Any] | None = None,
 ) -> Evaluation:
     start, return_by = _local_datetimes(brief)
-    travel = estimate_travel_minutes(brief, place)
+    estimated_travel = estimate_travel_minutes(brief, place)
+    if route_override:
+        travel = max(1, int(route_override.get("outbound_minutes", estimated_travel)))
+        return_travel = max(1, int(route_override.get("return_minutes", travel)))
+        travel_source = str(route_override.get("source") or "checked route")
+        travel_checked_at = str(route_override.get("checked_at") or "") or None
+        travel_source_url = str(route_override.get("source_url") or "") or None
+        travel_realtime = bool(route_override.get("realtime", False))
+    else:
+        travel = estimated_travel
+        return_travel = estimated_travel
+        travel_source = "search estimate"
+        travel_checked_at = None
+        travel_source_url = None
+        travel_realtime = False
+
     arrival = start + timedelta(minutes=travel)
     departure = arrival + timedelta(minutes=stay_minutes)
-    return_time = departure + timedelta(minutes=travel)
+    return_time = departure + timedelta(minutes=return_travel)
     hard: list[str] = []
     needs: list[str] = []
     changes: list[dict[str, Any]] = []
@@ -165,20 +190,28 @@ def evaluate_place(
     else:
         preserved.append("Category")
 
-    if travel > allowed_travel_minutes:
-        hard.append(f"Estimated one-way travel is {travel} min, above the allowed {allowed_travel_minutes} min")
-    elif travel > brief.max_one_way_minutes:
+    max_route_minutes = max(travel, return_travel)
+    if max_route_minutes > allowed_travel_minutes:
+        hard.append(
+            f"One-way travel is {max_route_minutes} min at worst, above the allowed {allowed_travel_minutes} min"
+        )
+    elif max_route_minutes > brief.max_one_way_minutes:
         changes.append(
             {
                 "field": "one-way travel",
                 "from": f"≤ {brief.max_one_way_minutes} min",
-                "to": f"≈ {travel} min",
-                "delta": travel - brief.max_one_way_minutes,
+                "to": f"{max_route_minutes} min max",
+                "delta": max_route_minutes - brief.max_one_way_minutes,
                 "unit": "min",
+                "outbound_minutes": travel,
+                "return_minutes": return_travel,
+                "source": travel_source,
             }
         )
-    else:
+    elif route_override:
         preserved.append("Travel limit")
+    else:
+        needs.append("Detailed outbound and return routes have not been checked yet")
 
     if stay_minutes < brief.min_stay_minutes:
         changes.append(
@@ -194,11 +227,14 @@ def evaluate_place(
         preserved.append("Minimum stay")
 
     if return_time > return_by:
+        label = "Checked" if route_override else "Estimated"
         hard.append(
-            f"Estimated return would be {return_time.strftime('%H:%M')}, after the locked {return_by.strftime('%H:%M')}"
+            f"{label} return would be {return_time.strftime('%H:%M')}, after the locked {return_by.strftime('%H:%M')}"
         )
-    else:
+    elif route_override:
         preserved.append("Return time")
+    elif "Detailed outbound and return routes have not been checked yet" not in needs:
+        needs.append("Detailed return route has not been checked yet")
 
     cost_min = cost_max = None
     if place.price.minimum is not None and place.price.maximum is not None and place.price.unit == brief.currency:
@@ -208,9 +244,9 @@ def evaluate_place(
             hard.append(
                 f"Upper cost estimate is {cost_max:.0f} {brief.currency}, above the locked {brief.budget_total:.0f} {brief.currency} budget"
             )
-        else:
+        elif place.price.status in {"confirmed", "fixture"}:
             preserved.append("Budget")
-        if place.price.status not in {"confirmed", "fixture"}:
+        else:
             needs.append("Price range is not confirmed enough for a hard-budget guarantee")
     else:
         needs.append("Price is missing or uses a different currency; hard-budget fit is not confirmed")
@@ -226,9 +262,6 @@ def evaluate_place(
         else:
             preserved.append("Opening window")
 
-    if place.price.status not in {"confirmed", "fixture"} and "Budget" in preserved:
-        preserved.remove("Budget")
-
     return Evaluation(
         place=place,
         affinity=taste.affinity if taste else None,
@@ -236,6 +269,7 @@ def evaluate_place(
         taste_evidence=taste.evidence if taste else (),
         taste_source=taste.source if taste else "none",
         travel_minutes=travel,
+        return_travel_minutes=return_travel,
         stay_minutes=stay_minutes,
         arrival=arrival,
         departure=departure,
@@ -243,9 +277,13 @@ def evaluate_place(
         estimated_total_min=cost_min,
         estimated_total_max=cost_max,
         hard_failures=tuple(hard),
-        needs_checking=tuple(needs),
+        needs_checking=tuple(dict.fromkeys(needs)),
         changes=tuple(changes),
         preserved=tuple(dict.fromkeys(preserved)),
+        travel_source=travel_source,
+        travel_checked_at=travel_checked_at,
+        travel_source_url=travel_source_url,
+        travel_realtime=travel_realtime,
     )
 
 
@@ -294,6 +332,61 @@ def _sort_key(ev: Evaluation) -> tuple[Any, ...]:
     return (sum(vector), vector, unknown_penalty, affinity_sort, taste_rank, ev.place.name.casefold())
 
 
+def _constraint_checks(ev: Evaluation, brief: SearchBrief) -> list[dict[str, str]]:
+    changes = {str(change.get("field")): change for change in ev.changes}
+
+    def row(field: str, label: str, *, preserved: str | None = None, unknown_hint: str = "") -> dict[str, str]:
+        if field in changes:
+            change = changes[field]
+            if field == "one-way travel":
+                detail = (
+                    f"Uses {int(change.get('delta', 0))} extra min one-way "
+                    f"(out {change.get('outbound_minutes', ev.travel_minutes)} / back "
+                    f"{change.get('return_minutes', ev.return_travel_minutes or ev.travel_minutes)} min)."
+                )
+            elif field == "minimum stay":
+                detail = f"Stay is {int(change.get('delta', 0))} min shorter than requested."
+            elif field == "category":
+                detail = f"Category changes from {change.get('from', '')} to {change.get('to', '')}."
+            else:
+                detail = "Uses an allowed change."
+            return {"field": field, "label": label, "status": "changed", "detail": detail}
+        if preserved and preserved in ev.preserved:
+            return {"field": field, "label": label, "status": "kept", "detail": "Confirmed by the currently used data."}
+        return {"field": field, "label": label, "status": "unknown", "detail": unknown_hint or "Not enough verified data yet."}
+
+    checks = [
+        row("goal", "Required goal", preserved="Required goal"),
+        row("category", "Category", preserved="Category"),
+        row(
+            "budget",
+            f"Budget ≤ {brief.budget_total:g} {brief.currency}",
+            preserved="Budget",
+            unknown_hint="Price data is incomplete, so the budget cannot be guaranteed.",
+        ),
+        row(
+            "one-way travel",
+            f"One-way travel ≤ {brief.max_one_way_minutes} min",
+            preserved="Travel limit",
+            unknown_hint="Detailed outbound and return routes still need checking.",
+        ),
+        row("minimum stay", f"Stay ≥ {brief.min_stay_minutes} min", preserved="Minimum stay"),
+        row(
+            "return",
+            f"Back by {brief.return_by}",
+            preserved="Return time",
+            unknown_hint="A checked return route is required before this can be guaranteed.",
+        ),
+        row(
+            "hours",
+            "Open for the visit",
+            preserved="Opening window",
+            unknown_hint="Opening hours are not verified enough for this visit.",
+        ),
+    ]
+    return checks
+
+
 def _card(ev: Evaluation, brief: SearchBrief) -> dict[str, Any]:
     price_source = {
         "status": ev.place.price.status,
@@ -306,16 +399,18 @@ def _card(ev: Evaluation, brief: SearchBrief) -> dict[str, Any]:
         "checked_at": ev.place.hours_checked_at,
     }
     if ev.affinity is None:
-        fit = "No taste signal was available; feasibility drove this result."
+        fit = "Feasibility drove this result; no live taste signal affected the ranking."
     elif ev.taste_source == "fixture":
-        refs = ", ".join(ev.taste_evidence) if ev.taste_evidence else "the selected references"
-        fit = f"Fixture taste data ranks this option against {refs}. This is demo data, not a Qloo response."
+        refs = ", ".join(ev.taste_evidence) if ev.taste_evidence else "your references"
+        fit = f"Taste preview places this option near the top for {refs}. Live Qloo ranking is not connected yet."
     else:
         if ev.taste_evidence:
             refs = ", ".join(ev.taste_evidence)
-            fit = f"Qloo ranked this place within the same candidate pool; returned explainability referenced {refs}."
+            fit = f"Qloo ranked this place within the same feasible candidate pool; its explainability referenced {refs}."
         else:
-            fit = "Qloo ranked this place within the same candidate pool for the selected taste references; no per-result explainability was returned."
+            fit = "Qloo ranked this place within the same feasible candidate pool; no per-result explainability signal was returned."
+
+    route_checked = ev.travel_source != "search estimate"
     return {
         "id": ev.place.id,
         "name": ev.place.name,
@@ -328,6 +423,7 @@ def _card(ev: Evaluation, brief: SearchBrief) -> dict[str, Any]:
         "google_place_id": ev.place.google_place_id,
         "keep": list(ev.preserved),
         "change": list(ev.changes),
+        "constraint_checks": _constraint_checks(ev, brief),
         "why_this_fits": fit,
         "needs_checking": list(ev.needs_checking),
         "taste": {
@@ -338,11 +434,17 @@ def _card(ev: Evaluation, brief: SearchBrief) -> dict[str, Any]:
         },
         "timing": {
             "travel_one_way_minutes": ev.travel_minutes,
-            "travel_is_estimate": True,
+            "travel_return_minutes": ev.return_travel_minutes or ev.travel_minutes,
+            "travel_is_estimate": not route_checked,
+            "travel_source": ev.travel_source,
+            "travel_source_url": ev.travel_source_url,
+            "travel_checked_at": ev.travel_checked_at,
+            "travel_realtime": ev.travel_realtime,
             "arrival": ev.arrival.strftime("%H:%M"),
             "stay_minutes": ev.stay_minutes,
             "leave": ev.departure.strftime("%H:%M"),
             "estimated_return": ev.return_time.strftime("%H:%M"),
+            "return_is_checked": route_checked,
         },
         "cost": {
             "for_people": brief.people,
@@ -359,8 +461,10 @@ def _card(ev: Evaluation, brief: SearchBrief) -> dict[str, Any]:
         },
         "source_note": ev.place.source_note,
         "demo_fixture": ev.place.demo_fixture,
+        "fact_status": "confirmed" if ev.confirmed else "incomplete",
         "feasibility_status": "confirmed" if ev.confirmed else "requires_checking",
     }
+
 
 
 class UnstuckEngine:
@@ -427,7 +531,12 @@ class UnstuckEngine:
             rank_pool = ordered_prefiltered
             log.append(f"Taste-ranking pool contains {len(rank_pool)} candidates after hard prefiltering.")
 
-        taste_results = self.taste_provider.rank(rank_pool, brief.taste_refs)
+        rank_with_context = getattr(self.taste_provider, "rank_with_context", None)
+        if callable(rank_with_context):
+            taste_results = rank_with_context(rank_pool, brief.taste_refs, failed_place=brief.failed_place or None)
+        else:
+            taste_results = self.taste_provider.rank(rank_pool, brief.taste_refs)
+        taste_trace = dict(getattr(taste_results, "trace", {}) or {})
         taste_by_place = {row.place_id: row for row in taste_results}
         log.append(f"Taste provider '{self.taste_provider.mode}' ranked the current candidate pool.")
 
@@ -478,6 +587,7 @@ class UnstuckEngine:
                     allowed_travel_minutes=travel_limit,
                     stay_minutes=stay_minutes,
                     category_relaxed=category_relaxed,
+                    route_override=state.route_overrides.get(place.id),
                 )
                 for place in candidates
             ]
@@ -509,7 +619,7 @@ class UnstuckEngine:
             # preferring the same few fully-sourced seed venues every time.
             provisional_front.sort(
                 key=lambda ev: (
-                    ev.travel_minutes,
+                    ev.max_one_way_minutes,
                     -(ev.affinity if ev.affinity is not None else -1.0),
                     len(ev.needs_checking),
                     ev.place.name.casefold(),
@@ -532,7 +642,7 @@ class UnstuckEngine:
                     and best_affinity is not None
                     and exploratory.affinity >= best_affinity
                 )
-                improves_travel = exploratory.travel_minutes + 5 <= max(ev.travel_minutes for ev in selected)
+                improves_travel = exploratory.max_one_way_minutes + 5 <= max(ev.max_one_way_minutes for ev in selected)
                 if improves_taste or improves_travel:
                     selected = selected[:2] + [exploratory]
                     log.append(
@@ -561,15 +671,81 @@ class UnstuckEngine:
             for failure in ev.hard_failures:
                 blockers[failure] = blockers.get(failure, 0) + 1
 
+        comparison_pool = (viable + same_strategy_provisional) if viable else provisional
+        baseline_versions = [
+            replace(
+                ev,
+                affinity=None,
+                taste_rank=None,
+                taste_evidence=(),
+                taste_source="baseline",
+            )
+            for ev in comparison_pool
+        ]
+        baseline_front = pareto_front(baseline_versions)
+        baseline_front.sort(key=_sort_key)
+        baseline_order = [ev.place.name for ev in baseline_front[:3]]
+        ranked_order = [ev.place.name for ev in selected]
+        provider_mode = self.taste_provider.mode
+        if provider_mode == "live":
+            taste_status = "live"
+        elif provider_mode == "fixture":
+            taste_status = "fixture_preview"
+        else:
+            taste_status = "baseline"
+
+        strategy_labels = {
+            "strict": "No allowed compromise used",
+            "expand_travel": "Used the extra-travel allowance",
+            "shorter_stay": "Used the shorter-stay allowance",
+            "category_change": "Used the category-change allowance",
+        }
+        selected_confirmed = sum(1 for ev in selected if ev.confirmed)
+        selected_incomplete = len(selected) - selected_confirmed
+        all_selected_confirmed = bool(selected) and selected_incomplete == 0
+
         return {
             "round": state.round_no,
             "brief": brief.to_dict(),
             "rejected_ids": sorted(state.rejected_ids),
-            "provider_mode": self.taste_provider.mode,
+            "rejection_history": list(state.rejection_history),
+            "provider_mode": provider_mode,
             "strategy_used": strategy_used,
+            "strategy_label": strategy_labels.get(strategy_used, "Used an allowed change"),
             "cards": [_card(ev, brief) for ev in selected],
             "empty": not bool(selected),
-            "result_status": "confirmed" if viable else ("requires_checking" if selected else "no_result"),
+            "result_status": (
+                "confirmed"
+                if all_selected_confirmed
+                else ("mixed" if selected_confirmed else ("requires_checking" if selected else "no_result"))
+            ),
+            "decision_summary": {
+                "strategy": strategy_used,
+                "strategy_label": strategy_labels.get(strategy_used, "Used an allowed change"),
+                "selected_confirmed": selected_confirmed,
+                "selected_incomplete": selected_incomplete,
+                "route_checked_count": sum(1 for place_id in state.route_overrides if place_id not in state.rejected_ids),
+                "failed_place_excluded": brief.failed_place or None,
+            },
+            "taste_audit": {
+                "status": taste_status,
+                "input_references": list(brief.taste_refs),
+                "failed_place_anchor": brief.failed_place or None,
+                "recognized_signals": list(taste_trace.get("recognized_signals", [])),
+                "fixture_matches": list(taste_trace.get("fixture_matches", [])),
+                "anchor_used": bool(taste_trace.get("anchor_used", False)),
+                "anchor_error": taste_trace.get("anchor_error"),
+                "discovery_used": bool(taste_trace.get("discovery_used", False)),
+                "candidate_pool_size": len(comparison_pool),
+                "baseline_order": baseline_order,
+                "ranked_order": ranked_order if provider_mode == "live" else [],
+                "fixture_preview_order": ranked_order if provider_mode == "fixture" else [],
+                "changed_top_choice": (
+                    bool(baseline_order and ranked_order and baseline_order[0] != ranked_order[0])
+                    if provider_mode == "live"
+                    else None
+                ),
+            },
             "empty_explanation": [
                 {"reason": reason, "count": count}
                 for reason, count in sorted(blockers.items(), key=lambda x: (-x[1], x[0]))[:5]
@@ -580,6 +756,10 @@ class UnstuckEngine:
                 "candidate_count": len(candidates),
                 "rank_pool_count": len(rank_pool),
                 "catalog_size": len(self.places),
-                "travel_note": "Travel is a straight-line-derived city estimate, not a live route guarantee.",
+                "travel_note": (
+                    "Search starts with a conservative city estimate. Once a card is route-checked, "
+                    "its outbound and return durations replace that estimate and the result is re-evaluated."
+                ),
             },
         }
+

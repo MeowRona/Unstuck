@@ -271,12 +271,45 @@ class Place:
 class SearchState:
     brief: SearchBrief
     rejected_ids: set[str] = field(default_factory=set)
+    rejection_history: list[dict[str, str]] = field(default_factory=list)
+    route_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     round_no: int = 1
 
-    def reject(self, place_id: str) -> None:
-        self.rejected_ids.add(place_id)
+    def reject(self, place_id: str, reason: str = "skip") -> None:
+        clean_id = str(place_id).strip()
+        if not clean_id:
+            raise ValueError("place_id is required")
+        clean_reason = str(reason or "skip").strip().lower()
+        if clean_reason not in {"skip", "too_far", "not_my_vibe", "been_there"}:
+            raise ValueError("reason must be skip, too_far, not_my_vibe, or been_there")
+        if clean_id not in self.rejected_ids:
+            self.rejected_ids.add(clean_id)
+            self.rejection_history.append({"place_id": clean_id, "reason": clean_reason})
         self.round_no += 1
+
+    def undo_reject(self, place_id: str | None = None) -> dict[str, str] | None:
+        if not self.rejection_history:
+            return None
+        index = None
+        if place_id:
+            for candidate in range(len(self.rejection_history) - 1, -1, -1):
+                if self.rejection_history[candidate]["place_id"] == place_id:
+                    index = candidate
+                    break
+        else:
+            index = len(self.rejection_history) - 1
+        if index is None:
+            return None
+        restored = self.rejection_history.pop(index)
+        self.rejected_ids.discard(restored["place_id"])
+        self.round_no += 1
+        return restored
+
+    def set_route_override(self, place_id: str, payload: dict[str, Any]) -> None:
+        self.route_overrides[str(place_id)] = dict(payload)
 
     def update_brief(self, patch: dict[str, Any]) -> None:
         self.brief = self.brief.patched(patch)
+        # A changed brief can invalidate previously checked route times.
+        self.route_overrides.clear()
         self.round_no += 1

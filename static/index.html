@@ -99,8 +99,10 @@
             <button id="openFullEditor" class="secondary-button" type="button">Review conditions</button>
             <button id="runCurrentPlan" class="primary-button" type="button">Find the smallest rescue <span aria-hidden="true">→</span></button>
           </div>
-          <button id="loadJudgeDemo" class="text-button" type="button">Load the judge-friendly demo settings</button>
+          <button id="loadJudgeDemo" class="text-button" type="button">Try a rescue · 60 sec</button>
         </div>
+
+        <div id="demoScenarioNote" class="demo-scenario-note hidden"></div>
 
         <div id="searchingState" class="searching-state hidden">
           <div class="spinner" aria-hidden="true"></div>
@@ -113,6 +115,7 @@
           <div id="cards" class="recommendation-list"></div>
           <div id="emptyState" class="empty-state hidden"></div>
           <div id="routePanel" class="route-panel hidden"></div>
+          <details id="decisionEvidence" class="evidence-panel hidden"><summary>How this recommendation was made</summary><div id="decisionEvidenceBody"></div></details>
           <div id="resultActions" class="result-actions hidden">
             <button id="chooseButton" class="choose-button" type="button"></button>
             <button id="lockCompromiseButton" class="lock-button" type="button"></button>
@@ -134,7 +137,8 @@
 
   <div id="menuPopover" class="menu-popover hidden" role="menu">
     <button type="button" data-menu-action="edit">Edit full plan</button>
-    <button type="button" data-menu-action="demo">Load judge demo</button>
+    <button type="button" data-menu-action="demo">Try a rescue · 60 sec</button>
+    <button type="button" data-menu-action="about">About / how it works</button>
     <button type="button" data-menu-action="theme"><span id="menuThemeLabel">Dark mode</span></button>
     <button type="button" data-menu-action="reset">Start over</button>
   </div>
@@ -171,6 +175,22 @@
               <option value="transit">Public transit estimate</option>
               <option value="walk">Walk estimate</option>
             </select>
+          </label>
+        </div>
+        <div class="editor-grid two failed-place-grid">
+          <label>Venue that became unavailable <span class="field-hint">optional</span>
+            <input name="failed_place" placeholder="e.g. a restaurant you planned to visit">
+            <span class="field-hint">Excluded from results. When Qloo is live, Unstuck also tries to use this venue as a taste anchor.</span>
+          </label>
+          <label>What happened
+            <select name="failure_reason">
+              <option value="">Not specified</option>
+              <option value="unavailable">Unavailable / closed</option>
+              <option value="too_expensive">Too expensive</option>
+              <option value="too_far">Too far</option>
+              <option value="timing">Timing no longer works</option>
+            </select>
+            <span class="field-hint">This records the rescue context; it never relaxes a locked condition by itself.</span>
           </label>
         </div>
       </section>
@@ -257,12 +277,50 @@
   <section id="choiceModal" class="choice-modal hidden" role="dialog" aria-modal="true" aria-labelledby="choiceTitle">
     <button id="closeChoice" class="icon-button choice-close" type="button" aria-label="Close"><span class="icon-slot" data-icon="close"></span></button>
     <div class="choice-check" aria-hidden="true">✓</div>
-    <div class="choice-kicker">Plan selected</div>
+    <div id="choiceKicker" class="choice-kicker">Plan selected</div>
     <h2 id="choiceTitle"></h2>
     <p id="choiceWhy"></p>
     <div id="choiceSummary" class="choice-summary"></div>
+    <div class="choice-detail-grid">
+      <section><strong>Conditions</strong><div id="choiceConstraints"></div></section>
+      <section><strong>Evening timeline</strong><div id="choiceTimeline"></div></section>
+      <section><strong>Check before you go</strong><div id="choiceChecks"></div></section>
+    </div>
     <div class="choice-note">This selects the plan inside Unstuck. It does not make a reservation or confirm table availability.</div>
-    <button id="choiceDone" class="primary-button" type="button">Done</button>
+    <div class="choice-actions">
+      <a id="choiceRouteLink" class="secondary-button" href="#" target="_blank" rel="noreferrer">Open route</a>
+      <button id="copyPlan" class="secondary-button" type="button">Copy plan</button>
+      <button id="choiceDone" class="primary-button" type="button">Done</button>
+    </div>
+  </section>
+
+  <div id="rejectBackdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+  <section id="rejectModal" class="reject-modal hidden" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
+    <button id="closeReject" class="icon-button choice-close" type="button" aria-label="Close"><span class="icon-slot" data-icon="close"></span></button>
+    <div class="choice-kicker">Skip this option</div>
+    <h2 id="rejectTitle">Why not this place?</h2>
+    <p id="rejectExplain">The venue will be removed from this session. Your locked conditions will not change.</p>
+    <div class="reject-reasons">
+      <button type="button" data-reject-reason="too_far">Too far</button>
+      <button type="button" data-reject-reason="not_my_vibe">Not my vibe</button>
+      <button type="button" data-reject-reason="been_there">Been there</button>
+      <button type="button" data-reject-reason="skip">Just skip it</button>
+    </div>
+  </section>
+
+  <div id="aboutBackdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+  <section id="aboutModal" class="about-modal hidden" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <button id="closeAbout" class="icon-button choice-close" type="button" aria-label="Close"><span class="icon-slot" data-icon="close"></span></button>
+    <div class="choice-kicker">About Unstuck</div>
+    <h2 id="aboutTitle">How it works</h2>
+    <div class="about-copy">
+      <p>Unstuck keeps hard conditions first, then searches for the smallest allowed change. Unknown facts are never treated as confirmed passes.</p>
+      <p><strong>Place facts:</strong> local Warsaw catalog and OpenStreetMap-derived data. <strong>Routes:</strong> scheduled Warsaw transit or OpenStreetMap street routing; not realtime traffic or live vehicle positions.</p>
+      <p><strong>Taste:</strong> live Qloo ranking is not connected yet. The current taste preview uses clearly labelled fixtures and is not evidence of Qloo performance.</p>
+      <p><strong>Google Places:</strong> intentionally disabled until the agreed final testing window.</p>
+      <p><strong>Scope:</strong> Warsaw only beta. Some price/opening facts remain incomplete and are shown as needing verification.</p>
+      <p><a href="https://github.com/MeowRona/Unstuck" target="_blank" rel="noreferrer">View the public GitHub repository ↗</a></p>
+    </div>
   </section>
 
   <script src="/vendor/leaflet/leaflet.js"></script>

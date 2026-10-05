@@ -89,6 +89,10 @@ const themeToggle = $('#themeToggle');
 const menuThemeLabel = $('#menuThemeLabel');
 const choiceModal = $('#choiceModal');
 const choiceBackdrop = $('#choiceBackdrop');
+const rejectModal = $('#rejectModal');
+const rejectBackdrop = $('#rejectBackdrop');
+const aboutModal = $('#aboutModal');
+const aboutBackdrop = $('#aboutBackdrop');
 const originInput = $('#originInput');
 const originSuggestions = $('#originSuggestions');
 const originResolution = $('#originResolution');
@@ -105,6 +109,9 @@ let origins = [];
 let editorWheelsReady = false;
 let editorReturnFocus = null;
 let choiceReturnFocus = null;
+let rejectReturnFocus = null;
+let aboutReturnFocus = null;
+let pendingRejectPlaceId = null;
 
 let map = null;
 let tileLayer = null;
@@ -463,7 +470,11 @@ function formatMoney(card) {
 
 function changeBadge(card) {
   const changes = card.change || [];
-  if (!changes.length) return '<span class="change-badge none">No compromise</span>';
+  if (!changes.length) {
+    return card.feasibility_status === 'confirmed'
+      ? '<span class="change-badge none">No compromise</span>'
+      : '<span class="change-badge checking">No detected compromise · verify facts</span>';
+  }
   const labels = changes.map(change => {
     if (change.field === 'one-way travel') return `+${change.delta || 0} min travel`;
     if (change.field === 'minimum stay') return `−${change.delta || 0} min stay`;
@@ -481,26 +492,53 @@ function sourceLink(label, source) {
   return `<div><strong>${escapeHtml(label)}</strong>${escapeHtml(status)}${escapeHtml(checked)}${anchor}</div>`;
 }
 
+function travelSourceHtml(card) {
+  const timing = card.timing || {};
+  if (timing.travel_is_estimate) {
+    return '<div><strong>Travel</strong> · conservative search estimate; outbound and return routes are not checked yet.</div>';
+  }
+  const checked = timing.travel_checked_at ? ` · checked ${escapeHtml(timing.travel_checked_at)}` : '';
+  const source = timing.travel_source ? escapeHtml(timing.travel_source) : 'checked route';
+  const link = timing.travel_source_url ? ` · <a href="${escapeHtml(timing.travel_source_url)}" target="_blank" rel="noreferrer">source</a>` : '';
+  const freshness = timing.travel_realtime ? 'realtime' : (activeResult?.brief?.travel_mode === 'transit' ? 'scheduled, not realtime' : 'street route, not realtime');
+  return `<div><strong>Travel</strong> · ${source} · ${freshness}${checked}${link}</div>`;
+}
+
 function tasteTags(card) {
   const evidence = Array.isArray(card.taste?.evidence) ? card.taste.evidence.slice(0, 3) : [];
   const source = card.taste?.source;
   const tags = [];
-  if (source === 'fixture') tags.push('<span class="taste-tag">Fixture taste · Qloo not called</span>');
-  else if (source === 'qloo') tags.push('<span class="taste-tag">Qloo taste signal</span>');
+  if (source === 'fixture') tags.push('<span class="taste-tag">Taste preview · Qloo pending</span>');
+  else if (source === 'qloo') tags.push('<span class="taste-tag">Live Qloo signal</span>');
   else tags.push('<span class="taste-tag">Feasibility only</span>');
   evidence.forEach(item => tags.push(`<span class="taste-tag">${escapeHtml(item)}</span>`));
   if (card.needs_checking?.length) tags.push(`<span class="taste-tag needs-chip">${card.needs_checking.length} item${card.needs_checking.length === 1 ? '' : 's'} to check</span>`);
   return tags.join('');
 }
 
+function constraintStatusHtml(card) {
+  const checks = Array.isArray(card.constraint_checks) ? card.constraint_checks : [];
+  if (!checks.length) return '';
+  const labels = {kept: 'Kept', changed: 'Changed', unknown: 'Check'};
+  return `<div class="constraint-status-row" aria-label="Condition status">${checks.map(check =>
+    `<span class="constraint-chip ${escapeHtml(check.status)}" title="${escapeHtml(check.detail || '')}"><b>${labels[check.status] || 'Check'}</b> ${escapeHtml(check.label)}</span>`
+  ).join('')}</div>`;
+}
+
 function cardHtml(card, index, brief) {
   const letter = String.fromCharCode(65 + index);
-  const travelDelta = Math.max(0, Number(card.timing.travel_one_way_minutes) - Number(brief.max_one_way_minutes));
   const stayDelta = Math.max(0, Number(brief.min_stay_minutes) - Number(card.timing.stay_minutes));
-  const subline = `${titleCase(card.category)} · ${card.feasibility_status === 'confirmed' ? 'current facts checked' : 'needs fact check'} · ${card.address || 'Warsaw'}`;
+  const subline = `${titleCase(card.category)} · ${card.feasibility_status === 'confirmed' ? 'conditions confirmed with current data' : 'some facts need verification'} · ${card.address || 'Warsaw'}`;
   const needs = (card.needs_checking || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const mapsUrl = googleMapsUrl(card);
   const googlePlaceAttrs = card.google_place_id ? ` data-google-place-id="${escapeHtml(card.google_place_id)}"` : '';
+  const timing = card.timing || {};
+  const travelStrong = timing.travel_is_estimate
+    ? `${timing.travel_one_way_minutes} min`
+    : `${timing.travel_one_way_minutes} min out`;
+  const travelCaption = timing.travel_is_estimate
+    ? 'one-way · search estimate'
+    : `back ${timing.travel_return_minutes} min · ${brief.travel_mode === 'transit' ? 'scheduled route' : 'street route'}`;
   return `<article class="recommendation-card${index === selectedIndex ? ' selected' : ''}" data-card-index="${index}" tabindex="0" aria-label="Option ${letter}: ${escapeHtml(card.name)}">
     <div class="venue-thumb${card.google_place_id ? ' google-backed' : ''}" data-category="${escapeHtml(card.category)}"${googlePlaceAttrs} role="img" aria-label="Neutral image fallback; no verified photo for ${escapeHtml(card.name)}">
       <div class="card-letter"><span>${letter}</span></div>
@@ -512,9 +550,10 @@ function cardHtml(card, index, brief) {
         ${changeBadge(card)}
       </div>
       <div class="why-block"><strong>Why it fits</strong><p>${escapeHtml(card.why_this_fits)}</p></div>
+      ${constraintStatusHtml(card)}
       <div class="metrics-row">
-        <div class="metric">${iconSvg('coins')}<div class="metric-copy"><strong>${escapeHtml(formatMoney(card))}</strong><span>est. total · ${card.cost.for_people} people</span></div></div>
-        <div class="metric route-time-metric">${iconSvg('car')}<div class="metric-copy"><strong>${card.timing.travel_one_way_minutes} min${travelDelta ? `<span class="metric-delta">+${travelDelta}</span>` : ''}</strong><span>one-way · search estimate</span></div></div>
+        <div class="metric">${iconSvg('coins')}<div class="metric-copy"><strong>${escapeHtml(formatMoney(card))}</strong><span>${card.cost?.source?.status === 'confirmed' || card.cost?.source?.status === 'fixture' ? 'total estimate' : 'price not verified'} · ${card.cost.for_people} people</span></div></div>
+        <div class="metric route-time-metric">${iconSvg('car')}<div class="metric-copy"><strong>${escapeHtml(travelStrong)}</strong><span>${escapeHtml(travelCaption)}</span></div></div>
         <div class="metric">${iconSvg('hourglass')}<div class="metric-copy"><strong>${card.timing.stay_minutes} min${stayDelta ? `<span class="metric-delta">−${stayDelta}</span>` : ''}</strong><span>stay</span></div></div>
       </div>
       <div class="taste-row"><strong>Taste profile</strong>${tasteTags(card)}</div>
@@ -522,19 +561,20 @@ function cardHtml(card, index, brief) {
         <button type="button" class="sources-toggle" data-card-index="${index}">Sources & assumptions</button>
         ${card.google_place_id ? `<span>·</span><a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noreferrer">Google Maps</a>` : ''}
         <span>·</span>
-        <button type="button" class="reject-inline" data-place-id="${escapeHtml(card.id)}">Reject place</button>
+        <button type="button" class="reject-inline" data-place-id="${escapeHtml(card.id)}">Not for me</button>
       </div>
       <div class="card-source-panel hidden" data-source-panel="${index}">
         ${sourceLink('Price', card.cost?.source)}
         ${sourceLink('Hours', card.hours_source)}
         ${card.location_source?.url ? `<div><strong>Location</strong> · <a href="${escapeHtml(card.location_source.url)}" target="_blank" rel="noreferrer">source</a>${card.location_source.checked_at ? ` · checked ${escapeHtml(card.location_source.checked_at)}` : ''}</div>` : '<div><strong>Location</strong> · catalog coordinates</div>'}
-        ${card.google_place_id ? `<div><strong>Google Maps</strong> · rating/photo load live through Places API only when configured; no Google content is persisted. · <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noreferrer">open listing</a></div>` : ''}
-        <div><strong>Travel</strong> · straight-line-derived estimate; the map guide is not a routed journey.</div>
+        ${card.google_place_id ? `<div><strong>Google Maps</strong> · Places API is currently disabled; this link opens the listing without loading paid Places data. · <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noreferrer">open listing</a></div>` : ''}
+        ${travelSourceHtml(card)}
         ${needs ? `<div><strong>Needs checking</strong><ul>${needs}</ul></div>` : '<div><strong>Needs checking</strong> · nothing material flagged by the current data status.</div>'}
       </div>
     </div>
   </article>`;
 }
+
 
 function bindResultCardEvents() {
   $$('.recommendation-card').forEach(card => {
@@ -555,10 +595,10 @@ function bindResultCardEvents() {
     const panel = document.querySelector(`[data-source-panel="${button.dataset.cardIndex}"]`);
     panel?.classList.toggle('hidden');
   }));
-  $$('.reject-inline').forEach(button => button.addEventListener('click', async event => {
+  $$('.reject-inline').forEach(button => button.addEventListener('click', event => {
     event.stopPropagation();
     if (!sessionId) return;
-    await runLatest('/api/reject', {session_id: sessionId, place_id: button.dataset.placeId});
+    openReject(button.dataset.placeId);
   }));
 }
 
@@ -592,7 +632,9 @@ function updateResultActions() {
   const change = selectedCompromise();
   if (!change) {
     lockCompromiseButton.disabled = true;
-    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>All constraints kept</strong><small>No compromise to undo</small></span>`;
+    lockCompromiseButton.innerHTML = card.feasibility_status === 'confirmed'
+      ? `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>Checked conditions kept</strong><small>No compromise to undo</small></span>`
+      : `<span class="action-button-icon">${iconSvg('info')}</span><span class="action-button-copy"><strong>No compromise detected</strong><small>Some facts still need verification</small></span>`;
   } else if (change.field === 'one-way travel') {
     lockCompromiseButton.disabled = false;
     lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('car')}</span><span class="action-button-copy"><strong>Keep travel at ${activeResult.brief.max_one_way_minutes} min</strong><small>Re-run without extra travel</small></span>`;
@@ -604,7 +646,7 @@ function updateResultActions() {
     lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('tag')}</span><span class="action-button-copy"><strong>Keep original category</strong><small>Re-run without category change</small></span>`;
   } else {
     lockCompromiseButton.disabled = true;
-    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>All constraints kept</strong><small>No compromise to undo</small></span>`;
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('info')}</span><span class="action-button-copy"><strong>No editable compromise</strong><small>Review the condition status above</small></span>`;
   }
 }
 
@@ -636,18 +678,22 @@ function routeStepHtml(leg) {
   return `<div class="route-step transit"><div class="route-line-badge" style="--route-color:${color}">${escapeHtml(leg.route)}</div><div><strong>${escapeHtml(leg.departure)} → ${escapeHtml(leg.arrival)} · ${escapeHtml(leg.stop_count)} stop${Number(leg.stop_count) === 1 ? '' : 's'}</strong><span>${escapeHtml(leg.from)} → ${escapeHtml(leg.to)}${leg.headsign ? ` · toward ${escapeHtml(leg.headsign)}` : ''}</span>${stopNames.length > 2 ? `<details class="route-stop-details"><summary>Show stops</summary><div>${stopNames.map(name => `<span>${escapeHtml(name)}</span>`).join('')}</div></details>` : ''}</div></div>`;
 }
 
-function renderActualRoute(route) {
+function renderActualRoute(route, returnRoute = null) {
   clearActualRoute();
   guideLayer?.clearLayers();
   const card = activeResult?.cards?.[selectedIndex];
-  if (card) card._actualRoute = route;
+  if (card) {
+    card._actualRoute = route;
+    card._returnRoute = returnRoute;
+  }
   const points = [];
   if (route.mode === 'walk') {
     if (route.geometry?.length) {
       L.polyline(route.geometry, {color: '#275de8', weight: 5, opacity: .9, lineCap: 'round'}).addTo(actualRouteLayer);
       points.push(...route.geometry);
     }
-    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min walk · ${escapeHtml(route.distance_km)} km</strong><span>Shortest street route from Valhalla / OpenStreetMap</span></div><span class="route-source-badge">street route</span></div>`;
+    const back = returnRoute ? ` · back ${escapeHtml(returnRoute.duration_minutes)} min` : '';
+    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min walk out${back} · ${escapeHtml(route.distance_km)} km outbound</strong><span>Street routes from Valhalla / OpenStreetMap · checked for this plan · not realtime</span></div><span class="route-source-badge">street route</span></div>`;
   } else {
     const legs = route.legs || [];
     legs.forEach(leg => {
@@ -659,106 +705,160 @@ function renderActualRoute(route) {
       L.polyline(geometry, style).addTo(actualRouteLayer);
       points.push(...geometry);
     });
-    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min · ${escapeHtml(route.summary || 'Public transport')}</strong><span>Leave ${escapeHtml(route.departure)} · arrive ${escapeHtml(route.arrival)} · ${escapeHtml(route.transfers)} transfer${Number(route.transfers) === 1 ? '' : 's'} · scheduled, not realtime</span></div><span class="route-source-badge">schedule</span></div><div class="route-steps">${legs.map(routeStepHtml).join('')}</div><div class="route-attribution">Schedule: ZTM Warszawa · GTFS: Mikołaj Kuranowski · route shapes: © OpenStreetMap contributors</div>`;
+    const back = returnRoute
+      ? `<div class="route-return-summary"><strong>Return:</strong> leave ${escapeHtml(returnRoute.departure)} · arrive ${escapeHtml(returnRoute.arrival)} · ${escapeHtml(returnRoute.duration_minutes)} min · ${escapeHtml(returnRoute.summary || 'Public transport')}</div>`
+      : '';
+    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min outbound · ${escapeHtml(route.summary || 'Public transport')}</strong><span>Leave ${escapeHtml(route.departure)} · arrive ${escapeHtml(route.arrival)} · ${escapeHtml(route.transfers)} transfer${Number(route.transfers) === 1 ? '' : 's'} · scheduled, not realtime</span></div><span class="route-source-badge">schedule</span></div>${back}<div class="route-steps">${legs.map(routeStepHtml).join('')}</div><div class="route-attribution">Schedule: ZTM Warszawa · GTFS: Mikołaj Kuranowski · route shapes/walking legs: © OpenStreetMap contributors · checked for this plan</div>`;
   }
   routePanel.classList.remove('hidden');
-  const allowedTravel = Number(activeResult?.brief?.max_one_way_minutes || 0) + Number(activeResult?.brief?.negotiable_extra_travel_minutes || 0);
-  if (Number(route.duration_minutes) > allowedTravel) {
-    routePanel.classList.add('route-conflict');
-    routePanel.insertAdjacentHTML('afterbegin', `<div class="route-warning"><strong>Route check changed the answer.</strong><span>The detailed route is ${escapeHtml(route.duration_minutes)} min, above the currently allowed ${escapeHtml(allowedTravel)} min. Treat this option as provisional and adjust travel tolerance or choose another card.</span></div>`);
-  } else {
-    routePanel.classList.remove('route-conflict');
-  }
+  routePanel.classList.remove('route-conflict');
   if (points.length && map) {
     const midpoint = points[Math.floor(points.length / 2)];
     routeBadgeMarker = L.marker(midpoint, {
       interactive: false,
       icon: L.divIcon({
         className: 'route-time-marker',
-        html: `<div>${escapeHtml(route.duration_minutes)} min${route.mode === 'transit' && route.summary ? ` · ${escapeHtml(route.summary)}` : ''}</div>`,
-        iconSize: [150, 34],
-        iconAnchor: [75, 17],
+        html: `<div>${escapeHtml(route.duration_minutes)} min out${returnRoute ? ` · ${escapeHtml(returnRoute.duration_minutes)} back` : ''}</div>`,
+        iconSize: [170, 34],
+        iconAnchor: [85, 17],
       }),
     }).addTo(map);
   }
-  const metric = document.querySelector(`[data-card-index="${selectedIndex}"] .route-time-metric .metric-copy`);
-  if (metric) metric.innerHTML = `<strong>${escapeHtml(route.duration_minutes)} min</strong><span>${route.mode === 'transit' ? 'scheduled route' : 'street route'}</span>`;
   $('#mapGuideLabel').textContent = route.mode === 'transit'
-    ? 'Scheduled WTP route · walking legs use OSM streets'
-    : 'Shortest pedestrian route · OpenStreetMap streets';
+    ? 'Checked scheduled WTP route · not realtime'
+    : 'Checked pedestrian route · OpenStreetMap streets';
 }
 
 async function loadSelectedRoute() {
   const card = activeResult?.cards?.[selectedIndex];
-  if (!card || !validCardLocation(card)) {
+  if (!card || !validCardLocation(card) || !sessionId) {
     routePanel.classList.add('hidden');
     clearActualRoute();
     return;
   }
+  const placeId = card.id;
   const serial = ++routeRequestSerial;
   routePanel.classList.remove('hidden');
-  routePanel.innerHTML = `<div class="route-loading"><span class="mini-spinner"></span><span>Building ${activeResult.brief.travel_mode === 'walk' ? 'street' : 'scheduled public-transport'} route…</span></div>`;
-  const origin = briefOriginCoords(activeResult.brief);
+  routePanel.innerHTML = `<div class="route-loading"><span class="mini-spinner"></span><span>Checking outbound and return ${activeResult.brief.travel_mode === 'walk' ? 'street routes' : 'scheduled routes'}…</span></div>`;
   try {
-    const route = await fetchJson('/api/route', {
+    const payload = await fetchJson('/api/route-check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        origin_lat: origin[0],
-        origin_lon: origin[1],
-        destination_lat: Number(card.location.lat),
-        destination_lon: Number(card.location.lon),
-        mode: activeResult.brief.travel_mode,
-        date: activeResult.brief.date,
-        start_time: activeResult.brief.start_time,
-      }),
+      body: JSON.stringify({session_id: sessionId, place_id: placeId}),
     });
     if (serial !== routeRequestSerial) return;
-    renderActualRoute(route);
+    sessionId = payload.session_id;
+    const stillShown = payload.cards?.some(item => item.id === placeId);
+    renderResult(payload, {skipRouteLoad: true, preferredPlaceId: stillShown ? placeId : null});
+    if (stillShown) {
+      const checkedIndex = activeResult.cards.findIndex(item => item.id === placeId);
+      if (checkedIndex >= 0) {
+        selectedIndex = checkedIndex;
+        activeResult.cards[checkedIndex]._actualRoute = payload.route;
+        activeResult.cards[checkedIndex]._returnRoute = payload.return_route;
+        updateMarkerSelection();
+        updateResultActions();
+        renderActualRoute(payload.route, payload.return_route);
+      }
+    } else {
+      clearActualRoute();
+      routePanel.classList.remove('hidden');
+      routePanel.classList.add('route-conflict');
+      routePanel.innerHTML = `<div class="route-warning"><strong>Route check changed the result.</strong><span>${escapeHtml(payload.route_note || 'The checked trip no longer fits the current conditions, so Unstuck reranked the remaining options.')}</span></div>`;
+    }
   } catch (error) {
     if (serial !== routeRequestSerial) return;
     clearActualRoute();
     refreshGuideLine();
-    routePanel.innerHTML = `<div class="route-panel-head route-unavailable"><div><strong>Detailed route unavailable</strong><span>${escapeHtml(error.message)} · the card still shows the conservative search estimate.</span></div></div>`;
+    routePanel.innerHTML = `<div class="route-panel-head route-unavailable"><div><strong>Detailed route unavailable</strong><span>${escapeHtml(error.message)} · the card keeps its conservative search estimate and stays marked as needing route verification.</span></div></div>`;
   }
 }
+
 
 function renderFooter(result) {
   const mode = result.provider_mode;
   $('#footerSources').innerHTML = mode === 'live'
     ? '<strong>Sources:</strong> public listings · live Qloo taste signal'
     : mode === 'fixture'
-      ? '<strong>Sources:</strong> public listings · taste preview only (Qloo API not connected)'
+      ? '<strong>Sources:</strong> public listings · taste preview only (Qloo not connected)'
       : '<strong>Sources:</strong> public listings · no-taste baseline';
   $('#footerMethod').innerHTML = mode === 'live'
-    ? '<strong>Method:</strong> hard constraints first · smallest allowed changes · then live Qloo taste ranking'
-    : '<strong>Method:</strong> hard constraints first · smallest allowed changes · live Qloo taste ranking activates after API connection';
-  const needs = result.cards.reduce((sum, card) => sum + (card.needs_checking?.length || 0), 0);
+    ? '<strong>Method:</strong> hard conditions first · smallest allowed change · live Qloo ranking'
+    : '<strong>Method:</strong> hard conditions first · smallest allowed change · live Qloo ranking pending connection';
+  const needs = (result.cards || []).reduce((sum, card) => sum + (card.needs_checking?.length || 0), 0);
   $('#footerNeeds').textContent = needs ? `Needs checking: ${needs} flagged fact${needs === 1 ? '' : 's'}` : 'Needs checking: none flagged by current data';
 }
 
-function renderResult(result) {
+function renderDecisionEvidence(result) {
+  const panel = $('#decisionEvidence');
+  const body = $('#decisionEvidenceBody');
+  if (!panel || !body || !result || result.empty) {
+    panel?.classList.add('hidden');
+    return;
+  }
+  const audit = result.taste_audit || {};
+  const rejected = Array.isArray(result.rejection_history) ? result.rejection_history : [];
+  const refs = (audit.input_references || []).map(item => `<span class="evidence-pill">${escapeHtml(item)}</span>`).join('');
+  let qlooSection = '';
+  if (audit.status === 'live') {
+    const signals = (audit.recognized_signals || []).map(signal =>
+      `<li><strong>${escapeHtml(signal.input)}</strong> → ${escapeHtml(signal.name)} <code>${escapeHtml(signal.entity_id)}</code>${signal.kind === 'failed_place_anchor' ? ' · failed-venue anchor' : ''}</li>`
+    ).join('');
+    const baseline = (audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result';
+    const ranked = (audit.ranked_order || []).map(escapeHtml).join(' → ') || 'No Qloo-ranked result';
+    qlooSection = `<section><h4>What did Qloo change?</h4><p>Same feasible candidate pool; Qloo only changes ordering after condition checks.</p><ul>${signals || '<li>No recognized taste signals returned.</li>'}</ul><div><strong>Without taste:</strong> ${baseline}</div><div><strong>With Qloo:</strong> ${ranked}</div><div><strong>Top choice changed:</strong> ${audit.changed_top_choice ? 'yes' : 'no'}</div><div><strong>Qloo discovery:</strong> ${audit.discovery_used ? 'used separately' : 'not used; ranking only'}</div></section>`;
+  } else if (audit.status === 'fixture_preview') {
+    const preview = (audit.fixture_preview_order || []).map(escapeHtml).join(' → ') || 'No preview ranking';
+    qlooSection = `<section><h4>What did Qloo change?</h4><p><strong>Available after Qloo connection.</strong> Qloo was not called for this result. The current taste order is a fixture preview and is not evidence of Qloo performance.</p><div><strong>References:</strong> ${refs || 'none'}</div><div><strong>Fixture preview:</strong> ${preview}</div><div><strong>Without taste:</strong> ${(audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result'}</div></section>`;
+  } else {
+    qlooSection = '<section><h4>What did Qloo change?</h4><p>Taste ranking is disabled in this baseline. No Qloo result affected the recommendation.</p></section>';
+  }
+  const failed = result.brief?.failed_place
+    ? `<div><strong>Unavailable venue:</strong> ${escapeHtml(result.brief.failed_place)} · excluded from recommendations${audit.status === 'live' ? (audit.anchor_used ? ' · also used as a resolved Qloo taste anchor' : ' · Qloo anchor was not resolved') : ' · Qloo anchor available after connection'}</div>`
+    : '';
+  const rejectionRows = rejected.length
+    ? `<div><strong>Session skips:</strong> ${rejected.map(item => `${escapeHtml(item.reason.replaceAll('_',' '))}: ${escapeHtml(item.place_id)}`).join(' · ')}</div>`
+    : '';
+  body.innerHTML = `<section><h4>How this recommendation was made</h4><div><strong>Conditions:</strong> checked before taste ranking.</div><div><strong>Change used:</strong> ${escapeHtml(result.strategy_label || 'Smallest allowed change')}</div>${failed}${rejectionRows}<div><strong>Comparison pool:</strong> ${escapeHtml(audit.candidate_pool_size ?? '—')} options in the evidence comparison.</div></section>${qlooSection}`;
+  panel.classList.remove('hidden');
+}
+
+function renderResult(result, {skipRouteLoad = false, preferredPlaceId = null} = {}) {
   searchingState.classList.add('hidden');
   firstRun.classList.add('hidden');
   resultContent.classList.remove('hidden');
   activeResult = result;
   draftBrief = structuredClone(result.brief);
-  selectedIndex = 0;
+  const preferredIndex = preferredPlaceId ? (result.cards || []).findIndex(card => card.id === preferredPlaceId) : -1;
+  selectedIndex = preferredIndex >= 0 ? preferredIndex : 0;
   updateSummary(result.brief);
-  const confirmedCount = result.cards.filter(card => card.feasibility_status === 'confirmed').length;
-  const checkCount = result.cards.length - confirmedCount;
+
+  const confirmedCount = (result.cards || []).filter(card => card.feasibility_status === 'confirmed').length;
+  const checkCount = (result.cards || []).length - confirmedCount;
   const rejectedCount = Number(result.rejected_ids?.length || 0);
-  const depthCopy = rejectedCount > 0 ? ` · deeper alternatives after ${rejectedCount} rejection${rejectedCount === 1 ? '' : 's'} · taste fit may be looser` : '';
-  resultMeta.innerHTML = `<span>Round ${result.round} · ${escapeHtml(result.strategy_used)} search · ${escapeHtml(result.scope?.candidate_count || 0)} candidates left${depthCopy}</span><span>${confirmedCount ? `${confirmedCount} confirmed` : ''}${confirmedCount && checkCount ? ' · ' : ''}${checkCount ? `${checkCount} needs checking` : ''}</span>`;
+  const mainMessage = result.strategy_label || 'Smallest allowed change';
+  const statusMessage = confirmedCount && checkCount
+    ? `${confirmedCount} confirmed · ${checkCount} need checking`
+    : confirmedCount
+      ? `${confirmedCount} confirmed`
+      : checkCount
+        ? `${checkCount} need checking`
+        : '';
+  resultMeta.innerHTML = `<span><strong>Round ${result.round}</strong> · ${escapeHtml(mainMessage)}${rejectedCount ? ` · ${rejectedCount} skipped` : ''}</span><span>${escapeHtml(statusMessage)}${rejectedCount ? ' · <button id="undoReject" class="meta-action" type="button">Undo last skip</button>' : ''}</span>`;
+  $('#undoReject')?.addEventListener('click', async () => {
+    if (!sessionId) return;
+    await runLatest('/api/undo-reject', {session_id: sessionId});
+  });
 
   if (result.empty || !result.cards.length) {
     cardsEl.innerHTML = '';
     emptyState.classList.remove('hidden');
     resultActions.classList.add('hidden');
     routePanel.classList.add('hidden');
+    $('#decisionEvidence')?.classList.add('hidden');
     clearActualRoute();
     const reasons = (result.empty_explanation || []).map(item => `<li>${escapeHtml(item.reason)}${item.count ? ` (${item.count})` : ''}</li>`).join('');
-    emptyState.innerHTML = `<h3>No feasible rescue in the checked pool.</h3><p>Unstuck kept your locked conditions instead of silently breaking them.</p>${reasons ? `<ul>${reasons}</ul>` : ''}<button class="secondary-button" type="button" id="editEmpty">Edit allowed changes</button>`;
+    emptyState.innerHTML = `<h3>No rescue fits the current limits yet.</h3><p>Unstuck kept the locked conditions instead of silently breaking them.</p>${reasons ? `<ul>${reasons}</ul>` : ''}<button class="secondary-button" type="button" id="editEmpty">Edit allowed changes</button>`;
     $('#editEmpty')?.addEventListener('click', () => openEditor('travel'));
   } else {
     emptyState.classList.add('hidden');
@@ -766,11 +866,13 @@ function renderResult(result) {
     bindResultCardEvents();
     updateResultActions();
     hydrateGooglePlaceMedia(result.cards.slice(0, 3));
+    renderDecisionEvidence(result);
   }
   renderFooter(result);
   renderMap(result, true);
-  if (!result.empty && result.cards.length) loadSelectedRoute();
+  if (!skipRouteLoad && !result.empty && result.cards.length) loadSelectedRoute();
 }
+
 
 function nearestIndex(values, wanted) {
   const numeric = Number(wanted);
@@ -1102,7 +1204,7 @@ originInput.addEventListener('blur', () => {
 });
 
 function fillEditor(brief) {
-  const fields = ['goal','people','budget_total','date','origin','travel_mode'];
+  const fields = ['goal','people','budget_total','date','origin','travel_mode','failed_place','failure_reason'];
   fields.forEach(name => { if (editorForm.elements[name]) editorForm.elements[name].value = brief[name] ?? ''; });
   originInput.dataset.lat = brief.origin_lat ?? '';
   originInput.dataset.lon = brief.origin_lon ?? '';
@@ -1127,8 +1229,8 @@ function editorPayload() {
   const goal = String(fd.get('goal'));
   return {
     original_plan: goal === 'meal' ? 'Dinner' : goal === 'coffee' ? 'Coffee and talk' : goal === 'culture' ? 'Culture outing' : 'Outing',
-    failed_place: '',
-    failure_reason: '',
+    failed_place: String(fd.get('failed_place') || '').trim(),
+    failure_reason: String(fd.get('failure_reason') || '').trim(),
     goal,
     city: 'Warsaw',
     date: String(fd.get('date')),
@@ -1237,17 +1339,77 @@ $('#runCurrentPlan').addEventListener('click', async () => {
 $$('.summary-edit').forEach(button => button.addEventListener('click', () => openEditor(button.dataset.editTarget || 'plan')));
 themeToggle.addEventListener('click', toggleTheme);
 
+function conditionListHtml(card) {
+  const checks = Array.isArray(card.constraint_checks) ? card.constraint_checks : [];
+  const icon = {kept: '✓', changed: '↔', unknown: '?'};
+  return checks.map(check =>
+    `<div class="choice-condition ${escapeHtml(check.status)}"><b>${icon[check.status] || '?'}</b><span><strong>${escapeHtml(check.label)}</strong><small>${escapeHtml(check.detail || '')}</small></span></div>`
+  ).join('');
+}
+
+function planRouteUrl(card) {
+  const origin = briefOriginCoords(activeResult?.brief || {});
+  const destination = [Number(card.location?.lat), Number(card.location?.lon)];
+  if (!Number.isFinite(destination[0]) || !Number.isFinite(destination[1])) return '#';
+  const params = new URLSearchParams({
+    api: '1',
+    origin: `${origin[0]},${origin[1]}`,
+    destination: `${destination[0]},${destination[1]}`,
+    travelmode: activeResult?.brief?.travel_mode === 'walk' ? 'walking' : 'transit',
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function planCopyText(card) {
+  const timing = card.timing || {};
+  const changes = (card.change || []).map(change => {
+    if (change.field === 'one-way travel') return `+${change.delta || 0} min one-way travel`;
+    if (change.field === 'minimum stay') return `${change.delta || 0} min shorter stay`;
+    if (change.field === 'category') return `category: ${change.to}`;
+    return titleCase(change.field);
+  });
+  const checks = (card.needs_checking || []).map(item => `check: ${item}`);
+  const timeline = [
+    `leave ${activeResult.brief.start_time}`,
+    `arrive ${timing.arrival}`,
+    `stay ${timing.stay_minutes} min`,
+    `leave venue ${timing.leave}`,
+  ];
+  if (timing.return_is_checked) timeline.push(`back ${timing.estimated_return}`);
+  return [
+    `Unstuck plan: ${card.name}`,
+    card.address || '',
+    timeline.join(' · '),
+    changes.length ? `Compromise: ${changes.join(', ')}` : 'Compromise: none detected',
+    checks.length ? `Before we go: ${checks.join('; ')}` : 'Before we go: no material checks flagged',
+    'This is a plan, not a reservation.',
+  ].filter(Boolean).join('\n');
+}
+
 function openChoice() {
   const card = activeResult?.cards?.[selectedIndex];
   if (!card) return;
-  const actualRoute = card._actualRoute;
+  const timing = card.timing || {};
+  const checked = card.feasibility_status === 'confirmed';
   choiceReturnFocus = document.activeElement;
+  $('#choiceKicker').textContent = checked ? 'Plan ready' : 'Plan needs a quick check';
   $('#choiceTitle').textContent = card.name;
   $('#choiceWhy').textContent = card.why_this_fits;
   $('#choiceSummary').innerHTML = `
-    <div><strong>${escapeHtml(formatMoney(card))}</strong><span>estimated total</span></div>
-    <div><strong>${actualRoute?.duration_minutes ?? card.timing.travel_one_way_minutes} min</strong><span>${actualRoute ? 'routed outbound' : 'one-way estimate'}</span></div>
-    <div><strong>${actualRoute?.arrival ?? card.timing.arrival}</strong><span>arrive at venue</span></div>`;
+    <div><strong>${escapeHtml(formatMoney(card))}</strong><span>${card.cost?.source?.status === 'confirmed' || card.cost?.source?.status === 'fixture' ? 'estimated total' : 'price needs checking'}</span></div>
+    <div><strong>${escapeHtml(timing.travel_one_way_minutes)} min out</strong><span>${timing.return_is_checked ? `${escapeHtml(timing.travel_return_minutes)} min back · checked` : 'return route not checked'}</span></div>
+    <div><strong>${escapeHtml(timing.arrival)}</strong><span>arrive at venue</span></div>`;
+  $('#choiceConstraints').innerHTML = conditionListHtml(card);
+  $('#choiceTimeline').innerHTML = `
+    <div class="timeline-row"><b>${escapeHtml(activeResult.brief.start_time)}</b><span>Leave ${escapeHtml(activeResult.brief.origin)}</span></div>
+    <div class="timeline-row"><b>${escapeHtml(timing.arrival)}</b><span>Arrive at ${escapeHtml(card.name)}</span></div>
+    <div class="timeline-row"><b>${escapeHtml(timing.leave)}</b><span>Leave after ${escapeHtml(timing.stay_minutes)} min</span></div>
+    ${timing.return_is_checked ? `<div class="timeline-row"><b>${escapeHtml(timing.estimated_return)}</b><span>Back at start · checked return route</span></div>` : '<div class="timeline-row unknown"><b>?</b><span>Return time appears only after a checked return route.</span></div>'}`;
+  $('#choiceChecks').innerHTML = card.needs_checking?.length
+    ? `<ul>${card.needs_checking.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<p>No material checks are flagged by the currently used data.</p>';
+  $('#choiceRouteLink').href = planRouteUrl(card);
+  $('#copyPlan').dataset.planText = planCopyText(card);
   choiceBackdrop.classList.remove('hidden');
   choiceModal.classList.remove('hidden');
   choiceBackdrop.setAttribute('aria-hidden', 'false');
@@ -1261,10 +1423,93 @@ function closeChoice() {
   choiceReturnFocus?.focus?.();
 }
 
+async function copySelectedPlan() {
+  const text = $('#copyPlan').dataset.planText || '';
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    $('#copyPlan').textContent = 'Copied';
+    setTimeout(() => { $('#copyPlan').textContent = 'Copy plan'; }, 1200);
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+    $('#copyPlan').textContent = 'Copied';
+    setTimeout(() => { $('#copyPlan').textContent = 'Copy plan'; }, 1200);
+  }
+}
+
+function rejectReasonCopy(reason) {
+  const messages = {
+    too_far: 'This removes only this venue from the current session. Your travel limit stays exactly as you set it.',
+    not_my_vibe: 'This removes only this venue. It does not retrain a model or change distance limits; live Qloo taste is still pending connection.',
+    been_there: 'This removes only this venue so the next round can surface another option.',
+    skip: 'This removes only this venue from the current session. All conditions stay unchanged.',
+  };
+  return messages[reason] || messages.skip;
+}
+
+function openReject(placeId) {
+  const card = activeResult?.cards?.find(item => item.id === placeId);
+  if (!card) return;
+  pendingRejectPlaceId = placeId;
+  rejectReturnFocus = document.activeElement;
+  $('#rejectTitle').textContent = `Why not ${card.name}?`;
+  $('#rejectExplain').textContent = 'Choose a reason. It only removes this venue from this session; it does not silently change your locked conditions.';
+  rejectBackdrop.classList.remove('hidden');
+  rejectModal.classList.remove('hidden');
+  rejectBackdrop.setAttribute('aria-hidden', 'false');
+  $('[data-reject-reason="skip"]')?.focus();
+}
+
+function closeReject() {
+  rejectModal.classList.add('hidden');
+  rejectBackdrop.classList.add('hidden');
+  rejectBackdrop.setAttribute('aria-hidden', 'true');
+  pendingRejectPlaceId = null;
+  rejectReturnFocus?.focus?.();
+}
+
+async function submitReject(reason) {
+  if (!sessionId || !pendingRejectPlaceId) return;
+  const placeId = pendingRejectPlaceId;
+  $('#rejectExplain').textContent = rejectReasonCopy(reason);
+  closeReject();
+  await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
+}
+
+function openAbout() {
+  aboutReturnFocus = document.activeElement;
+  aboutBackdrop.classList.remove('hidden');
+  aboutModal.classList.remove('hidden');
+  aboutBackdrop.setAttribute('aria-hidden', 'false');
+  $('#closeAbout').focus();
+}
+
+function closeAbout() {
+  aboutModal.classList.add('hidden');
+  aboutBackdrop.classList.add('hidden');
+  aboutBackdrop.setAttribute('aria-hidden', 'true');
+  aboutReturnFocus?.focus?.();
+}
+
 chooseButton.addEventListener('click', openChoice);
 $('#closeChoice').addEventListener('click', closeChoice);
 $('#choiceDone').addEventListener('click', closeChoice);
+$('#copyPlan').addEventListener('click', copySelectedPlan);
 choiceBackdrop.addEventListener('click', closeChoice);
+$('#closeReject').addEventListener('click', closeReject);
+rejectBackdrop.addEventListener('click', closeReject);
+$$('[data-reject-reason]').forEach(button => button.addEventListener('click', () => submitReject(button.dataset.rejectReason)));
+$('#closeAbout').addEventListener('click', closeAbout);
+aboutBackdrop.addEventListener('click', closeAbout);
+
 
 lockCompromiseButton.addEventListener('click', async () => {
   if (!sessionId || lockCompromiseButton.disabled) return;
@@ -1306,24 +1551,41 @@ $$('[data-menu-action]').forEach(button => button.addEventListener('click', () =
   if (action === 'edit') openEditor('plan');
   if (action === 'demo') loadJudgeDemo();
   if (action === 'theme') toggleTheme();
+  if (action === 'about') openAbout();
   if (action === 'reset') resetSession();
 }));
 
 async function loadJudgeDemo() {
-  const demoTime = judgeDemoEvening();
+  if (!origins.length) {
+    const payload = await fetchJson('/api/origins');
+    origins = Array.isArray(payload.origins) ? payload.origins : [];
+  }
+  const demoOrigin = origins.find(row => row.id === 'warsaw:srodmiescie:warszawa-centralna');
+  if (!demoOrigin) throw new Error('The bundled Warsaw Central demo start is unavailable.');
   draftBrief = {
     ...makeDefaultBrief(),
-    date: demoTime.date,
-    start_time: demoTime.start_time,
-    return_by: demoTime.return_by,
+    original_plan: 'Dinner at HOŻA Steakhouse',
+    failed_place: 'HOŻA Steakhouse',
+    failure_reason: 'unavailable',
+    origin: demoOrigin.label,
+    origin_lat: Number(demoOrigin.lat),
+    origin_lon: Number(demoOrigin.lon),
+    date: '2026-10-09',
+    start_time: '18:30',
+    return_by: '20:45',
+    min_stay_minutes: 120,
     max_one_way_minutes: 25,
-    negotiable_extra_travel_minutes: 10,
-    negotiable_stay_reduction_minutes: 15,
+    negotiable_extra_travel_minutes: 0,
+    negotiable_stay_reduction_minutes: 30,
+    allow_category_change: false,
   };
-  await resolveBriefOrigin(draftBrief);
+  const note = $('#demoScenarioNote');
+  note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The engine must rescue the evening within the stated limits.';
+  note.classList.remove('hidden');
   updateSummary(draftBrief);
   await runLatest('/api/search', draftBrief);
 }
+
 
 $('#loadJudgeDemo').addEventListener('click', loadJudgeDemo);
 
@@ -1341,6 +1603,8 @@ function resetSession() {
   guideLayer?.clearLayers();
   clearActualRoute();
   routePanel.classList.add('hidden');
+  $('#decisionEvidence')?.classList.add('hidden');
+  $('#demoScenarioNote')?.classList.add('hidden');
   map?.setView([52.2297, 21.0122], 12, {animate: false});
   renderFooter({provider_mode: statusInfo?.provider_mode || 'fixture', cards: []});
 }
@@ -1359,7 +1623,9 @@ $('#showMap').addEventListener('click', () => {
 
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
-  if (!choiceModal.classList.contains('hidden')) closeChoice();
+  if (!rejectModal.classList.contains('hidden')) closeReject();
+  else if (!aboutModal.classList.contains('hidden')) closeAbout();
+  else if (!choiceModal.classList.contains('hidden')) closeChoice();
   else if (!editorModal.classList.contains('hidden')) closeEditor();
   else if (!menuPopover.classList.contains('hidden')) {
     menuPopover.classList.add('hidden');
@@ -1373,7 +1639,7 @@ async function loadStatus() {
     statusInfo = await fetchJson('/api/health');
     refreshStatusLabel();
     dataStatus.title = statusInfo.provider_mode === 'fixture'
-      ? 'Real place facts with deterministic fixture taste. Qloo has not been called.'
+      ? 'Taste preview only. Live Qloo is not connected yet.'
       : statusInfo.provider_mode === 'live' ? 'Live Qloo taste ranking is active.' : 'Taste ranking disabled for comparison.';
   } catch {
     dataStatus.textContent = 'Backend unavailable';
@@ -1387,7 +1653,7 @@ function refreshStatusLabel() {
   const compact = window.matchMedia('(max-width: 760px)').matches;
   if (statusInfo.provider_mode === 'live') dataStatus.textContent = compact ? 'Qloo live' : 'Live · Qloo';
   else if (statusInfo.provider_mode === 'baseline') dataStatus.textContent = compact ? 'Baseline' : 'Baseline · no taste';
-  else dataStatus.textContent = compact ? 'Demo' : 'Demo · fixture taste';
+  else dataStatus.textContent = compact ? 'Qloo pending' : 'Demo · Qloo pending';
 }
 
 async function loadOrigins() {

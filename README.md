@@ -32,9 +32,9 @@ The search policy is deterministic and stateful. It is an agentic tool policy, n
 
 The current interface is the **City Compass** layout: a light plan-summary shell with a real OpenStreetMap view on desktop, up to three vertically stacked recommendation cards, synchronized card/marker selection, explicit compromise badges, source/assumption disclosure, and a full plan editor with wheel pickers for time and minute-based constraints. On mobile the same flow switches to a **List / Map** toggle instead of squeezing both panes side by side. Venue photography is never invented: when a verified image is not available, the UI shows a neutral labeled fallback.
 
-The map starts with a conservative straight-line guide while results are being ranked, then the selected card is enriched with a **real route**: pedestrian street geometry from Valhalla/OpenStreetMap or scheduled Warsaw public-transport geometry from the bundled GTFS-derived index. The routed time is shown separately from the coarse search estimate so the app never pretends the heuristic is live routing. OpenStreetMap attribution remains visible in the map/footer. Leaflet 1.9.4 is vendored under `static/vendor/leaflet/`; its license is included alongside the files. No JavaScript package manager or runtime dependency is required.
+The search starts with a conservative city travel estimate, then the selected card is checked with a **real outbound and return route**: pedestrian street geometry from Valhalla/OpenStreetMap or scheduled Warsaw public-transport geometry from the bundled GTFS-derived index. The checked route is written back into the session and the engine re-evaluates travel allowance, return-by time, compromises and ranking. A card can therefore move, gain an extra-travel compromise, or disappear after the route check. Transit is scheduled, not realtime, and the interface shows the route source/check timestamp instead of continuing to describe a checked route as a straight-line estimate. OpenStreetMap attribution remains visible in the map/footer. Leaflet 1.9.4 is vendored under `static/vendor/leaflet/`; its license is included alongside the files. No JavaScript package manager or runtime dependency is required.
 
-The default brief uses the **browser's local date and local clock**. Start time is rounded up to the next 5-minute step, and the initial return-by time is three hours later. The judge-demo preset uses the nearest sensible 18:30–22:00 evening (today if there is still enough lead time, otherwise tomorrow), so the judging-period walkthrough never opens on a stale past date.
+The default brief uses the **browser's local date and local clock**. Start time is rounded up to the next 5-minute step, and the initial return-by time is three hours later. The **Try a rescue · 60 sec** walkthrough is intentionally a fixed reproducible scenario dated **2026-10-09** against the bundled Warsaw data snapshot. It assumes HOŻA Steakhouse is unavailable **for the scenario only**; that is not a claim that the venue is actually closed. The scenario is constructed so the original 120-minute stay does not fit the locked evening window, while an explicitly allowed 30-minute stay reduction can rescue it. The engine still chooses the venue; no winning result card is hard-coded.
 
 Start location supports saved Warsaw landmarks, local street autocomplete + exact-address resolution, and **Current location** through the browser Geolocation API. The local data bundle contains **6,049 Warsaw street names and 125,217 exact OpenStreetMap addresses**, so ordinary exact-address resolution usually requires no network call. Nominatim is a rate-limited fallback only for missing addresses and is never used as per-keystroke autocomplete. Browser geolocation permission is required for Current Location; coordinates are used for the active plan/routing and are not written into the project dataset. Current-location searches are intentionally restricted to the Warsaw pilot bounds.
 
@@ -44,15 +44,15 @@ The interface also includes a persistent **light/dark theme toggle**. The prefer
 
 Restaurant cards can optionally enrich their existing thumbnail with a **live Google Places photo and Google Maps rating**. Only stable Google Place IDs are stored in the catalog. The actual rating, review count, photo URI and required author attribution are requested at runtime from Places API only when **both** `GOOGLE_PLACES_API_KEY` is present **and** `GOOGLE_PLACES_ENABLED=true`. Unstuck does not persist or rehost Google Maps content. The feature flag is intentionally `false` during development so free quota is preserved for the judging window; without it, the app keeps the neutral fallback and a direct Google Maps listing link.
 
-Each result card exposes:
+Each result card separates condition status into three states:
 
-- **Keep** — what still satisfies the brief;
-- **Change** — exact deltas such as extra one-way minutes or reduced stay;
-- **Why this fits** — the role of the current taste provider;
-- **Needs checking** — facts that are not strong enough to confirm a hard constraint;
-- source/status metadata for price and opening hours.
+- **Kept** — supported by the currently used data;
+- **Changed** — an explicit allowed compromise, with every actual delta shown;
+- **Check** — no violation is known, but the available fact/route is not strong enough to guarantee the condition.
 
-Unknown data never becomes a confirmed PASS.
+The final plan repeats those conditions, shows the evening timeline, lists facts to verify, opens the route, and can copy a short plan to the clipboard. It never sends a message or makes a reservation.
+
+Unknown data never becomes a confirmed PASS. A result with unknown price/hours or an unchecked route can remain useful, but it stays visibly incomplete.
 
 ## Data modes
 
@@ -65,17 +65,20 @@ The same business logic is used in all modes.
 | `live` + `real` catalog | same real Warsaw catalog | live Qloo | final integration / judging |
 | `fixture` + `fixture` catalog | synthetic places | deterministic fixtures | fully deterministic engine tests |
 
-Fixture taste data is always labeled as fixture data and is never presented as a Qloo response.
+Fixture taste data is always labeled as a **taste preview / Qloo pending** state and is never presented as a Qloo response. The result payload also includes a `taste_audit` evidence contract for the jury-facing explanation. In live mode it records the actually resolved Qloo signals and compares the Qloo ordering with a no-taste ordering of the **same candidate pool**; in fixture mode it explicitly marks that comparison as unavailable as Qloo evidence.
 
 ## Qloo's role
 
 The live adapter follows the current Qloo hackathon API pattern:
 
-1. resolve named interests and places through `GET /search`;
-2. evaluate the **same candidate place pool** through `GET /v2/insights`;
-3. pass the resolved taste references in `signal.interests.entities`;
-4. restrict the comparison with `filter.results.entities` and `filter.type=urn:entity:place`;
-5. sort by affinity and keep Qloo's result as a recommendation signal, not a probability of satisfaction.
+1. apply operational feasibility/geography prefiltering before Qloo;
+2. resolve named interests and candidate places through `GET /search`;
+3. optionally resolve the original unavailable venue as an additional taste anchor while still excluding it from recommendations;
+4. evaluate the **same candidate place pool** through one `GET /v2/insights` ranking call;
+5. pass the resolved taste references/anchor in `signal.interests.entities`;
+6. restrict the comparison with `filter.results.entities` and `filter.type=urn:entity:place`;
+7. preserve the no-taste order of that same pool so the UI can truthfully answer “What did Qloo change?”;
+8. treat affinity as a relative recommendation signal, not a probability of satisfaction.
 
 The server sends the key only in the `X-Api-Key` header. The browser never receives it. The transport has timeouts, bounded retry for 429/temporary server failures, a per-process network-call budget, and a small **process-memory-only** short-lived cache. Qloo output is not persisted to disk or bulk-downloaded.
 
@@ -98,7 +101,7 @@ Each material field carries a status and provenance where available:
 - `estimated` — usable only with a visible warning;
 - `unknown` — never sufficient to confirm a locked constraint.
 
-Saved-origin coordinates were geocoded from the listed addresses with OpenStreetMap Nominatim on 2026-10-04. Search feasibility still starts from a conservative city estimate, but the selected option is validated visually with a routed walking path or scheduled transit itinerary. Transit remains **scheduled, not realtime**, and provisional OSM discovery restaurants are never promoted to confirmed hard-budget/hours fits without stronger facts.
+Saved-origin coordinates were geocoded from the listed addresses with OpenStreetMap Nominatim on 2026-10-04. Search feasibility still starts from a conservative city estimate. The selected option is then validated with **outbound and return** walking/scheduled-transit routes, and those checked durations are fed back into the engine before the plan is treated as route-confirmed. Transit remains **scheduled, not realtime**, and provisional OSM discovery restaurants are never promoted to confirmed hard-budget/hours fits without stronger facts.
 
 The compressed exact-address bundle is reproducible with `python tools/build_warsaw_address_index.py`. The builder can fetch Warsaw address objects from OpenStreetMap Overpass directly, or rebuild deterministically from a saved raw Overpass JSON via `--input`. The restaurant discovery layer is likewise reproducible with `python tools/build_warsaw_restaurants.py`; curated venue records take precedence over duplicate OSM features, and missing prices/hours remain explicitly unknown or estimated.
 
@@ -193,16 +196,19 @@ Do not use a rise in Qloo affinity as evidence of product quality. If a free LLM
 
 ## Reproducible demo
 
-The UI includes a **Load a judge-friendly demo** action so an evaluator who has never visited Warsaw can reproduce the intended flow immediately. One simple judging path:
+The UI includes **Try a rescue · 60 sec** for an evaluator who has never visited Warsaw and does not want to grant geolocation access or fill a long form.
 
-1. choose a dinner brief for two people in central Warsaw;
-2. lock the total budget and return time;
-3. allow a small amount of extra one-way travel and a small stay reduction;
-4. run the search and inspect `Keep`, `Change`, `Why this fits`, and sources;
-5. reject the top option;
-6. observe the next round: the rejected place stays excluded;
-7. lock one of the offered compromises or edit the budget;
-8. observe that the policy either changes strategy or honestly returns no feasible result.
+The fixed scenario is dated **2026-10-09** and explicitly labels itself as a scenario using the bundled Warsaw data. It assumes the originally planned HOŻA Steakhouse is unavailable for the walkthrough only. The brief keeps the dinner goal, budget, travel limit and return-by time, requests a 120-minute stay, and permits a maximum 30-minute stay reduction. The strict plan cannot fit the available time, so the engine must use the explicit shorter-stay allowance or return no rescue.
+
+The evaluator can then:
+
+1. inspect which conditions are confirmed, changed or still need checking;
+2. let the selected option run through outbound + return route validation;
+3. reject it as **Too far / Not my vibe / Been there / Just skip it** without changing global constraints;
+4. undo the rejection;
+5. lock the offered compromise and observe the engine recalculate;
+6. inspect **How this recommendation was made / What did Qloo change?**;
+7. choose a plan, review its timeline/checks, open the route and copy a short plan.
 
 The engine does not hard-code a winning venue for this demo.
 
@@ -216,7 +222,7 @@ Stable public demo: **https://unstuck-city-compass.onrender.com**. It runs on Re
 
 - Warsaw only by design: one deeply auditable pilot city rather than shallow multi-city coverage.
 - No reservations or live table availability.
-- Travel is an estimate, not a routing engine.
+- Initial search travel is an estimate; selected options are checked with street/scheduled-transit outbound and return routing. Transit is not realtime and there is no live traffic/vehicle-position guarantee.
 - Some restaurant/cafe prices or hours are deliberately unknown when a strong current source was not confirmed.
 - No user accounts, payments, social features, or full-trip planning.
 - Live Qloo quality is not considered validated until `live_smoke.py` passes against the real API and human comparison is run.
