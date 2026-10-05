@@ -55,6 +55,10 @@ class HttpFlowTests(unittest.TestCase):
             return json.loads(response.read().decode("utf-8"))
 
     def test_search_reject_update_end_to_end(self):
+        version = self.get_json("/api/version")
+        self.assertEqual(version["git_repo"], os.environ.get("RENDER_GIT_REPO_SLUG", "MeowRona/Unstuck"))
+        self.assertIn("git_commit", version)
+
         health = self.get_json("/api/health")
         self.assertTrue(health["ok"])
         self.assertEqual(health["catalog_mode"], "real")

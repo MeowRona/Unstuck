@@ -1,0 +1,80 @@
+﻿name: Test and deploy Unstuck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unstuck-production
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile
+        run: python -m compileall -q .
+      - name: Test
+        run: python -m unittest discover -s tests -q
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://unstuck-city-compass.onrender.com
+    steps:
+      - name: Trigger exact commit on Render
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          test -n "$DEPLOY_HOOK"
+          case "$DEPLOY_HOOK" in
+            *\?*) url="${DEPLOY_HOOK}&ref=${COMMIT_SHA}" ;;
+            *)   url="${DEPLOY_HOOK}?ref=${COMMIT_SHA}" ;;
+          esac
+          curl --fail --silent --show-error --max-time 30 -X POST "$url" >/dev/null
+
+      - name: Wait for the exact commit to become live
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          expected = os.environ['COMMIT_SHA']
+          url = 'https://unstuck-city-compass.onrender.com/api/version'
+          deadline = time.time() + 600
+          last = None
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      payload = json.load(response)
+                  last = payload.get('git_commit')
+                  if last == expected:
+                      print(f'Live commit verified: {last}')
+                      break
+              except Exception as exc:
+                  print(f'Waiting for Render: {exc}')
+              time.sleep(10)
+          else:
+              raise SystemExit(f'Timed out waiting for {expected}; last live commit was {last}')
+          PY
+
+      - name: Production smoke test
+        run: |
+          curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/api/health >/dev/null
+          curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/ >/dev/null

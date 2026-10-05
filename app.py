@@ -176,6 +176,17 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        if path == "/api/version":
+            self._json(
+                200,
+                {
+                    "git_commit": os.environ.get("RENDER_GIT_COMMIT", "local"),
+                    "git_branch": os.environ.get("RENDER_GIT_BRANCH", "local"),
+                    "git_repo": os.environ.get("RENDER_GIT_REPO_SLUG", "MeowRona/Unstuck"),
+                    "render_service_id": os.environ.get("RENDER_SERVICE_ID", "local"),
+                },
+            )
+            return
         if path == "/api/health":
             origins = public_origin_payload()
             self._json(
