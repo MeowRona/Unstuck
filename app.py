@@ -269,6 +269,18 @@ class Handler(BaseHTTPRequestHandler):
                 address = str(payload.get("address", "")).strip()
                 self._json(200, geocoder.geocode(address))
                 return
+            if path == "/api/reverse-geocode":
+                try:
+                    lat = float(payload["lat"])
+                    lon = float(payload["lon"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise ValueError("Reverse geocode requires numeric lat/lon") from exc
+                result = address_index.nearest(lat, lon)
+                self._json(
+                    200,
+                    {"available": bool(result), **(result or {"reason": "NO_NEARBY_MAPPED_ADDRESS"})},
+                )
+                return
             if path == "/api/route":
                 try:
                     start = (float(payload["origin_lat"]), float(payload["origin_lon"]))
