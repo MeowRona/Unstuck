@@ -47,6 +47,13 @@ class UiContractTests(unittest.TestCase):
         self.assertNotIn("candidates left", self.js)
         self.assertNotIn("\${escapeHtml(result.strategy_used)} search", self.js)
 
+    def test_new_surfaces_have_narrow_screen_rules(self):
+        css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("@media (max-width: 760px)", css)
+        self.assertIn(".choice-detail-grid { grid-template-columns: 1fr; }", css)
+        self.assertIn("#decisionEvidenceBody { grid-template-columns: 1fr; }", css)
+        self.assertIn(".reject-reasons { grid-template-columns: 1fr; }", css)
+
 
 if __name__ == "__main__":
     unittest.main()
