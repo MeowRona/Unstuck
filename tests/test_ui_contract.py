@@ -45,7 +45,7 @@ class UiContractTests(unittest.TestCase):
 
     def test_main_result_meta_avoids_internal_strategy_names(self):
         self.assertNotIn("candidates left", self.js)
-        self.assertNotIn("\${escapeHtml(result.strategy_used)} search", self.js)
+        self.assertNotIn("${escapeHtml(result.strategy_used)} search", self.js)
 
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
