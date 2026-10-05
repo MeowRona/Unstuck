@@ -1,4 +1,4 @@
-# Unstuck — current status
+﻿# Unstuck — current status
 
 Canonical repository: https://github.com/MeowRona/Unstuck
 
@@ -41,7 +41,7 @@ Last updated: 2026-10-04
 | Browser UI load | PASS | local page loaded successfully; City Compass rendered at 1600x1000 and 1280x800; true 390x844 emulation has no document overflow; editor wheel Save/Cancel/Escape flow verified |
 | Live Qloo | BLOCKED_NO_API_KEY | `python live_smoke.py` exits blocked when `QLOO_API_KEY` is absent |
 | Human blind comparison | NOT RUN | protocol documented in README; no fabricated result |
-| Public deployment | PASS | https://unstuck-g5pc.onrender.com — Render free web service; root and `/api/health` returned 200 and public `search -> reject x3` returned a fresh second result set |
+| Public deployment | PASS | https://unstuck-city-compass.onrender.com — Render free web service; root and `/api/health` returned 200 and public `search -> reject x3` returned a fresh second result set |
 | Public open-source repository | PASS | https://github.com/MeowRona/Unstuck |
 | Devpost submission | NOT DONE | submission is a later action after live validation/deployment |
 
@@ -51,8 +51,7 @@ Last updated: 2026-10-04
 2. Inspect raw live Qloo results for entity resolution and same-pool ranking; fix any contract mismatch instead of adapting fixtures to hide it.
 3. Run the documented live-Qloo vs no-taste comparison with real testers; record real results only.
 4. Re-test the stable Render deployment after switching from fixture taste to live Qloo near submission.
-5. Publish the repository with this license and README.
-6. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
+5. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
 
 Until item 1 passes, the project is a working local MVP with a prepared Qloo integration, **not** a competition-ready live Qloo submission.
 

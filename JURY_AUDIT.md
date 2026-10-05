@@ -1,4 +1,4 @@
-# Jury verification audit
+﻿# Jury verification audit
 
 This file maps the current polish work to the Qloo Agentic Hackathon judging criteria and gives a concrete way to verify each claim in the public demo.
 
@@ -22,7 +22,7 @@ Sources:
 | Taste references can be cross-domain | Critical for **Qloo / Quality of Idea** | Enter film/music/creator references and compare ranking once live Qloo is enabled | UI/adapter ready; live Qloo key still pending |
 | Google Maps photo/rating | Medium for **Design** | Near submission, enable Places and inspect restaurant thumbnail + rating | Integration ready but deliberately disabled to preserve free quota for judging |
 | Dark mode | Low/medium for **Design polish** | Toggle moon/sun in header or menu and reload | Implemented; persisted in localStorage |
-| Stable external hosting | **Submission-critical** | Open https://unstuck-g5pc.onrender.com from a clean browser/network | PASS — Render deployment is independent of the development PC; root/health and public search→reject flow were tested |
+| Stable external hosting | **Submission-critical** | Open https://unstuck-city-compass.onrender.com from a clean browser/network | PASS — Render deployment is independent of the development PC; root/health and public search→reject flow were tested |
 | Live Qloo | **Stage-one critical** | Run the public demo after Qloo live mode is enabled; repository includes live adapter and smoke command | BLOCKED_NO_API_KEY until key arrives |
 
 ## Warsaw-only decision
@@ -34,4 +34,4 @@ Do **not** add a shallow second city just for optics. The rules do not require m
 - Transit is scheduled GTFS, not realtime vehicle prediction.
 - OSM-imported restaurants with missing price/hours are visibly provisional and never silently treated as hard-budget confirmed.
 - Google Maps photos/ratings are not scraped or persisted.
-- The stable judging host is `https://unstuck-g5pc.onrender.com`. The old Quick Tunnel is development-only and is not required for the hosted demo.
+- The stable judging host is `https://unstuck-city-compass.onrender.com`. The old Quick Tunnel is development-only and is not required for the hosted demo.

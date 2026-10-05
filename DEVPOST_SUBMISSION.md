@@ -1,6 +1,6 @@
-# Devpost submission draft — Unstuck
+﻿# Devpost submission draft — Unstuck
 
-> Status: ready as submission copy, but **do not final-submit until live Qloo smoke test and public deployment pass**.
+> Status: stable public deployment is live; **do not final-submit until the live Qloo smoke test and final live-mode validation pass**.
 
 ## Project name
 
@@ -211,7 +211,7 @@ No login is required. The Qloo API key is server-side.
 
 ### Demo URL
 
-**https://unstuck-g5pc.onrender.com**
+**https://unstuck-city-compass.onrender.com**
 
 Deployment smoke: root and `/api/health` returned HTTP 200, and a public `search -> reject all first 3 -> next alternatives` flow passed. The hosted build remains in fixture-taste mode until the live Qloo credential is intentionally enabled near submission.
 
@@ -222,7 +222,7 @@ Not required by the current Qloo hackathon submission baseline. If an optional s
 ## Public links
 
 - Repository: https://github.com/MeowRona/Unstuck
-- Demo: https://unstuck-g5pc.onrender.com
+- Demo: https://unstuck-city-compass.onrender.com
 
 ## Final release gate
 

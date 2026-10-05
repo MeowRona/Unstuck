@@ -1,4 +1,4 @@
-# Unstuck
+﻿# Unstuck
 
 **Find the smallest change that saves your plan.**
 
@@ -208,9 +208,9 @@ The engine does not hard-code a winning venue for this demo.
 
 ## Deployment path
 
-`render.yaml` is prepared for a zero-cost Render web service using the live Qloo mode. Before deploying it, set the `QLOO_API_KEY` secret in the service environment. Free hosting can cold-start and its limits can change, so verify the current free-plan behavior before submission and test the public URL from a clean browser session.
+`render.yaml` is prepared for the zero-cost Render web service in `fixture` taste mode with the real Warsaw catalog. This keeps the stable demo available before credentials arrive and avoids accidental Qloo or Google Places quota use. Near submission, switch the hosted service to live Qloo only after `python live_smoke.py` passes locally and the server-side `QLOO_API_KEY` is configured. Free hosting can cold-start, so verify the public URL from a clean browser session before final submission.
 
-Stable public demo: **https://unstuck-g5pc.onrender.com**. It runs on Render independently of the development PC. The current hosted build intentionally uses `fixture` taste mode with the real Warsaw catalog until live Qloo is enabled near submission. Devpost submission remains a separate final action.
+Stable public demo: **https://unstuck-city-compass.onrender.com**. It runs on Render independently of the development PC. The current hosted build intentionally uses `fixture` taste mode with the real Warsaw catalog until live Qloo is enabled near submission. Devpost submission remains a separate final action. The free Render instance can cold-start after inactivity, so the first request may take a few seconds; this does not depend on the development PC being online.
 
 ## Limitations
 
