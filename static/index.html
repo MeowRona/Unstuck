@@ -63,7 +63,7 @@
         </button>
         <button class="summary-chip taste-chip summary-edit" type="button" data-edit-target="taste">
           <span class="icon-slot" data-icon="tag"></span>
-          <span><span class="chip-label">Taste profile</span><strong id="summaryTaste">Amelie + Radiohead</strong></span>
+          <span><span class="chip-label">Taste profile · not live yet</span><strong id="summaryTaste">Amelie + Radiohead</strong></span>
           <span class="chip-state icon-slot" data-icon="edit"></span>
         </button>
       </div>
@@ -94,7 +94,7 @@
         <div id="firstRun" class="first-run-card">
           <div class="first-run-kicker">Warsaw only beta · constraints first</div>
           <h1>Keep what matters. Change as little as possible.</h1>
-          <p>Set the conditions that actually affect the answer: where you start, time, budget, travel, stay length and taste. Unstuck checks feasibility first, then uses taste to rank what survives.</p>
+          <p>Set the conditions that actually affect the answer: where you start, time, budget, travel and stay length. Taste profile is not live yet; Qloo will rank feasible options once its API is connected.</p>
           <div class="first-run-actions">
             <button id="openFullEditor" class="secondary-button" type="button">Review conditions</button>
             <button id="runCurrentPlan" class="primary-button" type="button">Find the smallest rescue <span aria-hidden="true">→</span></button>
@@ -105,7 +105,7 @@
         <div id="searchingState" class="searching-state hidden">
           <div class="spinner" aria-hidden="true"></div>
           <strong>Checking the plan against current facts…</strong>
-          <span>Locked conditions stay locked. Taste only ranks options that survive feasibility checks.</span>
+          <span>Locked conditions stay locked. Taste profile is not live yet; live Qloo ranking activates after the Qloo API is connected.</span>
         </div>
 
         <div id="resultContent" class="result-content hidden">
@@ -124,7 +124,7 @@
     <footer class="footer-meta">
       <div id="footerSources"><strong>Sources:</strong> public listings</div>
       <span class="footer-divider">|</span>
-      <div id="footerMethod"><strong>Method:</strong> hard constraints first, then taste ranking</div>
+      <div id="footerMethod"><strong>Method:</strong> hard constraints first · live Qloo taste ranking pending API connection</div>
       <span class="footer-divider">|</span>
       <div><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></div>
       <span class="footer-divider">|</span>
@@ -220,10 +220,10 @@
       </section>
 
       <section class="editor-section" data-section="taste">
-        <div class="editor-section-title"><span>03</span><div><strong>Taste profile</strong><small>Optional ranking signal after feasibility.</small></div></div>
+        <div class="editor-section-title"><span>03</span><div><strong>Taste profile</strong><small>Not live yet · activates when the Qloo API is connected.</small></div></div>
         <label>Taste references
           <input name="taste_refs" placeholder="e.g. Amelie, Radiohead, Wes Anderson">
-          <span class="taste-explainer">Your references don’t need to match the activity. They help describe your taste.</span>
+          <span class="taste-explainer">Your references don’t need to match the activity. They will become the live Qloo taste signal once the Qloo API is connected.</span>
         </label>
       </section>
 
