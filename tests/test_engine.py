@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from unstuck.engine import Evaluation, UnstuckEngine, estimate_travel_minutes, evaluate_place, pareto_front
+from unstuck.engine import Evaluation, UnstuckEngine, _constraint_checks, estimate_travel_minutes, evaluate_place, pareto_front
 from unstuck.models import Place, SearchBrief, SearchState
 from unstuck.origins import LEGACY_ORIGINS, public_origin_payload, resolve_origin
 from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTransport, RealQlooProvider, TasteResult
@@ -125,7 +125,11 @@ class ConstraintTests(unittest.TestCase):
         result = engine.search(SearchState(brief(budget_total=1, taste_refs=["Daft Punk"])))
         unknown_cards = [c for c in result["cards"] if c["id"] == "fixture:unknown-price"]
         if unknown_cards:
-            self.assertEqual(unknown_cards[0]["feasibility_status"], "requires_checking")
+            card = unknown_cards[0]
+            self.assertEqual(card["feasibility_status"], "requires_checking")
+            budget = next(row for row in card["constraint_checks"] if row["field"] == "budget")
+            self.assertEqual(budget["status"], "unknown")
+            self.assertNotIn("Budget", card["keep"])
         self.assertNotEqual(result["result_status"], "confirmed")
 
     def test_rejected_place_does_not_return(self):
@@ -198,6 +202,86 @@ class ConstraintTests(unittest.TestCase):
         result = engine.search(SearchState(brief(return_by="19:45", min_stay_minutes=60)))
         self.assertTrue(result["empty"])
 
+    def test_checked_route_can_expose_travel_and_stay_compromises_together(self):
+        place = load_fixture_engine().places[0]
+        ev = evaluate_place(
+            place,
+            brief(
+                budget_total=500,
+                max_one_way_minutes=25,
+                min_stay_minutes=75,
+                return_by="23:30",
+            ),
+            TasteResult(place.id, 0.8, 1, ("Amelie",), "fixture"),
+            allowed_travel_minutes=35,
+            stay_minutes=60,
+            category_relaxed=False,
+            route_override={
+                "outbound_minutes": 28,
+                "return_minutes": 30,
+                "source": "Warsaw GTFS schedule",
+                "checked_at": "2026-10-05T12:00:00+00:00",
+                "realtime": False,
+            },
+        )
+        fields = {change["field"] for change in ev.changes}
+        self.assertEqual(fields, {"one-way travel", "minimum stay"})
+        travel = next(change for change in ev.changes if change["field"] == "one-way travel")
+        self.assertEqual(travel["delta"], 5)
+        self.assertEqual(travel["outbound_minutes"], 28)
+        self.assertEqual(travel["return_minutes"], 30)
+
+    def test_checked_return_route_can_break_locked_return_time(self):
+        place = load_fixture_engine().places[0]
+        ev = evaluate_place(
+            place,
+            brief(
+                budget_total=500,
+                max_one_way_minutes=35,
+                min_stay_minutes=60,
+                start_time="18:30",
+                return_by="20:00",
+            ),
+            None,
+            allowed_travel_minutes=35,
+            stay_minutes=60,
+            category_relaxed=False,
+            route_override={
+                "outbound_minutes": 10,
+                "return_minutes": 25,
+                "source": "Warsaw GTFS schedule",
+                "checked_at": "2026-10-05T12:00:00+00:00",
+            },
+        )
+        self.assertFalse(ev.viable)
+        self.assertTrue(any("return" in reason.lower() for reason in ev.hard_failures))
+
+    def test_unchecked_routes_are_unknown_not_preserved(self):
+        place = load_fixture_engine().places[0]
+        ev = evaluate_place(
+            place,
+            brief(budget_total=500, max_one_way_minutes=30, return_by="23:30"),
+            None,
+            allowed_travel_minutes=30,
+            stay_minutes=75,
+            category_relaxed=False,
+        )
+        checks = {row["field"]: row for row in _constraint_checks(ev, brief(budget_total=500, max_one_way_minutes=30, return_by="23:30"))}
+        self.assertEqual(checks["one-way travel"]["status"], "unknown")
+        self.assertEqual(checks["return"]["status"], "unknown")
+        self.assertNotIn("Travel limit", ev.preserved)
+        self.assertNotIn("Return time", ev.preserved)
+
+    def test_rejection_reason_and_undo_are_session_state_only(self):
+        state = SearchState(brief())
+        state.reject("fixture:a", "too_far")
+        self.assertIn("fixture:a", state.rejected_ids)
+        self.assertEqual(state.rejection_history[-1]["reason"], "too_far")
+        restored = state.undo_reject()
+        self.assertEqual(restored["place_id"], "fixture:a")
+        self.assertNotIn("fixture:a", state.rejected_ids)
+        self.assertEqual(state.rejection_history, [])
+
     def test_explicit_extra_travel_changes_strategy(self):
         engine = load_fixture_engine()
         strict = engine.search(SearchState(brief(max_one_way_minutes=8, budget_total=100)))
@@ -264,6 +348,40 @@ class ConstraintTests(unittest.TestCase):
         self.assertFalse(any("hours" in item.lower() for item in ev.hard_failures))
 
 
+    def test_fixed_sixty_second_demo_requires_a_real_allowed_compromise(self):
+        rows = json.loads((ROOT / "data" / "places_warsaw.json").read_text(encoding="utf-8"))["places"]
+        engine = UnstuckEngine(
+            [Place.from_dict(row) for row in rows],
+            FixtureTasteProvider(ROOT / "data" / "taste_fixtures.json"),
+        )
+        result = engine.search(
+            SearchState(
+                brief(
+                    original_plan="Dinner at HOŻA Steakhouse",
+                    failed_place="HOŻA Steakhouse",
+                    failure_reason="unavailable",
+                    date="2026-10-09",
+                    start_time="18:30",
+                    return_by="20:25",
+                    min_stay_minutes=120,
+                    max_one_way_minutes=25,
+                    budget_total=200,
+                    negotiable_extra_travel_minutes=0,
+                    negotiable_stay_reduction_minutes=30,
+                )
+            )
+        )
+        self.assertTrue(result["cards"])
+        self.assertEqual(result["strategy_used"], "shorter_stay")
+        self.assertTrue(
+            all(any(change["field"] == "minimum stay" for change in card["change"]) for card in result["cards"])
+        )
+        self.assertNotIn("HOŻA Steakhouse", {card["name"] for card in result["cards"]})
+        self.assertEqual(result["taste_audit"]["status"], "fixture_preview")
+        self.assertEqual(result["taste_audit"]["ranked_order"], [])
+
+
+
 class MinimalityTests(unittest.TestCase):
     def _evaluation(self, changes):
         place = load_fixture_engine().places[0]
@@ -308,6 +426,17 @@ class MinimalityTests(unittest.TestCase):
 
 
 class QlooContractTests(unittest.TestCase):
+    def test_fixture_trace_never_claims_failed_place_anchor_was_qloo_resolved(self):
+        engine = load_fixture_engine()
+        ranked = engine.taste_provider.rank_with_context(
+            engine.places[:3],
+            ["Amelie"],
+            failed_place="Closed Place",
+        )
+        self.assertEqual(ranked.trace["status"], "fixture_preview")
+        self.assertFalse(ranked.trace["anchor_used"])
+        self.assertEqual(ranked.trace["failed_place_anchor"], "Closed Place")
+
     def test_no_taste_baseline_has_no_affinity_signal(self):
         engine = load_fixture_engine()
         ranked = NoTasteProvider().rank(engine.places[:2], ["Amelie"])
