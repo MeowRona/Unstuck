@@ -674,18 +674,22 @@ function routeStepHtml(leg) {
   return `<div class="route-step transit"><div class="route-line-badge" style="--route-color:${color}">${escapeHtml(leg.route)}</div><div><strong>${escapeHtml(leg.departure)} → ${escapeHtml(leg.arrival)} · ${escapeHtml(leg.stop_count)} stop${Number(leg.stop_count) === 1 ? '' : 's'}</strong><span>${escapeHtml(leg.from)} → ${escapeHtml(leg.to)}${leg.headsign ? ` · toward ${escapeHtml(leg.headsign)}` : ''}</span>${stopNames.length > 2 ? `<details class="route-stop-details"><summary>Show stops</summary><div>${stopNames.map(name => `<span>${escapeHtml(name)}</span>`).join('')}</div></details>` : ''}</div></div>`;
 }
 
-function renderActualRoute(route) {
+function renderActualRoute(route, returnRoute = null) {
   clearActualRoute();
   guideLayer?.clearLayers();
   const card = activeResult?.cards?.[selectedIndex];
-  if (card) card._actualRoute = route;
+  if (card) {
+    card._actualRoute = route;
+    card._returnRoute = returnRoute;
+  }
   const points = [];
   if (route.mode === 'walk') {
     if (route.geometry?.length) {
       L.polyline(route.geometry, {color: '#275de8', weight: 5, opacity: .9, lineCap: 'round'}).addTo(actualRouteLayer);
       points.push(...route.geometry);
     }
-    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min walk · ${escapeHtml(route.distance_km)} km</strong><span>Shortest street route from Valhalla / OpenStreetMap</span></div><span class="route-source-badge">street route</span></div>`;
+    const back = returnRoute ? ` · back ${escapeHtml(returnRoute.duration_minutes)} min` : '';
+    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min walk out${back} · ${escapeHtml(route.distance_km)} km outbound</strong><span>Street routes from Valhalla / OpenStreetMap · checked for this plan · not realtime</span></div><span class="route-source-badge">street route</span></div>`;
   } else {
     const legs = route.legs || [];
     legs.forEach(leg => {
@@ -697,106 +701,160 @@ function renderActualRoute(route) {
       L.polyline(geometry, style).addTo(actualRouteLayer);
       points.push(...geometry);
     });
-    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min · ${escapeHtml(route.summary || 'Public transport')}</strong><span>Leave ${escapeHtml(route.departure)} · arrive ${escapeHtml(route.arrival)} · ${escapeHtml(route.transfers)} transfer${Number(route.transfers) === 1 ? '' : 's'} · scheduled, not realtime</span></div><span class="route-source-badge">schedule</span></div><div class="route-steps">${legs.map(routeStepHtml).join('')}</div><div class="route-attribution">Schedule: ZTM Warszawa · GTFS: Mikołaj Kuranowski · route shapes: © OpenStreetMap contributors</div>`;
+    const back = returnRoute
+      ? `<div class="route-return-summary"><strong>Return:</strong> leave ${escapeHtml(returnRoute.departure)} · arrive ${escapeHtml(returnRoute.arrival)} · ${escapeHtml(returnRoute.duration_minutes)} min · ${escapeHtml(returnRoute.summary || 'Public transport')}</div>`
+      : '';
+    routePanel.innerHTML = `<div class="route-panel-head"><div><strong>${escapeHtml(route.duration_minutes)} min outbound · ${escapeHtml(route.summary || 'Public transport')}</strong><span>Leave ${escapeHtml(route.departure)} · arrive ${escapeHtml(route.arrival)} · ${escapeHtml(route.transfers)} transfer${Number(route.transfers) === 1 ? '' : 's'} · scheduled, not realtime</span></div><span class="route-source-badge">schedule</span></div>${back}<div class="route-steps">${legs.map(routeStepHtml).join('')}</div><div class="route-attribution">Schedule: ZTM Warszawa · GTFS: Mikołaj Kuranowski · route shapes/walking legs: © OpenStreetMap contributors · checked for this plan</div>`;
   }
   routePanel.classList.remove('hidden');
-  const allowedTravel = Number(activeResult?.brief?.max_one_way_minutes || 0) + Number(activeResult?.brief?.negotiable_extra_travel_minutes || 0);
-  if (Number(route.duration_minutes) > allowedTravel) {
-    routePanel.classList.add('route-conflict');
-    routePanel.insertAdjacentHTML('afterbegin', `<div class="route-warning"><strong>Route check changed the answer.</strong><span>The detailed route is ${escapeHtml(route.duration_minutes)} min, above the currently allowed ${escapeHtml(allowedTravel)} min. Treat this option as provisional and adjust travel tolerance or choose another card.</span></div>`);
-  } else {
-    routePanel.classList.remove('route-conflict');
-  }
+  routePanel.classList.remove('route-conflict');
   if (points.length && map) {
     const midpoint = points[Math.floor(points.length / 2)];
     routeBadgeMarker = L.marker(midpoint, {
       interactive: false,
       icon: L.divIcon({
         className: 'route-time-marker',
-        html: `<div>${escapeHtml(route.duration_minutes)} min${route.mode === 'transit' && route.summary ? ` · ${escapeHtml(route.summary)}` : ''}</div>`,
-        iconSize: [150, 34],
-        iconAnchor: [75, 17],
+        html: `<div>${escapeHtml(route.duration_minutes)} min out${returnRoute ? ` · ${escapeHtml(returnRoute.duration_minutes)} back` : ''}</div>`,
+        iconSize: [170, 34],
+        iconAnchor: [85, 17],
       }),
     }).addTo(map);
   }
-  const metric = document.querySelector(`[data-card-index="${selectedIndex}"] .route-time-metric .metric-copy`);
-  if (metric) metric.innerHTML = `<strong>${escapeHtml(route.duration_minutes)} min</strong><span>${route.mode === 'transit' ? 'scheduled route' : 'street route'}</span>`;
   $('#mapGuideLabel').textContent = route.mode === 'transit'
-    ? 'Scheduled WTP route · walking legs use OSM streets'
-    : 'Shortest pedestrian route · OpenStreetMap streets';
+    ? 'Checked scheduled WTP route · not realtime'
+    : 'Checked pedestrian route · OpenStreetMap streets';
 }
 
 async function loadSelectedRoute() {
   const card = activeResult?.cards?.[selectedIndex];
-  if (!card || !validCardLocation(card)) {
+  if (!card || !validCardLocation(card) || !sessionId) {
     routePanel.classList.add('hidden');
     clearActualRoute();
     return;
   }
+  const placeId = card.id;
   const serial = ++routeRequestSerial;
   routePanel.classList.remove('hidden');
-  routePanel.innerHTML = `<div class="route-loading"><span class="mini-spinner"></span><span>Building ${activeResult.brief.travel_mode === 'walk' ? 'street' : 'scheduled public-transport'} route…</span></div>`;
-  const origin = briefOriginCoords(activeResult.brief);
+  routePanel.innerHTML = `<div class="route-loading"><span class="mini-spinner"></span><span>Checking outbound and return ${activeResult.brief.travel_mode === 'walk' ? 'street routes' : 'scheduled routes'}…</span></div>`;
   try {
-    const route = await fetchJson('/api/route', {
+    const payload = await fetchJson('/api/route-check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        origin_lat: origin[0],
-        origin_lon: origin[1],
-        destination_lat: Number(card.location.lat),
-        destination_lon: Number(card.location.lon),
-        mode: activeResult.brief.travel_mode,
-        date: activeResult.brief.date,
-        start_time: activeResult.brief.start_time,
-      }),
+      body: JSON.stringify({session_id: sessionId, place_id: placeId}),
     });
     if (serial !== routeRequestSerial) return;
-    renderActualRoute(route);
+    sessionId = payload.session_id;
+    const stillShown = payload.cards?.some(item => item.id === placeId);
+    renderResult(payload, {skipRouteLoad: true, preferredPlaceId: stillShown ? placeId : null});
+    if (stillShown) {
+      const checkedIndex = activeResult.cards.findIndex(item => item.id === placeId);
+      if (checkedIndex >= 0) {
+        selectedIndex = checkedIndex;
+        activeResult.cards[checkedIndex]._actualRoute = payload.route;
+        activeResult.cards[checkedIndex]._returnRoute = payload.return_route;
+        updateMarkerSelection();
+        updateResultActions();
+        renderActualRoute(payload.route, payload.return_route);
+      }
+    } else {
+      clearActualRoute();
+      routePanel.classList.remove('hidden');
+      routePanel.classList.add('route-conflict');
+      routePanel.innerHTML = `<div class="route-warning"><strong>Route check changed the result.</strong><span>${escapeHtml(payload.route_note || 'The checked trip no longer fits the current conditions, so Unstuck reranked the remaining options.')}</span></div>`;
+    }
   } catch (error) {
     if (serial !== routeRequestSerial) return;
     clearActualRoute();
     refreshGuideLine();
-    routePanel.innerHTML = `<div class="route-panel-head route-unavailable"><div><strong>Detailed route unavailable</strong><span>${escapeHtml(error.message)} · the card still shows the conservative search estimate.</span></div></div>`;
+    routePanel.innerHTML = `<div class="route-panel-head route-unavailable"><div><strong>Detailed route unavailable</strong><span>${escapeHtml(error.message)} · the card keeps its conservative search estimate and stays marked as needing route verification.</span></div></div>`;
   }
 }
+
 
 function renderFooter(result) {
   const mode = result.provider_mode;
   $('#footerSources').innerHTML = mode === 'live'
     ? '<strong>Sources:</strong> public listings · live Qloo taste signal'
     : mode === 'fixture'
-      ? '<strong>Sources:</strong> public listings · taste preview only (Qloo API not connected)'
+      ? '<strong>Sources:</strong> public listings · taste preview only (Qloo not connected)'
       : '<strong>Sources:</strong> public listings · no-taste baseline';
   $('#footerMethod').innerHTML = mode === 'live'
-    ? '<strong>Method:</strong> hard constraints first · smallest allowed changes · then live Qloo taste ranking'
-    : '<strong>Method:</strong> hard constraints first · smallest allowed changes · live Qloo taste ranking activates after API connection';
-  const needs = result.cards.reduce((sum, card) => sum + (card.needs_checking?.length || 0), 0);
+    ? '<strong>Method:</strong> hard conditions first · smallest allowed change · live Qloo ranking'
+    : '<strong>Method:</strong> hard conditions first · smallest allowed change · live Qloo ranking pending connection';
+  const needs = (result.cards || []).reduce((sum, card) => sum + (card.needs_checking?.length || 0), 0);
   $('#footerNeeds').textContent = needs ? `Needs checking: ${needs} flagged fact${needs === 1 ? '' : 's'}` : 'Needs checking: none flagged by current data';
 }
 
-function renderResult(result) {
+function renderDecisionEvidence(result) {
+  const panel = $('#decisionEvidence');
+  const body = $('#decisionEvidenceBody');
+  if (!panel || !body || !result || result.empty) {
+    panel?.classList.add('hidden');
+    return;
+  }
+  const audit = result.taste_audit || {};
+  const rejected = Array.isArray(result.rejection_history) ? result.rejection_history : [];
+  const refs = (audit.input_references || []).map(item => `<span class="evidence-pill">${escapeHtml(item)}</span>`).join('');
+  let qlooSection = '';
+  if (audit.status === 'live') {
+    const signals = (audit.recognized_signals || []).map(signal =>
+      `<li><strong>${escapeHtml(signal.input)}</strong> → ${escapeHtml(signal.name)} <code>${escapeHtml(signal.entity_id)}</code>${signal.kind === 'failed_place_anchor' ? ' · failed-venue anchor' : ''}</li>`
+    ).join('');
+    const baseline = (audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result';
+    const ranked = (audit.ranked_order || []).map(escapeHtml).join(' → ') || 'No Qloo-ranked result';
+    qlooSection = `<section><h4>What did Qloo change?</h4><p>Same feasible candidate pool; Qloo only changes ordering after condition checks.</p><ul>${signals || '<li>No recognized taste signals returned.</li>'}</ul><div><strong>Without taste:</strong> ${baseline}</div><div><strong>With Qloo:</strong> ${ranked}</div><div><strong>Top choice changed:</strong> ${audit.changed_top_choice ? 'yes' : 'no'}</div><div><strong>Qloo discovery:</strong> ${audit.discovery_used ? 'used separately' : 'not used; ranking only'}</div></section>`;
+  } else if (audit.status === 'fixture_preview') {
+    const preview = (audit.fixture_preview_order || []).map(escapeHtml).join(' → ') || 'No preview ranking';
+    qlooSection = `<section><h4>What did Qloo change?</h4><p><strong>Available after Qloo connection.</strong> Qloo was not called for this result. The current taste order is a fixture preview and is not evidence of Qloo performance.</p><div><strong>References:</strong> ${refs || 'none'}</div><div><strong>Fixture preview:</strong> ${preview}</div><div><strong>Without taste:</strong> ${(audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result'}</div></section>`;
+  } else {
+    qlooSection = '<section><h4>What did Qloo change?</h4><p>Taste ranking is disabled in this baseline. No Qloo result affected the recommendation.</p></section>';
+  }
+  const failed = result.brief?.failed_place
+    ? `<div><strong>Unavailable venue:</strong> ${escapeHtml(result.brief.failed_place)} · excluded from recommendations${audit.status === 'live' ? (audit.anchor_used ? ' · also used as a resolved Qloo taste anchor' : ' · Qloo anchor was not resolved') : ' · Qloo anchor available after connection'}</div>`
+    : '';
+  const rejectionRows = rejected.length
+    ? `<div><strong>Session skips:</strong> ${rejected.map(item => `${escapeHtml(item.reason.replaceAll('_',' '))}: ${escapeHtml(item.place_id)}`).join(' · ')}</div>`
+    : '';
+  body.innerHTML = `<section><h4>How this recommendation was made</h4><div><strong>Conditions:</strong> checked before taste ranking.</div><div><strong>Change used:</strong> ${escapeHtml(result.strategy_label || 'Smallest allowed change')}</div>${failed}${rejectionRows}<div><strong>Comparison pool:</strong> ${escapeHtml(audit.candidate_pool_size ?? '—')} options in the evidence comparison.</div></section>${qlooSection}`;
+  panel.classList.remove('hidden');
+}
+
+function renderResult(result, {skipRouteLoad = false, preferredPlaceId = null} = {}) {
   searchingState.classList.add('hidden');
   firstRun.classList.add('hidden');
   resultContent.classList.remove('hidden');
   activeResult = result;
   draftBrief = structuredClone(result.brief);
-  selectedIndex = 0;
+  const preferredIndex = preferredPlaceId ? (result.cards || []).findIndex(card => card.id === preferredPlaceId) : -1;
+  selectedIndex = preferredIndex >= 0 ? preferredIndex : 0;
   updateSummary(result.brief);
-  const confirmedCount = result.cards.filter(card => card.feasibility_status === 'confirmed').length;
-  const checkCount = result.cards.length - confirmedCount;
+
+  const confirmedCount = (result.cards || []).filter(card => card.feasibility_status === 'confirmed').length;
+  const checkCount = (result.cards || []).length - confirmedCount;
   const rejectedCount = Number(result.rejected_ids?.length || 0);
-  const depthCopy = rejectedCount > 0 ? ` · deeper alternatives after ${rejectedCount} rejection${rejectedCount === 1 ? '' : 's'} · taste fit may be looser` : '';
-  resultMeta.innerHTML = `<span>Round ${result.round} · ${escapeHtml(result.strategy_used)} search · ${escapeHtml(result.scope?.candidate_count || 0)} candidates left${depthCopy}</span><span>${confirmedCount ? `${confirmedCount} confirmed` : ''}${confirmedCount && checkCount ? ' · ' : ''}${checkCount ? `${checkCount} needs checking` : ''}</span>`;
+  const mainMessage = result.strategy_label || 'Smallest allowed change';
+  const statusMessage = confirmedCount && checkCount
+    ? `${confirmedCount} confirmed · ${checkCount} need checking`
+    : confirmedCount
+      ? `${confirmedCount} confirmed`
+      : checkCount
+        ? `${checkCount} need checking`
+        : '';
+  resultMeta.innerHTML = `<span><strong>Round ${result.round}</strong> · ${escapeHtml(mainMessage)}${rejectedCount ? ` · ${rejectedCount} skipped` : ''}</span><span>${escapeHtml(statusMessage)}${rejectedCount ? ' · <button id="undoReject" class="meta-action" type="button">Undo last skip</button>' : ''}</span>`;
+  $('#undoReject')?.addEventListener('click', async () => {
+    if (!sessionId) return;
+    await runLatest('/api/undo-reject', {session_id: sessionId});
+  });
 
   if (result.empty || !result.cards.length) {
     cardsEl.innerHTML = '';
     emptyState.classList.remove('hidden');
     resultActions.classList.add('hidden');
     routePanel.classList.add('hidden');
+    $('#decisionEvidence')?.classList.add('hidden');
     clearActualRoute();
     const reasons = (result.empty_explanation || []).map(item => `<li>${escapeHtml(item.reason)}${item.count ? ` (${item.count})` : ''}</li>`).join('');
-    emptyState.innerHTML = `<h3>No feasible rescue in the checked pool.</h3><p>Unstuck kept your locked conditions instead of silently breaking them.</p>${reasons ? `<ul>${reasons}</ul>` : ''}<button class="secondary-button" type="button" id="editEmpty">Edit allowed changes</button>`;
+    emptyState.innerHTML = `<h3>No rescue fits the current limits yet.</h3><p>Unstuck kept the locked conditions instead of silently breaking them.</p>${reasons ? `<ul>${reasons}</ul>` : ''}<button class="secondary-button" type="button" id="editEmpty">Edit allowed changes</button>`;
     $('#editEmpty')?.addEventListener('click', () => openEditor('travel'));
   } else {
     emptyState.classList.add('hidden');
@@ -804,11 +862,13 @@ function renderResult(result) {
     bindResultCardEvents();
     updateResultActions();
     hydrateGooglePlaceMedia(result.cards.slice(0, 3));
+    renderDecisionEvidence(result);
   }
   renderFooter(result);
   renderMap(result, true);
-  if (!result.empty && result.cards.length) loadSelectedRoute();
+  if (!skipRouteLoad && !result.empty && result.cards.length) loadSelectedRoute();
 }
+
 
 function nearestIndex(values, wanted) {
   const numeric = Number(wanted);
