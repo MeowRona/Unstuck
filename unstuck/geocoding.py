@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 import re
 import threading
 import time
@@ -62,6 +63,7 @@ class AddressIndex:
         self.source_url = "https://www.openstreetmap.org/copyright"
         self.checked_at = None
         self.rows: dict[str, list] = {}
+        self.points: list[tuple[float, float, str, str]] = []
         if not path.exists():
             return
         with gzip.open(path, "rt", encoding="utf-8") as handle:
@@ -72,10 +74,51 @@ class AddressIndex:
         rows = payload.get("addresses") or {}
         if isinstance(rows, dict):
             self.rows = rows
+            for row in rows.values():
+                if not isinstance(row, list) or len(row) < 4:
+                    continue
+                try:
+                    lat, lon = float(row[2]), float(row[3])
+                except (TypeError, ValueError):
+                    continue
+                self.points.append((lat, lon, str(row[0]), str(row[1])))
 
     @property
     def count(self) -> int:
         return len(self.rows)
+
+    def nearest(self, lat: float, lon: float, *, max_distance_m: float = 250.0) -> dict | None:
+        lat = float(lat)
+        lon = float(lon)
+        if not (
+            WARSAW_BOUNDS[0] <= lat <= WARSAW_BOUNDS[2]
+            and WARSAW_BOUNDS[1] <= lon <= WARSAW_BOUNDS[3]
+        ):
+            raise ValueError("Coordinates must stay inside the Warsaw pilot area")
+        lat_scale = 111_320.0
+        lon_scale = lat_scale * math.cos(math.radians(lat))
+        best: tuple[float, str, str, float, float] | None = None
+        for row_lat, row_lon, street, number in self.points:
+            north_m = (row_lat - lat) * lat_scale
+            east_m = (row_lon - lon) * lon_scale
+            distance_sq = north_m * north_m + east_m * east_m
+            if best is None or distance_sq < best[0]:
+                best = (distance_sq, street, number, row_lat, row_lon)
+        if best is None:
+            return None
+        distance_m = math.sqrt(best[0])
+        if distance_m > max_distance_m:
+            return None
+        return {
+            "label": f"{best[1]} {best[2]}, Warszawa",
+            "lat": best[3],
+            "lon": best[4],
+            "distance_m": round(distance_m),
+            "source": self.source,
+            "source_url": self.source_url,
+            "checked_at": self.checked_at,
+            "local_index": True,
+        }
 
     @staticmethod
     def _split_exact(value: str) -> tuple[str, str] | None:
