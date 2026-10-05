@@ -1556,11 +1556,20 @@ $$('[data-menu-action]').forEach(button => button.addEventListener('click', () =
 }));
 
 async function loadJudgeDemo() {
+  if (!origins.length) {
+    const payload = await fetchJson('/api/origins');
+    origins = Array.isArray(payload.origins) ? payload.origins : [];
+  }
+  const demoOrigin = origins.find(row => row.id === 'warsaw:srodmiescie:warszawa-centralna');
+  if (!demoOrigin) throw new Error('The bundled Warsaw Central demo start is unavailable.');
   draftBrief = {
     ...makeDefaultBrief(),
     original_plan: 'Dinner at HOŻA Steakhouse',
     failed_place: 'HOŻA Steakhouse',
     failure_reason: 'unavailable',
+    origin: demoOrigin.label,
+    origin_lat: Number(demoOrigin.lat),
+    origin_lon: Number(demoOrigin.lon),
     date: '2026-10-09',
     start_time: '18:30',
     return_by: '20:25',
@@ -1573,7 +1582,6 @@ async function loadJudgeDemo() {
   const note = $('#demoScenarioNote');
   note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The engine must rescue the evening within the stated limits.';
   note.classList.remove('hidden');
-  await resolveBriefOrigin(draftBrief);
   updateSummary(draftBrief);
   await runLatest('/api/search', draftBrief);
 }
