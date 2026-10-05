@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'handoff-*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
         run: python -m unittest discover -s tests -q
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
     environment:
