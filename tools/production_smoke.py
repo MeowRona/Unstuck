@@ -39,7 +39,7 @@ def main() -> int:
         "city": "Warsaw",
         "date": "2026-10-09",
         "start_time": "18:30",
-        "return_by": "20:25",
+        "return_by": "20:45",
         "min_stay_minutes": 120,
         "people": 2,
         "budget_total": 200,
