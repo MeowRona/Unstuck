@@ -1200,7 +1200,7 @@ originInput.addEventListener('blur', () => {
 });
 
 function fillEditor(brief) {
-  const fields = ['goal','people','budget_total','date','origin','travel_mode'];
+  const fields = ['goal','people','budget_total','date','origin','travel_mode','failed_place','failure_reason'];
   fields.forEach(name => { if (editorForm.elements[name]) editorForm.elements[name].value = brief[name] ?? ''; });
   originInput.dataset.lat = brief.origin_lat ?? '';
   originInput.dataset.lon = brief.origin_lon ?? '';
@@ -1225,8 +1225,8 @@ function editorPayload() {
   const goal = String(fd.get('goal'));
   return {
     original_plan: goal === 'meal' ? 'Dinner' : goal === 'coffee' ? 'Coffee and talk' : goal === 'culture' ? 'Culture outing' : 'Outing',
-    failed_place: '',
-    failure_reason: '',
+    failed_place: String(fd.get('failed_place') || '').trim(),
+    failure_reason: String(fd.get('failure_reason') || '').trim(),
     goal,
     city: 'Warsaw',
     date: String(fd.get('date')),
@@ -1335,17 +1335,77 @@ $('#runCurrentPlan').addEventListener('click', async () => {
 $$('.summary-edit').forEach(button => button.addEventListener('click', () => openEditor(button.dataset.editTarget || 'plan')));
 themeToggle.addEventListener('click', toggleTheme);
 
+function conditionListHtml(card) {
+  const checks = Array.isArray(card.constraint_checks) ? card.constraint_checks : [];
+  const icon = {kept: '✓', changed: '↔', unknown: '?'};
+  return checks.map(check =>
+    `<div class="choice-condition ${escapeHtml(check.status)}"><b>${icon[check.status] || '?'}</b><span><strong>${escapeHtml(check.label)}</strong><small>${escapeHtml(check.detail || '')}</small></span></div>`
+  ).join('');
+}
+
+function planRouteUrl(card) {
+  const origin = briefOriginCoords(activeResult?.brief || {});
+  const destination = [Number(card.location?.lat), Number(card.location?.lon)];
+  if (!Number.isFinite(destination[0]) || !Number.isFinite(destination[1])) return '#';
+  const params = new URLSearchParams({
+    api: '1',
+    origin: `${origin[0]},${origin[1]}`,
+    destination: `${destination[0]},${destination[1]}`,
+    travelmode: activeResult?.brief?.travel_mode === 'walk' ? 'walking' : 'transit',
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function planCopyText(card) {
+  const timing = card.timing || {};
+  const changes = (card.change || []).map(change => {
+    if (change.field === 'one-way travel') return `+${change.delta || 0} min one-way travel`;
+    if (change.field === 'minimum stay') return `${change.delta || 0} min shorter stay`;
+    if (change.field === 'category') return `category: ${change.to}`;
+    return titleCase(change.field);
+  });
+  const checks = (card.needs_checking || []).map(item => `check: ${item}`);
+  const timeline = [
+    `leave ${activeResult.brief.start_time}`,
+    `arrive ${timing.arrival}`,
+    `stay ${timing.stay_minutes} min`,
+    `leave venue ${timing.leave}`,
+  ];
+  if (timing.return_is_checked) timeline.push(`back ${timing.estimated_return}`);
+  return [
+    `Unstuck plan: ${card.name}`,
+    card.address || '',
+    timeline.join(' · '),
+    changes.length ? `Compromise: ${changes.join(', ')}` : 'Compromise: none detected',
+    checks.length ? `Before we go: ${checks.join('; ')}` : 'Before we go: no material checks flagged',
+    'This is a plan, not a reservation.',
+  ].filter(Boolean).join('\n');
+}
+
 function openChoice() {
   const card = activeResult?.cards?.[selectedIndex];
   if (!card) return;
-  const actualRoute = card._actualRoute;
+  const timing = card.timing || {};
+  const checked = card.feasibility_status === 'confirmed';
   choiceReturnFocus = document.activeElement;
+  $('#choiceKicker').textContent = checked ? 'Plan ready' : 'Plan needs a quick check';
   $('#choiceTitle').textContent = card.name;
   $('#choiceWhy').textContent = card.why_this_fits;
   $('#choiceSummary').innerHTML = `
-    <div><strong>${escapeHtml(formatMoney(card))}</strong><span>estimated total</span></div>
-    <div><strong>${actualRoute?.duration_minutes ?? card.timing.travel_one_way_minutes} min</strong><span>${actualRoute ? 'routed outbound' : 'one-way estimate'}</span></div>
-    <div><strong>${actualRoute?.arrival ?? card.timing.arrival}</strong><span>arrive at venue</span></div>`;
+    <div><strong>${escapeHtml(formatMoney(card))}</strong><span>${card.cost?.source?.status === 'confirmed' || card.cost?.source?.status === 'fixture' ? 'estimated total' : 'price needs checking'}</span></div>
+    <div><strong>${escapeHtml(timing.travel_one_way_minutes)} min out</strong><span>${timing.return_is_checked ? `${escapeHtml(timing.travel_return_minutes)} min back · checked` : 'return route not checked'}</span></div>
+    <div><strong>${escapeHtml(timing.arrival)}</strong><span>arrive at venue</span></div>`;
+  $('#choiceConstraints').innerHTML = conditionListHtml(card);
+  $('#choiceTimeline').innerHTML = `
+    <div class="timeline-row"><b>${escapeHtml(activeResult.brief.start_time)}</b><span>Leave ${escapeHtml(activeResult.brief.origin)}</span></div>
+    <div class="timeline-row"><b>${escapeHtml(timing.arrival)}</b><span>Arrive at ${escapeHtml(card.name)}</span></div>
+    <div class="timeline-row"><b>${escapeHtml(timing.leave)}</b><span>Leave after ${escapeHtml(timing.stay_minutes)} min</span></div>
+    ${timing.return_is_checked ? `<div class="timeline-row"><b>${escapeHtml(timing.estimated_return)}</b><span>Back at start · checked return route</span></div>` : '<div class="timeline-row unknown"><b>?</b><span>Return time appears only after a checked return route.</span></div>'}`;
+  $('#choiceChecks').innerHTML = card.needs_checking?.length
+    ? `<ul>${card.needs_checking.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<p>No material checks are flagged by the currently used data.</p>';
+  $('#choiceRouteLink').href = planRouteUrl(card);
+  $('#copyPlan').dataset.planText = planCopyText(card);
   choiceBackdrop.classList.remove('hidden');
   choiceModal.classList.remove('hidden');
   choiceBackdrop.setAttribute('aria-hidden', 'false');
@@ -1359,10 +1419,93 @@ function closeChoice() {
   choiceReturnFocus?.focus?.();
 }
 
+async function copySelectedPlan() {
+  const text = $('#copyPlan').dataset.planText || '';
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    $('#copyPlan').textContent = 'Copied';
+    setTimeout(() => { $('#copyPlan').textContent = 'Copy plan'; }, 1200);
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+    $('#copyPlan').textContent = 'Copied';
+    setTimeout(() => { $('#copyPlan').textContent = 'Copy plan'; }, 1200);
+  }
+}
+
+function rejectReasonCopy(reason) {
+  const messages = {
+    too_far: 'This removes only this venue from the current session. Your travel limit stays exactly as you set it.',
+    not_my_vibe: 'This removes only this venue. It does not retrain a model or change distance limits; live Qloo taste is still pending connection.',
+    been_there: 'This removes only this venue so the next round can surface another option.',
+    skip: 'This removes only this venue from the current session. All conditions stay unchanged.',
+  };
+  return messages[reason] || messages.skip;
+}
+
+function openReject(placeId) {
+  const card = activeResult?.cards?.find(item => item.id === placeId);
+  if (!card) return;
+  pendingRejectPlaceId = placeId;
+  rejectReturnFocus = document.activeElement;
+  $('#rejectTitle').textContent = `Why not ${card.name}?`;
+  $('#rejectExplain').textContent = 'Choose a reason. It only removes this venue from this session; it does not silently change your locked conditions.';
+  rejectBackdrop.classList.remove('hidden');
+  rejectModal.classList.remove('hidden');
+  rejectBackdrop.setAttribute('aria-hidden', 'false');
+  $('[data-reject-reason="skip"]')?.focus();
+}
+
+function closeReject() {
+  rejectModal.classList.add('hidden');
+  rejectBackdrop.classList.add('hidden');
+  rejectBackdrop.setAttribute('aria-hidden', 'true');
+  pendingRejectPlaceId = null;
+  rejectReturnFocus?.focus?.();
+}
+
+async function submitReject(reason) {
+  if (!sessionId || !pendingRejectPlaceId) return;
+  const placeId = pendingRejectPlaceId;
+  $('#rejectExplain').textContent = rejectReasonCopy(reason);
+  closeReject();
+  await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
+}
+
+function openAbout() {
+  aboutReturnFocus = document.activeElement;
+  aboutBackdrop.classList.remove('hidden');
+  aboutModal.classList.remove('hidden');
+  aboutBackdrop.setAttribute('aria-hidden', 'false');
+  $('#closeAbout').focus();
+}
+
+function closeAbout() {
+  aboutModal.classList.add('hidden');
+  aboutBackdrop.classList.add('hidden');
+  aboutBackdrop.setAttribute('aria-hidden', 'true');
+  aboutReturnFocus?.focus?.();
+}
+
 chooseButton.addEventListener('click', openChoice);
 $('#closeChoice').addEventListener('click', closeChoice);
 $('#choiceDone').addEventListener('click', closeChoice);
+$('#copyPlan').addEventListener('click', copySelectedPlan);
 choiceBackdrop.addEventListener('click', closeChoice);
+$('#closeReject').addEventListener('click', closeReject);
+rejectBackdrop.addEventListener('click', closeReject);
+$$('[data-reject-reason]').forEach(button => button.addEventListener('click', () => submitReject(button.dataset.rejectReason)));
+$('#closeAbout').addEventListener('click', closeAbout);
+aboutBackdrop.addEventListener('click', closeAbout);
+
 
 lockCompromiseButton.addEventListener('click', async () => {
   if (!sessionId || lockCompromiseButton.disabled) return;
@@ -1404,24 +1547,33 @@ $$('[data-menu-action]').forEach(button => button.addEventListener('click', () =
   if (action === 'edit') openEditor('plan');
   if (action === 'demo') loadJudgeDemo();
   if (action === 'theme') toggleTheme();
+  if (action === 'about') openAbout();
   if (action === 'reset') resetSession();
 }));
 
 async function loadJudgeDemo() {
-  const demoTime = judgeDemoEvening();
   draftBrief = {
     ...makeDefaultBrief(),
-    date: demoTime.date,
-    start_time: demoTime.start_time,
-    return_by: demoTime.return_by,
+    original_plan: 'Dinner at HOŻA Steakhouse',
+    failed_place: 'HOŻA Steakhouse',
+    failure_reason: 'unavailable',
+    date: '2026-10-09',
+    start_time: '18:30',
+    return_by: '20:25',
+    min_stay_minutes: 120,
     max_one_way_minutes: 25,
-    negotiable_extra_travel_minutes: 10,
-    negotiable_stay_reduction_minutes: 15,
+    negotiable_extra_travel_minutes: 0,
+    negotiable_stay_reduction_minutes: 30,
+    allow_category_change: false,
   };
+  const note = $('#demoScenarioNote');
+  note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The engine must rescue the evening within the stated limits.';
+  note.classList.remove('hidden');
   await resolveBriefOrigin(draftBrief);
   updateSummary(draftBrief);
   await runLatest('/api/search', draftBrief);
 }
+
 
 $('#loadJudgeDemo').addEventListener('click', loadJudgeDemo);
 
@@ -1439,6 +1591,8 @@ function resetSession() {
   guideLayer?.clearLayers();
   clearActualRoute();
   routePanel.classList.add('hidden');
+  $('#decisionEvidence')?.classList.add('hidden');
+  $('#demoScenarioNote')?.classList.add('hidden');
   map?.setView([52.2297, 21.0122], 12, {animate: false});
   renderFooter({provider_mode: statusInfo?.provider_mode || 'fixture', cards: []});
 }
@@ -1457,7 +1611,9 @@ $('#showMap').addEventListener('click', () => {
 
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
-  if (!choiceModal.classList.contains('hidden')) closeChoice();
+  if (!rejectModal.classList.contains('hidden')) closeReject();
+  else if (!aboutModal.classList.contains('hidden')) closeAbout();
+  else if (!choiceModal.classList.contains('hidden')) closeChoice();
   else if (!editorModal.classList.contains('hidden')) closeEditor();
   else if (!menuPopover.classList.contains('hidden')) {
     menuPopover.classList.add('hidden');
@@ -1471,7 +1627,7 @@ async function loadStatus() {
     statusInfo = await fetchJson('/api/health');
     refreshStatusLabel();
     dataStatus.title = statusInfo.provider_mode === 'fixture'
-      ? 'Real place facts with deterministic fixture taste. Qloo has not been called.'
+      ? 'Taste preview only. Live Qloo is not connected yet.'
       : statusInfo.provider_mode === 'live' ? 'Live Qloo taste ranking is active.' : 'Taste ranking disabled for comparison.';
   } catch {
     dataStatus.textContent = 'Backend unavailable';
@@ -1485,7 +1641,7 @@ function refreshStatusLabel() {
   const compact = window.matchMedia('(max-width: 760px)').matches;
   if (statusInfo.provider_mode === 'live') dataStatus.textContent = compact ? 'Qloo live' : 'Live · Qloo';
   else if (statusInfo.provider_mode === 'baseline') dataStatus.textContent = compact ? 'Baseline' : 'Baseline · no taste';
-  else dataStatus.textContent = compact ? 'Demo' : 'Demo · fixture taste';
+  else dataStatus.textContent = compact ? 'Qloo pending' : 'Demo · Qloo pending';
 }
 
 async function loadOrigins() {
