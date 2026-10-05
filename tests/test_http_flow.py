@@ -106,24 +106,107 @@ class HttpFlowTests(unittest.TestCase):
         }
         first = self.post_json("/api/search", payload)
         self.assertEqual(first["round"], 1)
-        self.assertEqual(first["result_status"], "confirmed")
+        self.assertIn(first["result_status"], {"requires_checking", "mixed", "confirmed"})
         self.assertTrue(first["cards"])
+        self.assertTrue(
+            any(
+                check["field"] == "one-way travel" and check["status"] == "unknown"
+                for check in first["cards"][0]["constraint_checks"]
+            )
+        )
         rejected_id = first["cards"][0]["id"]
 
         second = self.post_json(
-            "/api/reject", {"session_id": first["session_id"], "place_id": rejected_id}
+            "/api/reject",
+            {"session_id": first["session_id"], "place_id": rejected_id, "reason": "not_my_vibe"},
         )
         self.assertEqual(second["round"], 2)
         self.assertIn(rejected_id, second["rejected_ids"])
+        self.assertEqual(second["rejection_history"][-1]["reason"], "not_my_vibe")
         self.assertNotIn(rejected_id, {card["id"] for card in second["cards"]})
+
+        restored = self.post_json(
+            "/api/undo-reject",
+            {"session_id": first["session_id"]},
+        )
+        self.assertEqual(restored["restored_rejection"]["place_id"], rejected_id)
+        self.assertNotIn(rejected_id, restored["rejected_ids"])
 
         third = self.post_json(
             "/api/update",
             {"session_id": first["session_id"], "patch": {"budget_total": 220}},
         )
-        self.assertEqual(third["round"], 3)
-        self.assertIn(rejected_id, third["rejected_ids"])
-        self.assertNotIn(rejected_id, {card["id"] for card in third["cards"]})
+        self.assertEqual(third["round"], 4)
+        self.assertNotIn(rejected_id, third["rejected_ids"])
+
+    def test_route_check_recalculates_outbound_and_return(self):
+        payload = {
+            "original_plan": "Dinner",
+            "failed_place": "",
+            "failure_reason": "",
+            "goal": "meal",
+            "city": "Warsaw",
+            "date": "2026-10-10",
+            "start_time": "18:30",
+            "return_by": "23:00",
+            "min_stay_minutes": 60,
+            "people": 2,
+            "budget_total": 500,
+            "currency": "PLN",
+            "origin": "Warsaw Central",
+            "travel_mode": "transit",
+            "max_one_way_minutes": 25,
+            "categories": ["restaurant"],
+            "taste_refs": ["Amelie"],
+            "meal_required": True,
+            "negotiable_extra_travel_minutes": 10,
+            "negotiable_stay_reduction_minutes": 0,
+            "allow_category_change": False,
+        }
+        first = self.post_json("/api/search", payload)
+        place_id = first["cards"][0]["id"]
+
+        outbound = {
+            "mode": "transit",
+            "scheduled": True,
+            "realtime": False,
+            "departure": "18:30",
+            "arrival": "18:58",
+            "duration_minutes": 28,
+            "transfers": 0,
+            "summary": "10",
+            "legs": [],
+            "source": {"name": "Warsaw GTFS schedule", "url": "https://example.test/gtfs"},
+        }
+        inbound = {
+            "mode": "transit",
+            "scheduled": True,
+            "realtime": False,
+            "departure": "19:58",
+            "arrival": "20:28",
+            "duration_minutes": 30,
+            "transfers": 0,
+            "summary": "10",
+            "legs": [],
+            "source": {"name": "Warsaw GTFS schedule", "url": "https://example.test/gtfs"},
+        }
+        with patch("app.route_transit", side_effect=[outbound, inbound]):
+            checked = self.post_json(
+                "/api/route-check",
+                {"session_id": first["session_id"], "place_id": place_id},
+            )
+
+        self.assertEqual(checked["checked_place_id"], place_id)
+        self.assertEqual(checked["route"]["duration_minutes"], 28)
+        self.assertEqual(checked["return_route"]["duration_minutes"], 30)
+        matching = [card for card in checked["cards"] if card["id"] == place_id]
+        if matching:
+            card = matching[0]
+            self.assertFalse(card["timing"]["travel_is_estimate"])
+            self.assertEqual(card["timing"]["travel_one_way_minutes"], 28)
+            self.assertEqual(card["timing"]["travel_return_minutes"], 30)
+            fields = {change["field"] for change in card["change"]}
+            self.assertIn("one-way travel", fields)
 
     def test_google_place_media_is_disabled_by_default_even_with_key(self):
         place_id = "ChIJM-LLX_HMHkcRPDiwF3WzN4Q"
