@@ -86,6 +86,11 @@ class ConstraintTests(unittest.TestCase):
         ml = estimate_travel_minutes(brief(origin="Metro Młociny"), place)
         self.assertGreater(ml, central)
 
+    def test_travel_limit_allows_two_and_a_half_hours(self):
+        self.assertEqual(brief(max_one_way_minutes=150).max_one_way_minutes, 150)
+        with self.assertRaisesRegex(ValueError, "max_one_way_minutes must be between 5 and 150"):
+            brief(max_one_way_minutes=151)
+
     def test_high_taste_never_beats_hard_budget(self):
         engine = load_fixture_engine()
         result = engine.search(SearchState(brief(budget_total=80, taste_refs=["Radiohead"])))
