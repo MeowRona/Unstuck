@@ -362,7 +362,7 @@ class ConstraintTests(unittest.TestCase):
                     failure_reason="unavailable",
                     date="2026-10-09",
                     start_time="18:30",
-                    return_by="20:25",
+                    return_by="20:45",
                     min_stay_minutes=120,
                     max_one_way_minutes=25,
                     budget_total=200,
