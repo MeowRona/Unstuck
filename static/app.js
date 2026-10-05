@@ -105,6 +105,9 @@ let origins = [];
 let editorWheelsReady = false;
 let editorReturnFocus = null;
 let choiceReturnFocus = null;
+let rejectReturnFocus = null;
+let aboutReturnFocus = null;
+let pendingRejectPlaceId = null;
 
 let map = null;
 let tileLayer = null;
@@ -463,7 +466,11 @@ function formatMoney(card) {
 
 function changeBadge(card) {
   const changes = card.change || [];
-  if (!changes.length) return '<span class="change-badge none">No compromise</span>';
+  if (!changes.length) {
+    return card.feasibility_status === 'confirmed'
+      ? '<span class="change-badge none">No compromise</span>'
+      : '<span class="change-badge checking">No detected compromise · verify facts</span>';
+  }
   const labels = changes.map(change => {
     if (change.field === 'one-way travel') return `+${change.delta || 0} min travel`;
     if (change.field === 'minimum stay') return `−${change.delta || 0} min stay`;
@@ -481,26 +488,53 @@ function sourceLink(label, source) {
   return `<div><strong>${escapeHtml(label)}</strong>${escapeHtml(status)}${escapeHtml(checked)}${anchor}</div>`;
 }
 
+function travelSourceHtml(card) {
+  const timing = card.timing || {};
+  if (timing.travel_is_estimate) {
+    return '<div><strong>Travel</strong> · conservative search estimate; outbound and return routes are not checked yet.</div>';
+  }
+  const checked = timing.travel_checked_at ? ` · checked ${escapeHtml(timing.travel_checked_at)}` : '';
+  const source = timing.travel_source ? escapeHtml(timing.travel_source) : 'checked route';
+  const link = timing.travel_source_url ? ` · <a href="${escapeHtml(timing.travel_source_url)}" target="_blank" rel="noreferrer">source</a>` : '';
+  const freshness = timing.travel_realtime ? 'realtime' : (activeResult?.brief?.travel_mode === 'transit' ? 'scheduled, not realtime' : 'street route, not realtime');
+  return `<div><strong>Travel</strong> · ${source} · ${freshness}${checked}${link}</div>`;
+}
+
 function tasteTags(card) {
   const evidence = Array.isArray(card.taste?.evidence) ? card.taste.evidence.slice(0, 3) : [];
   const source = card.taste?.source;
   const tags = [];
-  if (source === 'fixture') tags.push('<span class="taste-tag">Fixture taste · Qloo not called</span>');
-  else if (source === 'qloo') tags.push('<span class="taste-tag">Qloo taste signal</span>');
+  if (source === 'fixture') tags.push('<span class="taste-tag">Taste preview · Qloo pending</span>');
+  else if (source === 'qloo') tags.push('<span class="taste-tag">Live Qloo signal</span>');
   else tags.push('<span class="taste-tag">Feasibility only</span>');
   evidence.forEach(item => tags.push(`<span class="taste-tag">${escapeHtml(item)}</span>`));
   if (card.needs_checking?.length) tags.push(`<span class="taste-tag needs-chip">${card.needs_checking.length} item${card.needs_checking.length === 1 ? '' : 's'} to check</span>`);
   return tags.join('');
 }
 
+function constraintStatusHtml(card) {
+  const checks = Array.isArray(card.constraint_checks) ? card.constraint_checks : [];
+  if (!checks.length) return '';
+  const labels = {kept: 'Kept', changed: 'Changed', unknown: 'Check'};
+  return `<div class="constraint-status-row" aria-label="Condition status">${checks.map(check =>
+    `<span class="constraint-chip ${escapeHtml(check.status)}" title="${escapeHtml(check.detail || '')}"><b>${labels[check.status] || 'Check'}</b> ${escapeHtml(check.label)}</span>`
+  ).join('')}</div>`;
+}
+
 function cardHtml(card, index, brief) {
   const letter = String.fromCharCode(65 + index);
-  const travelDelta = Math.max(0, Number(card.timing.travel_one_way_minutes) - Number(brief.max_one_way_minutes));
   const stayDelta = Math.max(0, Number(brief.min_stay_minutes) - Number(card.timing.stay_minutes));
-  const subline = `${titleCase(card.category)} · ${card.feasibility_status === 'confirmed' ? 'current facts checked' : 'needs fact check'} · ${card.address || 'Warsaw'}`;
+  const subline = `${titleCase(card.category)} · ${card.feasibility_status === 'confirmed' ? 'conditions confirmed with current data' : 'some facts need verification'} · ${card.address || 'Warsaw'}`;
   const needs = (card.needs_checking || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const mapsUrl = googleMapsUrl(card);
   const googlePlaceAttrs = card.google_place_id ? ` data-google-place-id="${escapeHtml(card.google_place_id)}"` : '';
+  const timing = card.timing || {};
+  const travelStrong = timing.travel_is_estimate
+    ? `${timing.travel_one_way_minutes} min`
+    : `${timing.travel_one_way_minutes} min out`;
+  const travelCaption = timing.travel_is_estimate
+    ? 'one-way · search estimate'
+    : `back ${timing.travel_return_minutes} min · ${brief.travel_mode === 'transit' ? 'scheduled route' : 'street route'}`;
   return `<article class="recommendation-card${index === selectedIndex ? ' selected' : ''}" data-card-index="${index}" tabindex="0" aria-label="Option ${letter}: ${escapeHtml(card.name)}">
     <div class="venue-thumb${card.google_place_id ? ' google-backed' : ''}" data-category="${escapeHtml(card.category)}"${googlePlaceAttrs} role="img" aria-label="Neutral image fallback; no verified photo for ${escapeHtml(card.name)}">
       <div class="card-letter"><span>${letter}</span></div>
@@ -512,9 +546,10 @@ function cardHtml(card, index, brief) {
         ${changeBadge(card)}
       </div>
       <div class="why-block"><strong>Why it fits</strong><p>${escapeHtml(card.why_this_fits)}</p></div>
+      ${constraintStatusHtml(card)}
       <div class="metrics-row">
-        <div class="metric">${iconSvg('coins')}<div class="metric-copy"><strong>${escapeHtml(formatMoney(card))}</strong><span>est. total · ${card.cost.for_people} people</span></div></div>
-        <div class="metric route-time-metric">${iconSvg('car')}<div class="metric-copy"><strong>${card.timing.travel_one_way_minutes} min${travelDelta ? `<span class="metric-delta">+${travelDelta}</span>` : ''}</strong><span>one-way · search estimate</span></div></div>
+        <div class="metric">${iconSvg('coins')}<div class="metric-copy"><strong>${escapeHtml(formatMoney(card))}</strong><span>${card.cost?.source?.status === 'confirmed' || card.cost?.source?.status === 'fixture' ? 'total estimate' : 'price not verified'} · ${card.cost.for_people} people</span></div></div>
+        <div class="metric route-time-metric">${iconSvg('car')}<div class="metric-copy"><strong>${escapeHtml(travelStrong)}</strong><span>${escapeHtml(travelCaption)}</span></div></div>
         <div class="metric">${iconSvg('hourglass')}<div class="metric-copy"><strong>${card.timing.stay_minutes} min${stayDelta ? `<span class="metric-delta">−${stayDelta}</span>` : ''}</strong><span>stay</span></div></div>
       </div>
       <div class="taste-row"><strong>Taste profile</strong>${tasteTags(card)}</div>
@@ -522,19 +557,20 @@ function cardHtml(card, index, brief) {
         <button type="button" class="sources-toggle" data-card-index="${index}">Sources & assumptions</button>
         ${card.google_place_id ? `<span>·</span><a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noreferrer">Google Maps</a>` : ''}
         <span>·</span>
-        <button type="button" class="reject-inline" data-place-id="${escapeHtml(card.id)}">Reject place</button>
+        <button type="button" class="reject-inline" data-place-id="${escapeHtml(card.id)}">Not for me</button>
       </div>
       <div class="card-source-panel hidden" data-source-panel="${index}">
         ${sourceLink('Price', card.cost?.source)}
         ${sourceLink('Hours', card.hours_source)}
         ${card.location_source?.url ? `<div><strong>Location</strong> · <a href="${escapeHtml(card.location_source.url)}" target="_blank" rel="noreferrer">source</a>${card.location_source.checked_at ? ` · checked ${escapeHtml(card.location_source.checked_at)}` : ''}</div>` : '<div><strong>Location</strong> · catalog coordinates</div>'}
-        ${card.google_place_id ? `<div><strong>Google Maps</strong> · rating/photo load live through Places API only when configured; no Google content is persisted. · <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noreferrer">open listing</a></div>` : ''}
-        <div><strong>Travel</strong> · straight-line-derived estimate; the map guide is not a routed journey.</div>
+        ${card.google_place_id ? `<div><strong>Google Maps</strong> · Places API is currently disabled; this link opens the listing without loading paid Places data. · <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noreferrer">open listing</a></div>` : ''}
+        ${travelSourceHtml(card)}
         ${needs ? `<div><strong>Needs checking</strong><ul>${needs}</ul></div>` : '<div><strong>Needs checking</strong> · nothing material flagged by the current data status.</div>'}
       </div>
     </div>
   </article>`;
 }
+
 
 function bindResultCardEvents() {
   $$('.recommendation-card').forEach(card => {
@@ -555,10 +591,10 @@ function bindResultCardEvents() {
     const panel = document.querySelector(`[data-source-panel="${button.dataset.cardIndex}"]`);
     panel?.classList.toggle('hidden');
   }));
-  $$('.reject-inline').forEach(button => button.addEventListener('click', async event => {
+  $('.reject-inline').forEach(button => button.addEventListener('click', event => {
     event.stopPropagation();
     if (!sessionId) return;
-    await runLatest('/api/reject', {session_id: sessionId, place_id: button.dataset.placeId});
+    openReject(button.dataset.placeId);
   }));
 }
 
@@ -592,7 +628,9 @@ function updateResultActions() {
   const change = selectedCompromise();
   if (!change) {
     lockCompromiseButton.disabled = true;
-    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>All constraints kept</strong><small>No compromise to undo</small></span>`;
+    lockCompromiseButton.innerHTML = card.feasibility_status === 'confirmed'
+      ? `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>Checked conditions kept</strong><small>No compromise to undo</small></span>`
+      : `<span class="action-button-icon">${iconSvg('info')}</span><span class="action-button-copy"><strong>No compromise detected</strong><small>Some facts still need verification</small></span>`;
   } else if (change.field === 'one-way travel') {
     lockCompromiseButton.disabled = false;
     lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('car')}</span><span class="action-button-copy"><strong>Keep travel at ${activeResult.brief.max_one_way_minutes} min</strong><small>Re-run without extra travel</small></span>`;
@@ -604,7 +642,7 @@ function updateResultActions() {
     lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('tag')}</span><span class="action-button-copy"><strong>Keep original category</strong><small>Re-run without category change</small></span>`;
   } else {
     lockCompromiseButton.disabled = true;
-    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('lock')}</span><span class="action-button-copy"><strong>All constraints kept</strong><small>No compromise to undo</small></span>`;
+    lockCompromiseButton.innerHTML = `<span class="action-button-icon">${iconSvg('info')}</span><span class="action-button-copy"><strong>No editable compromise</strong><small>Review the condition status above</small></span>`;
   }
 }
 
