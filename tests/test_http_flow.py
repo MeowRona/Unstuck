@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 from app import AppState, Handler, build_engine, google_place_media
+from unstuck.geocoding import address_index
 
 
 class FakeJsonResponse:
@@ -70,6 +71,15 @@ class HttpFlowTests(unittest.TestCase):
 
         streets = self.get_json("/api/streets?q=Marsza")
         self.assertTrue(any("Marsza" in row for row in streets["suggestions"]))
+
+        sample = next(row for row in address_index.rows.values() if isinstance(row, list) and len(row) >= 4)
+        reversed_address = self.post_json(
+            "/api/reverse-geocode",
+            {"lat": sample[2], "lon": sample[3]},
+        )
+        self.assertTrue(reversed_address["available"])
+        self.assertIn(str(sample[0]), reversed_address["label"])
+        self.assertLessEqual(reversed_address["distance_m"], 1)
 
         payload = {
             "original_plan": "Dinner and talk",
