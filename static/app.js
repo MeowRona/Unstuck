@@ -595,7 +595,7 @@ function bindResultCardEvents() {
     const panel = document.querySelector(`[data-source-panel="${button.dataset.cardIndex}"]`);
     panel?.classList.toggle('hidden');
   }));
-  $('.reject-inline').forEach(button => button.addEventListener('click', event => {
+  $$('.reject-inline').forEach(button => button.addEventListener('click', event => {
     event.stopPropagation();
     if (!sessionId) return;
     openReject(button.dataset.placeId);
