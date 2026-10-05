@@ -726,11 +726,13 @@ async function loadSelectedRoute() {
 function renderFooter(result) {
   const mode = result.provider_mode;
   $('#footerSources').innerHTML = mode === 'live'
-    ? '<strong>Sources:</strong> public listings · Qloo taste signal'
+    ? '<strong>Sources:</strong> public listings · live Qloo taste signal'
     : mode === 'fixture'
-      ? '<strong>Sources:</strong> public listings · fixture taste (Qloo not called)'
+      ? '<strong>Sources:</strong> public listings · taste preview only (Qloo API not connected)'
       : '<strong>Sources:</strong> public listings · no-taste baseline';
-  $('#footerMethod').innerHTML = '<strong>Method:</strong> hard constraints first · smallest allowed changes · then taste ranking';
+  $('#footerMethod').innerHTML = mode === 'live'
+    ? '<strong>Method:</strong> hard constraints first · smallest allowed changes · then live Qloo taste ranking'
+    : '<strong>Method:</strong> hard constraints first · smallest allowed changes · live Qloo taste ranking activates after API connection';
   const needs = result.cards.reduce((sum, card) => sum + (card.needs_checking?.length || 0), 0);
   $('#footerNeeds').textContent = needs ? `Needs checking: ${needs} flagged fact${needs === 1 ? '' : 's'}` : 'Needs checking: none flagged by current data';
 }
