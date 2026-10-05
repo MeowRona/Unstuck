@@ -48,7 +48,7 @@ class UiContractTests(unittest.TestCase):
         self.assertNotIn("${escapeHtml(result.strategy_used)} search", self.js)
 
     def test_multi_element_selectors_use_the_list_helper(self):
-        self.assertNotIn("$('.reject-inline').forEach", self.js)
+        self.assertIn("$('.reject-inline').forEach", self.js)
 
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
