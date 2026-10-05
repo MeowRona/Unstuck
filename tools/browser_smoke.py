@@ -33,7 +33,18 @@ def driver_for(width: int, height: int):
 
 def wait_cards(driver):
     wait = WebDriverWait(driver, 30)
-    wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".recommendation-card")) > 0)
+    wait.until(
+        lambda d: len(d.find_elements(By.CSS_SELECTOR, ".recommendation-card")) > 0
+        or (
+            d.find_elements(By.ID, "emptyState")
+            and "hidden" not in d.find_element(By.ID, "emptyState").get_attribute("class")
+        )
+    )
+    cards = driver.find_elements(By.CSS_SELECTOR, ".recommendation-card")
+    if not cards:
+        empty = driver.find_element(By.ID, "emptyState").text
+        console = driver.get_log("browser")
+        raise AssertionError(f"demo returned no cards; empty_state={empty!r}; console={console!r}")
     wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, ".route-loading"))
     return wait
 
