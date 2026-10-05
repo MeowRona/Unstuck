@@ -129,7 +129,7 @@ class SearchBrief:
             origin=str(payload.get("origin", "Warsaw Central")).strip() or "Warsaw Central",
             travel_mode=travel_mode,
             max_one_way_minutes=_as_int(
-                payload.get("max_one_way_minutes", 25), name="max_one_way_minutes", minimum=5, maximum=120
+                payload.get("max_one_way_minutes", 25), name="max_one_way_minutes", minimum=5, maximum=150
             ),
             categories=categories,
             taste_refs=taste_refs,
