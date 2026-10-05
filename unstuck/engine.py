@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -55,6 +55,11 @@ class Evaluation:
     needs_checking: tuple[str, ...]
     changes: tuple[dict[str, Any], ...]
     preserved: tuple[str, ...]
+    return_travel_minutes: int | None = None
+    travel_source: str = "estimate"
+    travel_checked_at: str | None = None
+    travel_source_url: str | None = None
+    travel_realtime: bool = False
 
     @property
     def viable(self) -> bool:
@@ -63,6 +68,10 @@ class Evaluation:
     @property
     def confirmed(self) -> bool:
         return self.viable and not self.needs_checking
+
+    @property
+    def max_one_way_minutes(self) -> int:
+        return max(self.travel_minutes, self.return_travel_minutes or self.travel_minutes)
 
 
 def _minutes(text: str) -> int:
@@ -141,12 +150,28 @@ def evaluate_place(
     allowed_travel_minutes: int,
     stay_minutes: int,
     category_relaxed: bool,
+    route_override: dict[str, Any] | None = None,
 ) -> Evaluation:
     start, return_by = _local_datetimes(brief)
-    travel = estimate_travel_minutes(brief, place)
+    estimated_travel = estimate_travel_minutes(brief, place)
+    if route_override:
+        travel = max(1, int(route_override.get("outbound_minutes", estimated_travel)))
+        return_travel = max(1, int(route_override.get("return_minutes", travel)))
+        travel_source = str(route_override.get("source") or "checked route")
+        travel_checked_at = str(route_override.get("checked_at") or "") or None
+        travel_source_url = str(route_override.get("source_url") or "") or None
+        travel_realtime = bool(route_override.get("realtime", False))
+    else:
+        travel = estimated_travel
+        return_travel = estimated_travel
+        travel_source = "search estimate"
+        travel_checked_at = None
+        travel_source_url = None
+        travel_realtime = False
+
     arrival = start + timedelta(minutes=travel)
     departure = arrival + timedelta(minutes=stay_minutes)
-    return_time = departure + timedelta(minutes=travel)
+    return_time = departure + timedelta(minutes=return_travel)
     hard: list[str] = []
     needs: list[str] = []
     changes: list[dict[str, Any]] = []
@@ -165,20 +190,28 @@ def evaluate_place(
     else:
         preserved.append("Category")
 
-    if travel > allowed_travel_minutes:
-        hard.append(f"Estimated one-way travel is {travel} min, above the allowed {allowed_travel_minutes} min")
-    elif travel > brief.max_one_way_minutes:
+    max_route_minutes = max(travel, return_travel)
+    if max_route_minutes > allowed_travel_minutes:
+        hard.append(
+            f"One-way travel is {max_route_minutes} min at worst, above the allowed {allowed_travel_minutes} min"
+        )
+    elif max_route_minutes > brief.max_one_way_minutes:
         changes.append(
             {
                 "field": "one-way travel",
                 "from": f"≤ {brief.max_one_way_minutes} min",
-                "to": f"≈ {travel} min",
-                "delta": travel - brief.max_one_way_minutes,
+                "to": f"{max_route_minutes} min max",
+                "delta": max_route_minutes - brief.max_one_way_minutes,
                 "unit": "min",
+                "outbound_minutes": travel,
+                "return_minutes": return_travel,
+                "source": travel_source,
             }
         )
-    else:
+    elif route_override:
         preserved.append("Travel limit")
+    else:
+        needs.append("Detailed outbound and return routes have not been checked yet")
 
     if stay_minutes < brief.min_stay_minutes:
         changes.append(
@@ -194,11 +227,14 @@ def evaluate_place(
         preserved.append("Minimum stay")
 
     if return_time > return_by:
+        label = "Checked" if route_override else "Estimated"
         hard.append(
-            f"Estimated return would be {return_time.strftime('%H:%M')}, after the locked {return_by.strftime('%H:%M')}"
+            f"{label} return would be {return_time.strftime('%H:%M')}, after the locked {return_by.strftime('%H:%M')}"
         )
-    else:
+    elif route_override:
         preserved.append("Return time")
+    elif "Detailed outbound and return routes have not been checked yet" not in needs:
+        needs.append("Detailed return route has not been checked yet")
 
     cost_min = cost_max = None
     if place.price.minimum is not None and place.price.maximum is not None and place.price.unit == brief.currency:
@@ -208,9 +244,9 @@ def evaluate_place(
             hard.append(
                 f"Upper cost estimate is {cost_max:.0f} {brief.currency}, above the locked {brief.budget_total:.0f} {brief.currency} budget"
             )
-        else:
+        elif place.price.status in {"confirmed", "fixture"}:
             preserved.append("Budget")
-        if place.price.status not in {"confirmed", "fixture"}:
+        else:
             needs.append("Price range is not confirmed enough for a hard-budget guarantee")
     else:
         needs.append("Price is missing or uses a different currency; hard-budget fit is not confirmed")
@@ -226,9 +262,6 @@ def evaluate_place(
         else:
             preserved.append("Opening window")
 
-    if place.price.status not in {"confirmed", "fixture"} and "Budget" in preserved:
-        preserved.remove("Budget")
-
     return Evaluation(
         place=place,
         affinity=taste.affinity if taste else None,
@@ -236,6 +269,7 @@ def evaluate_place(
         taste_evidence=taste.evidence if taste else (),
         taste_source=taste.source if taste else "none",
         travel_minutes=travel,
+        return_travel_minutes=return_travel,
         stay_minutes=stay_minutes,
         arrival=arrival,
         departure=departure,
@@ -243,9 +277,13 @@ def evaluate_place(
         estimated_total_min=cost_min,
         estimated_total_max=cost_max,
         hard_failures=tuple(hard),
-        needs_checking=tuple(needs),
+        needs_checking=tuple(dict.fromkeys(needs)),
         changes=tuple(changes),
         preserved=tuple(dict.fromkeys(preserved)),
+        travel_source=travel_source,
+        travel_checked_at=travel_checked_at,
+        travel_source_url=travel_source_url,
+        travel_realtime=travel_realtime,
     )
 
 
