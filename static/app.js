@@ -906,7 +906,7 @@ function useBrowserCurrentLocation() {
   useCurrentLocation.classList.add('loading');
   originResolution.textContent = 'Waiting for browser location permission…';
   navigator.geolocation.getCurrentPosition(
-    position => {
+    async position => {
       const lat = Number(position.coords.latitude);
       const lon = Number(position.coords.longitude);
       useCurrentLocation.disabled = false;
@@ -914,14 +914,35 @@ function useBrowserCurrentLocation() {
       if (!(lat >= 52.05 && lat <= 52.40 && lon >= 20.75 && lon <= 21.35)) {
         delete originInput.dataset.lat;
         delete originInput.dataset.lon;
-        originResolution.textContent = 'Current location is outside the Warsaw pilot area. Enter a Warsaw address or landmark.';
+        originResolution.textContent = 'Current location is outside the Warsaw only beta area. Enter a Warsaw address or landmark.';
         return;
       }
       hideOriginSuggestions();
       originInput.value = 'Current location';
       originInput.dataset.lat = String(lat);
       originInput.dataset.lon = String(lon);
-      originResolution.textContent = `Current location ready · ±${Math.round(Number(position.coords.accuracy) || 0)} m accuracy · used only for this plan`;
+      const accuracy = Math.round(Number(position.coords.accuracy) || 0);
+      originResolution.textContent = `GPS ready · ±${accuracy} m · finding nearest mapped address…`;
+      const expectedLat = String(lat);
+      const expectedLon = String(lon);
+      try {
+        const resolved = await fetchJson('/api/reverse-geocode', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({lat, lon}),
+        });
+        if (originInput.dataset.lat !== expectedLat || originInput.dataset.lon !== expectedLon) return;
+        if (resolved.available && resolved.label) {
+          originInput.value = resolved.label;
+          originResolution.textContent = `GPS ready · ±${accuracy} m · nearest mapped address from local OpenStreetMap index · routing uses your exact GPS position`;
+        } else {
+          originResolution.textContent = `Current location ready · ±${accuracy} m · no nearby mapped address found · routing uses your exact GPS position`;
+        }
+      } catch {
+        if (originInput.dataset.lat === expectedLat && originInput.dataset.lon === expectedLon) {
+          originResolution.textContent = `Current location ready · ±${accuracy} m · address lookup unavailable · routing uses your exact GPS position`;
+        }
+      }
     },
     error => {
       useCurrentLocation.disabled = false;
