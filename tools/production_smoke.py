@@ -24,6 +24,17 @@ def post_json(path: str, payload: dict) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def post_raw(path: str, payload: dict) -> tuple[str, bytes]:
+    request = Request(
+        BASE + path,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=45) as response:
+        return response.headers.get("Content-Type", ""), response.read()
+
+
 def main() -> int:
     health = get_json("/api/health")
     if not health.get("ok"):
@@ -86,6 +97,61 @@ def main() -> int:
     if locked.get("cards"):
         raise RuntimeError("locking the demo's required stay compromise should leave no feasible rescue")
 
+    planner_catalog = get_json("/api/planner/catalog?date=2026-10-17")
+    planner_ids = {row.get("id") for row in planner_catalog.get("items", [])}
+    if "event:simple-plan-2026-10-17" not in planner_ids:
+        raise RuntimeError("planner catalog is missing the fixed demo concert")
+
+    planner_brief = {
+        "date": "2026-10-17",
+        "start_time": "10:00",
+        "end_time": "22:30",
+        "origin": "Warsaw Central",
+        "return_required": True,
+        "return_origin": "Warsaw Central",
+        "people": 2,
+        "budget_total": 500,
+        "activity_count": 3,
+        "pace": "balanced",
+        "travel_mode": "transit",
+        "event_buffer_minutes": 15,
+        "include_meal": True,
+        "categories": [],
+        "interests": ["art", "rock"],
+        "taste_refs": ["Radiohead"],
+        "must_include_ids": ["event:simple-plan-2026-10-17"],
+        "locked_ids": ["event:simple-plan-2026-10-17"],
+        "excluded_ids": [],
+    }
+    planner_result = post_json("/api/planner/generate", planner_brief)
+    if not planner_result.get("plans"):
+        raise RuntimeError("public Plan a day demo returned no plan")
+    planner_plan = planner_result["plans"][0]
+    planner_item_ids = {row["activity_id"] for row in planner_plan["items"]}
+    if "event:simple-plan-2026-10-17" not in planner_item_ids:
+        raise RuntimeError("planner lost the locked fixed event")
+    if planner_result.get("taste_status") != "not_live":
+        raise RuntimeError("planner must not claim live Qloo before connection")
+
+    removable = next(
+        row["activity_id"]
+        for row in planner_plan["items"]
+        if row["activity_id"] != "event:simple-plan-2026-10-17"
+    )
+    repaired = post_json(
+        "/api/planner/repair",
+        {"brief": planner_brief, "plan": planner_plan, "removed_id": removable},
+    )
+    if not repaired.get("plans"):
+        raise RuntimeError("planner repair returned no alternative")
+    repaired_ids = {row["activity_id"] for row in repaired["plans"][0]["items"]}
+    if "event:simple-plan-2026-10-17" not in repaired_ids or removable in repaired_ids:
+        raise RuntimeError("planner repair did not preserve the lock/exclusion")
+
+    content_type, ics_body = post_raw("/api/planner/ics", {"plan": planner_plan})
+    if "text/calendar" not in content_type or b"BEGIN:VCALENDAR" not in ics_body:
+        raise RuntimeError("planner ICS export failed")
+
     print(
         json.dumps(
             {
@@ -96,6 +162,10 @@ def main() -> int:
                 "reject_undo": True,
                 "lock_compromise_result": locked.get("result_status"),
                 "qloo_status": first.get("taste_audit", {}).get("status"),
+                "planner_stops": len(planner_plan["items"]),
+                "planner_repair": True,
+                "planner_ics": True,
+                "planner_taste_status": planner_result.get("taste_status"),
             },
             ensure_ascii=False,
         )

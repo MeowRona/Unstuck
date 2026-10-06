@@ -2,11 +2,18 @@
 
 Canonical repository: https://github.com/MeowRona/Unstuck
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ## Working now
 
 - Python standard-library web app; no runtime package installation required.
+- Two product modes now share City Compass: **Rescue a plan** and **Plan a day**.
+- Plan a day adds a month calendar, Today/Tomorrow/This weekend shortcuts, per-date Explore, up to three day variants, 1–4 stop control, fixed-event arrival buffer, numbered map stops, point-to-point travel timeline, local saved plans, Repair this day and plan/activity `.ics` export.
+- Planner data is a deliberately limited verified Warsaw snapshot checked 2026-10-06: selected Warsaw Tourism Office event occurrences plus official schedules for POLIN, Copernicus Science Centre, Museum of Modern Art and Museum of Warsaw, combined with the existing restaurant catalog. Coverage is disclosed and is not described as all Warsaw events.
+- Planner venue / attraction / event-occurrence objects are distinct. Separate days in a series remain separate occurrences; events with no captured session time remain discoverable but unschedulable; unknown prices/availability/event ends are not filled in.
+- Planner feasibility checks opening windows, last entry, explicit 0/10/15/30-minute fixed-event buffer, sequential travel, fixed event times, budget uncertainty and optional return. The selected plan is then route-checked segment-by-segment at the actual previous-stop departure time.
+- Saved planner state uses versioned browser localStorage (`unstuck-planner-saved-v1`) with no account sync. The last selected planner date also survives refresh. Copying settings to another date drops fixed event occurrences and re-runs feasibility.
+- Planner Taste matching is explicitly **not live yet**: taste references are stored but do not affect planner ordering until a live Qloo planner contract is validated. Google Places remains disabled.
 - Responsive English **City Compass** UI: compact plan summary, real OpenStreetMap pane on desktop, vertically stacked result cards, synchronized card/marker selection, explicit kept/changed/check condition states, source/assumption disclosure, and mobile List/Map switching.
 - Full plan editor preserves wheel pickers for time/minute fields. Save refreshes the existing session through `/api/update`; Cancel and Escape restore the previous brief instead of leaking unsaved wheel state.
 - Default planning date/start time now comes from the user's browser-local clock (5-minute rounding); the judge demo keeps its fixed reproducible time.
@@ -36,9 +43,9 @@ Last updated: 2026-10-05
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Python compile | PASS | `python -m compileall -q .` |
-| Logic/unit suite | PASS | 55/55 tests in GitHub Actions: `python -m unittest discover -s tests -q` |
-| HTTP end-to-end | PASS | automated `search -> route-check -> reject(reason) -> undo -> update` coverage on the real catalog with fixture taste |
-| Browser UI load | PASS | GitHub Actions headless Chrome verifies the 60-second rescue flow, reject + undo, compromise lock, final plan, About, dark mode, List/Map switching and no horizontal overflow at 390x844 |
+| Logic/unit suite | PASS | 74/74 tests in GitHub Actions: `python -m unittest discover -s tests -q` |
+| HTTP end-to-end | PASS | rescue `search -> route-check -> reject(reason) -> undo -> update` plus planner `catalog -> generate -> route-check -> repair -> ICS` coverage |
+| Browser UI load | PASS | GitHub Actions headless Chrome verifies Rescue plus Plan a day demo, local save/refresh/load, repair with locked event preserved, and both rescue/planner mobile navigation at 390x844 |
 | Live Qloo | BLOCKED_NO_API_KEY | `python live_smoke.py` exits blocked when `QLOO_API_KEY` is absent |
 | Human blind comparison | NOT RUN | protocol documented in README; no fabricated result |
 | Public deployment | PENDING THIS DEPLOY | Existing Render service is live at https://unstuck-city-compass.onrender.com; this branch will be merged only after CI passes, then the workflow waits for the exact commit and runs `tools/production_smoke.py` against the public service |
@@ -49,26 +56,21 @@ Last updated: 2026-10-05
 
 1. Obtain/set the hackathon `QLOO_API_KEY` and run `python live_smoke.py`.
 2. Inspect raw live Qloo results for entity resolution and same-pool ranking; fix any contract mismatch instead of adapting fixtures to hide it.
-3. Run the documented live-Qloo vs no-taste comparison with real testers; record real results only.
-4. Re-test the stable Render deployment after switching from fixture taste to live Qloo near submission.
-5. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
+3. Validate the planner-specific Qloo taste contract before allowing taste references to affect attraction/event ordering; until then the planner remains feasibility + explicit-interest based.
+4. Run the documented live-Qloo vs no-taste comparison with real testers; record real results only.
+5. Refresh/extend the selected event snapshot near judging if broader future-date coverage is needed; never imply complete Warsaw coverage.
+6. Re-test the stable Render deployment after switching from fixture taste to live Qloo near submission.
+7. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
 
 Until item 1 passes, the project is a working local MVP with a prepared Qloo integration, **not** a competition-ready live Qloo submission.
 
 ## Resume point
 
-Project root: `D:\Unstuck`
+Canonical work path is cloud-first:
 
-Local start:
+1. edit/test on a GitHub branch;
+2. open/update a PR so GitHub Actions runs compile, JavaScript syntax checks, 74 unit/HTTP tests and browser smoke;
+3. merge only after green checks;
+4. the main-branch workflow triggers the existing Render deploy hook, waits for the exact commit via `/api/version`, then runs `tools/production_smoke.py` against the public service.
 
-```powershell
-cd D:\Unstuck
-python app.py
-```
-
-Live integration gate:
-
-```powershell
-$env:QLOO_API_KEY="..."
-python live_smoke.py
-```
+Live Qloo remains gated by `QLOO_API_KEY` and `live_smoke.py`.

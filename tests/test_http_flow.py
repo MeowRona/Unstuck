@@ -55,6 +55,17 @@ class HttpFlowTests(unittest.TestCase):
         with urlopen(request, timeout=3) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def post_raw(self, path, payload):
+        request = Request(
+            self.base + path,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(request, timeout=3) as response:
+            return response.headers, response.read()
+
+
     def test_search_reject_update_end_to_end(self):
         version = self.get_json("/api/version")
         self.assertEqual(version["git_repo"], os.environ.get("RENDER_GIT_REPO_SLUG", "MeowRona/Unstuck"))
@@ -68,6 +79,9 @@ class HttpFlowTests(unittest.TestCase):
         self.assertFalse(health["google_places_enabled"])
         self.assertGreaterEqual(health["street_count"], 5000)
         self.assertTrue(health["transit_index_present"])
+        self.assertTrue(health["planner_enabled"])
+        self.assertGreaterEqual(health["planner_event_count"], 6)
+        self.assertGreaterEqual(health["planner_attraction_count"], 4)
 
         streets = self.get_json("/api/streets?q=Marsza")
         self.assertTrue(any("Marsza" in row for row in streets["suggestions"]))
@@ -207,6 +221,76 @@ class HttpFlowTests(unittest.TestCase):
             self.assertEqual(card["timing"]["travel_return_minutes"], 30)
             fields = {change["field"] for change in card["change"]}
             self.assertIn("one-way travel", fields)
+
+    def test_planner_catalog_generate_route_repair_and_ics(self):
+        catalog = self.get_json("/api/planner/catalog?date=2026-10-17")
+        ids = {row["id"] for row in catalog["items"]}
+        self.assertIn("event:simple-plan-2026-10-17", ids)
+        self.assertIn("attraction:polin-core", ids)
+        self.assertEqual(catalog["coverage"]["event_sources_loaded_from"], "2026-10-06")
+
+        payload = {
+            "date": "2026-10-17",
+            "start_time": "10:00",
+            "end_time": "22:30",
+            "origin": "Warsaw Central",
+            "return_required": True,
+            "return_origin": "Warsaw Central",
+            "people": 2,
+            "budget_total": 500,
+            "activity_count": 3,
+            "pace": "balanced",
+            "travel_mode": "transit",
+            "event_buffer_minutes": 15,
+            "include_meal": True,
+            "categories": [],
+            "interests": ["art", "rock"],
+            "taste_refs": ["Radiohead"],
+            "must_include_ids": ["event:simple-plan-2026-10-17"],
+            "locked_ids": ["event:simple-plan-2026-10-17"],
+            "excluded_ids": [],
+        }
+        planned = self.post_json("/api/planner/generate", payload)
+        self.assertTrue(planned["plans"])
+        self.assertEqual(planned["taste_status"], "not_live")
+        plan = planned["plans"][0]
+        self.assertIn("event:simple-plan-2026-10-17", {row["activity_id"] for row in plan["items"]})
+
+        route_payload = {
+            "duration_minutes": 10,
+            "scheduled": True,
+            "realtime": False,
+            "source": {"name": "fixture schedule", "url": "https://example.test/gtfs"},
+            "legs": [],
+        }
+        with patch("app.route_transit", return_value=route_payload):
+            checked = self.post_json(
+                "/api/planner/route-check",
+                {"brief": payload, "plan": plan},
+            )
+        self.assertEqual(checked["plan"]["route_status"], "checked")
+        self.assertTrue(all(leg["status"] == "checked" for leg in checked["plan"]["travel_legs"]))
+
+        removable = next(
+            row["activity_id"]
+            for row in plan["items"]
+            if row["activity_id"] != "event:simple-plan-2026-10-17"
+        )
+        repaired = self.post_json(
+            "/api/planner/repair",
+            {"brief": payload, "plan": plan, "removed_id": removable},
+        )
+        self.assertTrue(repaired["plans"])
+        repaired_ids = {row["activity_id"] for row in repaired["plans"][0]["items"]}
+        self.assertIn("event:simple-plan-2026-10-17", repaired_ids)
+        self.assertNotIn(removable, repaired_ids)
+
+        headers, body = self.post_raw("/api/planner/ics", {"plan": plan})
+        self.assertTrue(headers.get_content_type().startswith("text/calendar"))
+        text = body.decode("utf-8")
+        self.assertIn("BEGIN:VCALENDAR", text)
+        self.assertIn("X-WR-TIMEZONE:Europe/Warsaw", text)
+        self.assertIn("Simple Plan", text)
 
     def test_google_place_media_is_disabled_by_default_even_with_key(self):
         place_id = "ChIJM-LLX_HMHkcRPDiwF3WzN4Q"

@@ -134,10 +134,89 @@ def mobile_flow():
         driver.quit()
 
 
+def planner_flow():
+    driver = driver_for(1440, 900)
+    try:
+        driver.get(BASE)
+        wait = WebDriverWait(driver, 45)
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerModeButton"))).click()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerSurface")))
+        wait.until(lambda d: "Loading" not in d.find_element(By.ID, "plannerCoverageStatus").text)
+
+        driver.find_element(By.ID, "plannerDemo").click()
+        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".timeline-activity")) >= 2)
+        ids = [row.get_attribute("data-plan-item") for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
+        self_event = "event:simple-plan-2026-10-17"
+        if self_event not in ids:
+            raise AssertionError(f"planner demo lost locked Simple Plan event: {ids}")
+        if not any(str(value).startswith("restaurant:") for value in ids):
+            raise AssertionError(f"planner demo did not include meal stop: {ids}")
+        if not any(str(value).startswith("attraction:") for value in ids):
+            raise AssertionError(f"planner demo did not include flexible attraction: {ids}")
+        assert "not live yet" in driver.find_element(By.ID, "plannerTasteStatus").text.lower()
+
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerSavePlan"))).click()
+        saved = driver.execute_script("return localStorage.getItem('unstuck-planner-saved-v1')")
+        if not saved or "2026-10-17" not in saved:
+            raise AssertionError("planner save did not persist to localStorage")
+
+        driver.refresh()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerSurface")))
+        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".saved-plan-row")) > 0)
+        load = driver.find_element(By.CSS_SELECTOR, '[data-saved-action="load"]')
+        load.click()
+        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".timeline-activity")) >= 2)
+        ids = [row.get_attribute("data-plan-item") for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
+        if self_event not in ids:
+            raise AssertionError("saved plan lost locked event")
+
+        replace_button = None
+        for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity"):
+            if row.get_attribute("data-plan-item") != self_event:
+                replace_button = row.find_element(By.CSS_SELECTOR, '[data-item-action="replace"]')
+                break
+        if replace_button is None:
+            raise AssertionError("planner demo had no replaceable stop")
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", replace_button)
+        replace_button.click()
+        wait.until(lambda d: "Repair kept" in d.find_element(By.ID, "plannerRepairNote").text or "No feasible" in d.find_element(By.ID, "plannerTimeline").text)
+        ids_after = [row.get_attribute("data-plan-item") for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
+        if ids_after and self_event not in ids_after:
+            raise AssertionError("repair changed the locked concert")
+        assert_no_severe_console(driver)
+    finally:
+        driver.quit()
+
+
+def planner_mobile_flow():
+    driver = driver_for(390, 844)
+    try:
+        driver.get(BASE)
+        wait = WebDriverWait(driver, 30)
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerModeButton"))).click()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerSurface")))
+        overflow = driver.execute_script("return document.documentElement.scrollWidth - window.innerWidth")
+        if overflow > 1:
+            raise AssertionError(f"planner mobile horizontal overflow: {overflow}px")
+        driver.find_element(By.CSS_SELECTOR, '[data-planner-view="explore"]').click()
+        assert driver.find_element(By.ID, "plannerSurface").get_attribute("data-mobile-view") == "explore"
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerExplore")))
+        driver.find_element(By.CSS_SELECTOR, '[data-planner-view="map"]').click()
+        assert driver.find_element(By.ID, "plannerSurface").get_attribute("data-mobile-view") == "map"
+        wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "planner-map")))
+        driver.find_element(By.CSS_SELECTOR, '[data-planner-view="plan"]').click()
+        assert driver.find_element(By.ID, "plannerSurface").get_attribute("data-mobile-view") == "plan"
+        assert_no_severe_console(driver)
+    finally:
+        driver.quit()
+
+
 def main():
     desktop_flow()
     mobile_flow()
-    print("browser smoke: desktop rescue flow + 390x844 mobile contract PASS")
+    planner_flow()
+    planner_mobile_flow()
+    print("browser smoke: rescue + planner desktop and 390x844 mobile flows PASS")
 
 
 if __name__ == "__main__":

@@ -12,12 +12,14 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 from unstuck.engine import UnstuckEngine
 from unstuck.geocoding import address_index, geocoder, street_index
 from unstuck.models import Place, SearchBrief, SearchState
 from unstuck.origins import public_origin_payload, resolve_origin
 from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTransport, RealQlooProvider
+from unstuck.planner import DayPlanner, PlannerBrief, PlannerCatalog, plan_to_ics, route_check_plan
 from unstuck.routing import route_transit, route_walk
 
 
@@ -132,6 +134,8 @@ class AppState:
         self.engine = engine
         self.sessions: dict[str, SearchState] = {}
         self.lock = threading.Lock()
+        self.planner_catalog = PlannerCatalog(engine.places)
+        self.day_planner = DayPlanner(self.planner_catalog)
 
     def create(self, brief: SearchBrief) -> tuple[str, dict]:
         session_id = uuid.uuid4().hex
@@ -243,6 +247,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _bytes(
+        self,
+        status: int,
+        data: bytes,
+        *,
+        content_type: str,
+        filename: str | None = None,
+    ) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        if filename:
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.end_headers()
+        self.wfile.write(data)
+
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
         if length > 256_000:
@@ -283,8 +304,24 @@ class Handler(BaseHTTPRequestHandler):
                     "street_count": street_index.count,
                     "address_count": address_index.count,
                     "transit_index_present": (DATA / "transit_warsaw.json.gz").exists(),
+                    "planner_enabled": True,
+                    "planner_data_checked_at": self.app_state.planner_catalog.payload.get("checked_at"),
+                    "planner_event_count": len(self.app_state.planner_catalog.events),
+                    "planner_attraction_count": len(self.app_state.planner_catalog.attractions),
                 },
             )
+            return
+        if path == "/api/planner/catalog":
+            query = parse_qs(parsed.query)
+            selected_date = str((query.get("date") or [""])[0]).strip() or None
+            if selected_date:
+                try:
+                    from datetime import date as _planner_date
+                    _planner_date.fromisoformat(selected_date)
+                except ValueError:
+                    self._json(400, {"error": "date must use YYYY-MM-DD"})
+                    return
+            self._json(200, self.app_state.planner_catalog.public_catalog(selected_date))
             return
         if path == "/api/origins":
             self._json(200, public_origin_payload())
@@ -392,6 +429,54 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     raise ValueError("mode must be walk or transit")
                 self._json(200, result)
+                return
+            if path == "/api/planner/generate":
+                brief = PlannerBrief.from_payload(payload)
+                self._json(200, self.app_state.day_planner.generate(brief))
+                return
+            if path == "/api/planner/repair":
+                raw_brief = payload.get("brief")
+                raw_plan = payload.get("plan")
+                removed_id = str(payload.get("removed_id") or "").strip()
+                if not isinstance(raw_brief, dict) or not isinstance(raw_plan, dict) or not removed_id:
+                    raise ValueError("planner repair requires brief, plan and removed_id")
+                brief = PlannerBrief.from_payload(raw_brief)
+                self._json(200, self.app_state.day_planner.repair(raw_plan, brief, removed_id))
+                return
+            if path == "/api/planner/route-check":
+                raw_brief = payload.get("brief")
+                raw_plan = payload.get("plan")
+                if not isinstance(raw_brief, dict) or not isinstance(raw_plan, dict):
+                    raise ValueError("planner route-check requires brief and plan")
+                brief = PlannerBrief.from_payload(raw_brief)
+
+                def planner_route(start, end, depart_at, mode):
+                    if mode == "walk":
+                        return route_walk(start, end)
+                    return route_transit(
+                        start,
+                        end,
+                        service_date=depart_at.astimezone(ZoneInfo("Europe/Warsaw")).date(),
+                        departure_time=depart_at.astimezone(ZoneInfo("Europe/Warsaw")).strftime("%H:%M"),
+                    )
+
+                checked = route_check_plan(raw_plan, brief, planner_route)
+                self._json(200, {"brief": brief.to_dict(), "plan": checked})
+                return
+            if path == "/api/planner/ics":
+                raw_plan = payload.get("plan")
+                activity_id = str(payload.get("activity_id") or "").strip()
+                if not isinstance(raw_plan, dict):
+                    raise ValueError("planner ics requires plan")
+                export_plan = raw_plan
+                if activity_id:
+                    matches = [item for item in raw_plan.get("items", []) if str(item.get("activity_id")) == activity_id]
+                    if not matches:
+                        raise ValueError("activity_id is not present in this plan")
+                    export_plan = {**raw_plan, "items": matches}
+                ics = plan_to_ics(export_plan).encode("utf-8")
+                filename = f"unstuck-{str(raw_plan.get('date') or 'plan')}.ics"
+                self._bytes(200, ics, content_type="text/calendar; charset=utf-8", filename=filename)
                 return
             if path == "/api/search":
                 brief = SearchBrief.from_payload(payload)

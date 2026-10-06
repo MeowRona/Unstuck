@@ -54,6 +54,53 @@ The final plan repeats those conditions, shows the evening timeline, lists facts
 
 Unknown data never becomes a confirmed PASS. A result with unknown price/hours or an unchecked route can remain useful, but it stays visibly incomplete.
 
+## Plan a day
+
+The City Compass now has two product modes:
+
+- **Rescue a plan** — the original single-plan recovery flow;
+- **Plan a day** — a calendar-driven multi-stop planner for attractions, restaurants and dated events.
+
+Plan a day accepts a date, time window, start/return location, party size, total budget, 1–4 stops, pace, travel mode, explicit interests, an optional must-do and a fixed-event arrival buffer. It returns up to three feasible variants rather than a random card list.
+
+The planner keeps venues, attractions and event occurrences separate. A dated concert is not modeled as a reusable venue visit; a multi-day fair keeps separate daily occurrences; an event without a captured session time is discoverable but not scheduled with an invented hour.
+
+A generated day is checked as a chain:
+
+`origin -> stop 1 -> stop 2 -> ... -> optional return`
+
+Initial search uses bounded travel estimates. The selected plan is then checked leg-by-leg with the existing walking or scheduled-Warsaw-transit adapters, using the previous activity's end time for the next departure. Checked routing can invalidate a fixed event arrival, last-entry rule, attraction opening window or return-by time.
+
+Planner feasibility uses three public states:
+
+- **confirmed** — the currently loaded facts are strong enough for the checked plan;
+- **requires checking** — no known conflict, but a price, ticket availability, event end or other material fact is unknown;
+- **conflict** — a locked time/date/routing condition is broken.
+
+Unknown ticket prices are never treated as zero. Unknown ticket availability is never treated as available. When only fewer stops fit, the planner returns the smaller feasible day and explains why.
+
+### Calendar and saved plans
+
+The month calendar marks event dates only inside the actually loaded snapshot and separately marks plans saved in the browser. The UI distinguishes **no loaded event record for this date** from **event data not loaded for this date**.
+
+Saved plans use versioned browser `localStorage`; there is no account sync. Copying a saved plan to a new date copies flexible settings and re-runs feasibility. Fixed event occurrences are not repeated automatically.
+
+### Repair this day
+
+Each stop can be locked, replaced or removed. Repair preserves locked stops—especially a fixed event such as a concert—and searches for the smallest replacement around them. A logistical rejection does not become a taste signal.
+
+### Calendar export
+
+A whole plan or one activity can be downloaded as `.ics`. Events use stable UIDs and `Europe/Warsaw`. If the real event end is unknown, the export does not invent a confirmed `DTEND`; the uncertainty is written into the description.
+
+### Planner data scope
+
+The bundled planner snapshot is checked **2026-10-06** and deliberately small: selected Warsaw Tourism Office event listings plus official institution schedules for selected museums/attractions, combined with the existing restaurant catalog.
+
+It is **not** marketed as every Warsaw event. Source/coverage semantics and refresh rules are documented in [PLANNER_DATA.md](PLANNER_DATA.md).
+
+Planner taste references are stored, but **Taste matching is not live yet**. Qloo is not called by Plan a day until a live planner-specific contract is validated with the hackathon credential. Google Places remains disabled.
+
 ## Data modes
 
 The same business logic is used in all modes.
@@ -224,7 +271,8 @@ Stable public demo: **https://unstuck-city-compass.onrender.com**. It runs on Re
 - No reservations or live table availability.
 - Initial search travel is an estimate; selected options are checked with street/scheduled-transit outbound and return routing. Transit is not realtime and there is no live traffic/vehicle-position guarantee.
 - Some restaurant/cafe prices or hours are deliberately unknown when a strong current source was not confirmed.
-- No user accounts, payments, social features, or full-trip planning.
+- No user accounts, payments or social features. Planner saves are local to one browser profile.
+- Event coverage is a selected verified snapshot, not a complete live Warsaw events feed; the UI exposes the loaded date range.
 - Live Qloo quality is not considered validated until `live_smoke.py` passes against the real API and human comparison is run.
 
 ## Hackathon

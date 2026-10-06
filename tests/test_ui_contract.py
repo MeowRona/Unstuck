@@ -50,6 +50,24 @@ class UiContractTests(unittest.TestCase):
     def test_multi_element_selectors_use_the_list_helper(self):
         self.assertIn("$('.reject-inline').forEach", self.js)
 
+    def test_plan_a_day_surface_is_real_and_qloo_is_not_claimed_live(self):
+        planner_js = (ROOT / "static" / "planner.js").read_text(encoding="utf-8")
+        planner_css = (ROOT / "static" / "planner.css").read_text(encoding="utf-8")
+        self.assertIn('id="plannerModeButton"', self.html)
+        self.assertIn('id="plannerCalendar"', self.html)
+        self.assertIn('id="plannerExplore"', self.html)
+        self.assertIn('id="plannerMap"', self.html)
+        self.assertIn("Taste matching not live yet", self.html)
+        self.assertIn("/api/planner/generate", planner_js)
+        self.assertIn("/api/planner/repair", planner_js)
+        self.assertIn("/api/planner/route-check", planner_js)
+        self.assertIn("/api/planner/ics", planner_js)
+        self.assertIn("unstuck-planner-saved-v1", planner_js)
+        self.assertIn('data-planner-view="plan"', self.html)
+        self.assertIn('data-planner-view="explore"', self.html)
+        self.assertIn('data-planner-view="map"', self.html)
+        self.assertIn("@media (max-width: 760px)", planner_css)
+
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("@media (max-width: 760px)", css)
