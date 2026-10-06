@@ -416,7 +416,7 @@ class PlannerCatalog:
         exceptions = row.get("date_exceptions") or {}
         if day.isoformat() in exceptions:
             return "open" if exceptions[day.isoformat()] else "closed"
-        windows = (row.get("hours") or {}).get(_weekday(day), [])
+        windows = (row.get("hours") or {}).get(str(day.weekday()), [])
         if windows:
             return "open"
         return "unknown" if row.get("hours_status") not in {"confirmed", "fixture"} else "closed"
@@ -718,7 +718,7 @@ class DayPlanner:
             exceptions = row.get("date_exceptions") or {}
             windows = exceptions.get(day.isoformat())
             if windows is None:
-                windows = (row.get("hours") or {}).get(_weekday(day), [])
+                windows = (row.get("hours") or {}).get(str(day.weekday()), [])
             last_before = 0
             if not windows and row.get("hours_status") not in {"confirmed", "fixture"}:
                 windows = [["11:00", "23:00"]]
