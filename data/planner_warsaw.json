@@ -1,0 +1,703 @@
+{
+  "schema_version": 1,
+  "city": "Warsaw",
+  "timezone": "Europe/Warsaw",
+  "checked_at": "2026-10-06",
+  "coverage": {
+    "event_sources_loaded_from": "2026-10-06",
+    "event_sources_loaded_through": "2026-11-09",
+    "scope": "Selected verified Warsaw Tourism Office listings plus selected official institution schedules; not a complete Warsaw events feed.",
+    "no_results_meaning": "Within the coverage window, no matching record was loaded from the selected sources. Outside it, event data is not loaded."
+  },
+  "sources": [
+    {
+      "id": "go2warsaw",
+      "name": "Go To Warsaw / Warsaw Tourism Office",
+      "url": "https://go2warsaw.pl/en/what-where-when/",
+      "kind": "official_city_calendar",
+      "ingestion": "manual_verified_snapshot"
+    },
+    {
+      "id": "polin",
+      "name": "POLIN Museum",
+      "url": "https://polin.pl/en/basic-information",
+      "kind": "official_institution",
+      "ingestion": "manual_verified_snapshot"
+    },
+    {
+      "id": "kopernik",
+      "name": "Copernicus Science Centre",
+      "url": "https://www.kopernik.org.pl/en/visit/opening-hours",
+      "kind": "official_institution",
+      "ingestion": "manual_verified_snapshot"
+    },
+    {
+      "id": "msn",
+      "name": "Museum of Modern Art in Warsaw",
+      "url": "https://artmuseum.pl/en/visit",
+      "kind": "official_institution",
+      "ingestion": "manual_verified_snapshot"
+    },
+    {
+      "id": "muzeum-warszawy",
+      "name": "Museum of Warsaw",
+      "url": "https://muzeumwarszawy.pl/en/visit/",
+      "kind": "official_institution",
+      "ingestion": "manual_verified_snapshot"
+    }
+  ],
+  "venues": [
+    {
+      "id": "venue:polin",
+      "name": "POLIN Museum of the History of Polish Jews",
+      "address": "Mordechaja Anielewicza 6, Warszawa",
+      "category": "museum",
+      "source_id": "polin"
+    },
+    {
+      "id": "venue:kopernik",
+      "name": "Copernicus Science Centre",
+      "address": "Wybrzeże Kościuszkowskie 20, Warszawa",
+      "category": "science_museum",
+      "source_id": "kopernik"
+    },
+    {
+      "id": "venue:msn",
+      "name": "Museum of Modern Art in Warsaw",
+      "address": "Marszałkowska 103, Warszawa",
+      "category": "art_museum",
+      "source_id": "msn"
+    },
+    {
+      "id": "venue:muzeum-warszawy",
+      "name": "Museum of Warsaw",
+      "address": "Rynek Starego Miasta 42, Warszawa",
+      "category": "museum",
+      "source_id": "muzeum-warszawy"
+    },
+    {
+      "id": "venue:expo-xxi",
+      "name": "EXPO XXI Warszawa",
+      "address": "Prądzyńskiego 12/14, Warszawa",
+      "category": "event_venue",
+      "source_id": "go2warsaw"
+    },
+    {
+      "id": "venue:stodola",
+      "name": "Klub Stodoła",
+      "address": "Batorego 10, Warszawa",
+      "category": "concert_venue",
+      "source_id": "go2warsaw"
+    },
+    {
+      "id": "venue:arena-ursynow",
+      "name": "Arena Ursynów",
+      "address": "Rotmistrza Witolda Pileckiego 122, Warszawa",
+      "category": "arena",
+      "source_id": "go2warsaw"
+    },
+    {
+      "id": "venue:hybrydy",
+      "name": "Klub Hybrydy",
+      "address": "Złota 7/9, Warszawa",
+      "category": "concert_venue",
+      "source_id": "go2warsaw"
+    },
+    {
+      "id": "venue:torwar",
+      "name": "COS Torwar",
+      "address": "Łazienkowska 6A, Warszawa",
+      "category": "arena",
+      "source_id": "go2warsaw"
+    },
+    {
+      "id": "venue:teatr-studio",
+      "name": "Teatr Studio",
+      "address": "Plac Defilad 1, Warszawa",
+      "category": "theatre",
+      "source_id": "go2warsaw"
+    }
+  ],
+  "attractions": [
+    {
+      "id": "attraction:polin-core",
+      "title": "POLIN Core Exhibition",
+      "category": "museum",
+      "venue_id": "venue:polin",
+      "description": "Core exhibition covering 1000 years of the history of Polish Jews.",
+      "duration_minutes_estimate": 120,
+      "last_entry_minutes_before_close": 120,
+      "weekly_hours": {
+        "mon": [
+          [
+            "10:00",
+            "18:00"
+          ]
+        ],
+        "tue": [],
+        "wed": [
+          [
+            "10:00",
+            "18:00"
+          ]
+        ],
+        "thu": [
+          [
+            "10:00",
+            "18:00"
+          ]
+        ],
+        "fri": [
+          [
+            "10:00",
+            "18:00"
+          ]
+        ],
+        "sat": [
+          [
+            "10:00",
+            "20:00"
+          ]
+        ],
+        "sun": [
+          [
+            "10:00",
+            "18:00"
+          ]
+        ]
+      },
+      "closed_dates": [
+        "2026-11-01",
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-31"
+      ],
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person",
+        "note": "Current numeric admission price was not captured in this snapshot; Thursdays are listed as free admission."
+      },
+      "availability": "unknown",
+      "source_id": "polin",
+      "source_url": "https://polin.pl/en/basic-information",
+      "checked_at": "2026-10-06",
+      "tags": [
+        "history",
+        "jewish culture",
+        "museum",
+        "architecture"
+      ]
+    },
+    {
+      "id": "attraction:kopernik-exhibitions",
+      "title": "Copernicus Science Centre exhibitions",
+      "category": "science",
+      "venue_id": "venue:kopernik",
+      "description": "Interactive science exhibitions. Planetarium is a separate timed product and is not included in this activity.",
+      "duration_minutes_estimate": 120,
+      "last_entry_minutes_before_close": 60,
+      "weekly_hours": {
+        "mon": [
+          [
+            "09:00",
+            "18:00"
+          ]
+        ],
+        "tue": [
+          [
+            "09:00",
+            "18:00"
+          ]
+        ],
+        "wed": [
+          [
+            "09:00",
+            "18:00"
+          ]
+        ],
+        "thu": [
+          [
+            "09:00",
+            "18:00"
+          ]
+        ],
+        "fri": [
+          [
+            "09:00",
+            "20:00"
+          ]
+        ],
+        "sat": [
+          [
+            "09:00",
+            "19:00"
+          ]
+        ],
+        "sun": [
+          [
+            "09:00",
+            "19:00"
+          ]
+        ]
+      },
+      "closed_dates": [
+        "2026-11-01",
+        "2026-11-09",
+        "2026-12-07",
+        "2026-12-21",
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-26"
+      ],
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person",
+        "note": "Ticket availability can sell out; this snapshot does not claim a current ticket price."
+      },
+      "availability": "unknown",
+      "source_id": "kopernik",
+      "source_url": "https://www.kopernik.org.pl/en/visit/opening-hours",
+      "checked_at": "2026-10-06",
+      "tags": [
+        "science",
+        "technology",
+        "interactive",
+        "family"
+      ]
+    },
+    {
+      "id": "attraction:msn",
+      "title": "Museum of Modern Art in Warsaw",
+      "category": "art",
+      "venue_id": "venue:msn",
+      "description": "Contemporary art museum at Marszałkowska 103.",
+      "duration_minutes_estimate": 90,
+      "last_entry_minutes_before_close": 30,
+      "weekly_hours": {
+        "mon": [],
+        "tue": [
+          [
+            "11:00",
+            "19:00"
+          ]
+        ],
+        "wed": [
+          [
+            "11:00",
+            "19:00"
+          ]
+        ],
+        "thu": [
+          [
+            "11:00",
+            "19:00"
+          ]
+        ],
+        "fri": [
+          [
+            "11:00",
+            "20:00"
+          ]
+        ],
+        "sat": [
+          [
+            "11:00",
+            "19:00"
+          ]
+        ],
+        "sun": [
+          [
+            "11:00",
+            "18:00"
+          ]
+        ]
+      },
+      "closed_dates": [
+        "2026-10-15",
+        "2026-11-01",
+        "2026-11-11",
+        "2026-12-24",
+        "2026-12-25"
+      ],
+      "price": {
+        "status": "confirmed",
+        "currency": "PLN",
+        "min": 25,
+        "max": 40,
+        "basis": "per_person",
+        "note": "Regular ticket is 40 PLN before 18:00 and 25 PLN from 18:00; planner keeps the full range unless time-specific pricing is implemented."
+      },
+      "availability": "unknown",
+      "source_id": "msn",
+      "source_url": "https://artmuseum.pl/en/visit",
+      "checked_at": "2026-10-06",
+      "tags": [
+        "contemporary art",
+        "design",
+        "architecture",
+        "museum"
+      ]
+    },
+    {
+      "id": "attraction:muzeum-warszawy",
+      "title": "Museum of Warsaw — permanent exhibition",
+      "category": "history",
+      "venue_id": "venue:muzeum-warszawy",
+      "description": "Permanent exhibition about Warsaw, presented across the Old Town museum complex.",
+      "duration_minutes_estimate": 90,
+      "last_entry_minutes_before_close": 60,
+      "weekly_hours": {
+        "mon": [],
+        "tue": [
+          [
+            "09:00",
+            "17:00"
+          ]
+        ],
+        "wed": [
+          [
+            "09:00",
+            "17:00"
+          ]
+        ],
+        "thu": [
+          [
+            "09:00",
+            "19:00"
+          ]
+        ],
+        "fri": [
+          [
+            "09:00",
+            "17:00"
+          ]
+        ],
+        "sat": [
+          [
+            "11:00",
+            "18:00"
+          ]
+        ],
+        "sun": [
+          [
+            "11:00",
+            "18:00"
+          ]
+        ]
+      },
+      "closed_dates": [
+        "2026-11-01",
+        "2026-11-11",
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-26",
+        "2026-12-31"
+      ],
+      "price": {
+        "status": "confirmed",
+        "currency": "PLN",
+        "min": 25,
+        "max": 25,
+        "basis": "per_person",
+        "note": "Regular permanent-exhibition ticket captured from the official visit page."
+      },
+      "availability": "unknown",
+      "source_id": "muzeum-warszawy",
+      "source_url": "https://muzeumwarszawy.pl/en/visit/",
+      "checked_at": "2026-10-06",
+      "tags": [
+        "warsaw",
+        "history",
+        "old town",
+        "museum"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "event:happysad-2026-10-15",
+      "series_id": "series:happysad-xxv",
+      "title": "HAPPYSAD — XXV TOUR",
+      "category": "concert",
+      "venue_id": "venue:stodola",
+      "description": "25th-anniversary tour concert.",
+      "date": "2026-10-15",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 120,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/events/happysad-xxv-tour/",
+      "info_url": "https://go2warsaw.pl/events/happysad-xxv-tour/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "rock",
+        "polish music",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:targi-rzeczy-2026-10-17",
+      "series_id": "series:targi-rzeczy-wyjatkowych-2026",
+      "title": "Targi Rzeczy Wyjątkowych",
+      "category": "fair",
+      "venue_id": "venue:expo-xxi",
+      "description": "Polish craft and design fair.",
+      "date": "2026-10-17",
+      "start_time": "11:00",
+      "end_time": "19:00",
+      "doors_time": null,
+      "end_status": "confirmed",
+      "flexible_visit_window": true,
+      "planning_duration_minutes": 90,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/events/targi-rzeczy-wyjatkowych/",
+      "info_url": "https://go2warsaw.pl/events/targi-rzeczy-wyjatkowych/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "design",
+        "craft",
+        "market",
+        "fair"
+      ]
+    },
+    {
+      "id": "event:targi-rzeczy-2026-10-18",
+      "series_id": "series:targi-rzeczy-wyjatkowych-2026",
+      "title": "Targi Rzeczy Wyjątkowych",
+      "category": "fair",
+      "venue_id": "venue:expo-xxi",
+      "description": "Second day of the Polish craft and design fair.",
+      "date": "2026-10-18",
+      "start_time": "11:00",
+      "end_time": "19:00",
+      "doors_time": null,
+      "end_status": "confirmed",
+      "flexible_visit_window": true,
+      "planning_duration_minutes": 90,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/events/targi-rzeczy-wyjatkowych/",
+      "info_url": "https://go2warsaw.pl/events/targi-rzeczy-wyjatkowych/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "design",
+        "craft",
+        "market",
+        "fair"
+      ]
+    },
+    {
+      "id": "event:simple-plan-2026-10-17",
+      "series_id": "series:simple-plan-2026",
+      "title": "Simple Plan: BIGGER THAN YOU THINK!",
+      "category": "concert",
+      "venue_id": "venue:expo-xxi",
+      "description": "Simple Plan concert at EXPO XXI.",
+      "date": "2026-10-17",
+      "start_time": "18:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 150,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/events/simple-plan-bigger-than-you-think-456/",
+      "info_url": "https://go2warsaw.pl/en/events/simple-plan-bigger-than-you-think-456/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "pop punk",
+        "rock",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:berre-2026-10-17",
+      "series_id": "series:berre-2026",
+      "title": "BERRE: HOW BEAUTIFUL THIS LIFE IS EU TOUR 2026",
+      "category": "concert",
+      "venue_id": "venue:hybrydy",
+      "description": "BERRE live at Klub Hybrydy.",
+      "date": "2026-10-17",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 120,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/events/berre-how-beautiful-this-life-is-eu-tour-2026-519/",
+      "info_url": "https://go2warsaw.pl/en/events/berre-how-beautiful-this-life-is-eu-tour-2026-519/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "pop",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:god-save-queen-2026-10-17",
+      "series_id": "series:god-save-queen-2026",
+      "title": "GOD SAVE THE QUEEN",
+      "category": "concert",
+      "venue_id": "venue:arena-ursynow",
+      "description": "Queen tribute concert.",
+      "date": "2026-10-17",
+      "start_time": "20:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 120,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/events/god-save-the-queen-138/",
+      "info_url": "https://go2warsaw.pl/en/events/god-save-the-queen-138/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "queen",
+        "rock",
+        "tribute",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:harlem-2026-10-19",
+      "series_id": "series:harlem-globetrotters-100",
+      "title": "THE HARLEM GLOBETROTTERS — The 100 year tour",
+      "category": "sports_show",
+      "venue_id": "venue:torwar",
+      "description": "Harlem Globetrotters 100-year tour show.",
+      "date": "2026-10-19",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 120,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/events/the-harlem-globetrotters-trasa-100-lecia-592/",
+      "info_url": "https://go2warsaw.pl/en/events/the-harlem-globetrotters-trasa-100-lecia-592/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "basketball",
+        "sports",
+        "show",
+        "family"
+      ]
+    },
+    {
+      "id": "event:bodymind-2026",
+      "series_id": "series:bodymind-2026",
+      "title": "Body/Mind 2026 — International Festival of Dance and Performance Arts",
+      "category": "festival",
+      "venue_id": "venue:teatr-studio",
+      "description": "Festival listing. A concrete session time was not captured in this snapshot, so it is discoverable but not schedulable.",
+      "date": "2026-10-08",
+      "start_time": null,
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": null,
+      "planning_duration_status": "unknown",
+      "status": "planned",
+      "availability": "unknown",
+      "schedulable": false,
+      "unschedulable_reason": "Session time not loaded from the selected source snapshot.",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/main-page/",
+      "info_url": "https://go2warsaw.pl/en/main-page/",
+      "ticket_url": null,
+      "checked_at": "2026-10-06",
+      "tags": [
+        "dance",
+        "performance",
+        "festival"
+      ]
+    }
+  ]
+}
