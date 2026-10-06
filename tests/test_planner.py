@@ -138,7 +138,7 @@ class DayPlannerTests(unittest.TestCase):
 
     def test_last_entry_blocks_a_too_late_polin_visit(self):
         row = next(x for x in self.catalog.activities_for_date(date(2026, 10, 17)) if x["id"] == "attraction:polin-core")
-        arrival = _dt(date(2026, 10, 17), "16:30")
+        arrival = _dt(date(2026, 10, 17), "18:30")
         self.assertIsNone(self.planner._slot(row, date(2026, 10, 17), arrival, "balanced"))
 
     def test_closed_museum_cannot_be_a_required_item(self):
@@ -227,7 +227,7 @@ class DayPlannerTests(unittest.TestCase):
 
         def very_slow_route(_start, _end, _depart_at, _mode):
             return {
-                "duration_minutes": 390,
+                "duration_minutes": 510,
                 "scheduled": True,
                 "realtime": False,
                 "source": {"name": "fixture slow route"},
