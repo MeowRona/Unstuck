@@ -80,42 +80,84 @@
       "name": "EXPO XXI Warszawa",
       "address": "Prądzyńskiego 12/14, Warszawa",
       "category": "event_venue",
-      "source_id": "go2warsaw"
+      "source_id": "go2warsaw",
+      "lat": 52.225217,
+      "lon": 20.962117,
+      "location_source": {
+        "name": "verified public venue/map reference",
+        "url": "https://commons.wikimedia.org/wiki/Category:Expo_XXI",
+        "checked_at": "2026-10-06"
+      }
     },
     {
       "id": "venue:stodola",
       "name": "Klub Stodoła",
       "address": "Batorego 10, Warszawa",
       "category": "concert_venue",
-      "source_id": "go2warsaw"
+      "source_id": "go2warsaw",
+      "lat": 52.21158,
+      "lon": 21.01019,
+      "location_source": {
+        "name": "verified public venue/map reference",
+        "url": "https://www.kulturalna.warszawa.pl/pi/46018_1.pdf",
+        "checked_at": "2026-10-06"
+      }
     },
     {
       "id": "venue:arena-ursynow",
       "name": "Arena Ursynów",
       "address": "Rotmistrza Witolda Pileckiego 122, Warszawa",
       "category": "arena",
-      "source_id": "go2warsaw"
+      "source_id": "go2warsaw",
+      "lat": 52.143139,
+      "lon": 21.039457,
+      "location_source": {
+        "name": "verified public venue/map reference",
+        "url": "https://www.wikidata.org/wiki/Q9159403",
+        "checked_at": "2026-10-06"
+      }
     },
     {
       "id": "venue:hybrydy",
       "name": "Klub Hybrydy",
       "address": "Złota 7/9, Warszawa",
       "category": "concert_venue",
-      "source_id": "go2warsaw"
+      "source_id": "go2warsaw",
+      "lat": 52.232716,
+      "lon": 21.01185,
+      "location_source": {
+        "name": "verified public venue/map reference",
+        "url": "https://otwartawarszawa.pl/przewodnik/klub-hybrydy",
+        "checked_at": "2026-10-06"
+      }
     },
     {
       "id": "venue:torwar",
       "name": "COS Torwar",
       "address": "Łazienkowska 6A, Warszawa",
       "category": "arena",
-      "source_id": "go2warsaw"
+      "source_id": "go2warsaw",
+      "lat": 52.222454,
+      "lon": 21.042245,
+      "location_source": {
+        "name": "verified public venue/map reference",
+        "url": "https://torwar.cos.pl/8504/dojazd",
+        "checked_at": "2026-10-06"
+      }
     },
     {
       "id": "venue:teatr-studio",
       "name": "Teatr Studio",
       "address": "Plac Defilad 1, Warszawa",
       "category": "theatre",
-      "source_id": "go2warsaw"
+      "source_id": "go2warsaw",
+      "lat": 52.231918,
+      "lon": 21.006781,
+      "location_source": {
+        "name": "verified public venue/map reference",
+        "url": "https://www.kupbilecik.pl/en/place/2994/teatr-studio",
+        "checked_at": "2026-10-06"
+      }
     }
   ],
   "attractions": [
