@@ -185,6 +185,46 @@ class DayPlannerTests(unittest.TestCase):
         for earlier, later in zip(departures, departures[1:]):
             self.assertGreater(later, earlier)
 
+    def test_checked_route_can_push_flexible_attraction_past_last_entry(self):
+        result = self.planner.generate(
+            brief(
+                date="2026-10-17",
+                start_time="10:00",
+                end_time="22:00",
+                activity_count=1,
+                include_meal=False,
+                must_include_ids=["attraction:polin-core"],
+            )
+        )
+        self.assertTrue(result["plans"])
+        plan = result["plans"][0]
+
+        def very_slow_route(_start, _end, _depart_at, _mode):
+            return {
+                "duration_minutes": 390,
+                "scheduled": True,
+                "realtime": False,
+                "source": {"name": "fixture slow route"},
+                "legs": [],
+            }
+
+        checked = route_check_plan(
+            plan,
+            brief(
+                date="2026-10-17",
+                start_time="10:00",
+                end_time="22:00",
+                activity_count=1,
+                include_meal=False,
+                must_include_ids=["attraction:polin-core"],
+            ),
+            very_slow_route,
+        )
+        self.assertEqual(checked["feasibility"], "conflict")
+        self.assertTrue(
+            any("last accepted entry" in row or "opening window" in row for row in checked["route_conflicts"])
+        )
+
     def test_repair_keeps_locked_item_and_excludes_removed_item(self):
         b = brief(
             activity_count=3,
