@@ -608,7 +608,7 @@ class DayPlanner:
             slot = self._slot(row, day, arrival, brief.pace)
             if slot is None:
                 return None
-            activity_start, activity_end, waiting = slot
+            activity_start, activity_end, waiting, window_end, latest_entry = slot
             if activity_end > end_dt:
                 return None
             scheduled.append(
@@ -621,6 +621,8 @@ class DayPlanner:
                     "wait_minutes": waiting,
                     "start": activity_start,
                     "end": activity_end,
+                    "window_end": window_end,
+                    "latest_entry": latest_entry,
                     "from_coords": coords,
                     "to_coords": target,
                 }
@@ -657,7 +659,7 @@ class DayPlanner:
         day: date,
         arrival: datetime,
         pace: str,
-    ) -> tuple[datetime, datetime, int] | None:
+    ) -> tuple[datetime, datetime, int, datetime | None, datetime | None] | None:
         duration = self._duration(row, pace)
         if row["kind"] == "event" and row.get("start_time") and not row.get("flexible_visit_window"):
             start = _dt(day, str(row["start_time"]))
@@ -667,7 +669,7 @@ class DayPlanner:
             end = _dt(day, str(row["end_time"])) if row.get("end_time") else start + timedelta(minutes=duration)
             if end <= start:
                 end += timedelta(days=1)
-            return start, end, waiting
+            return start, end, waiting, None, start
 
         windows = self._windows(row, day)
         if not windows:
@@ -678,7 +680,7 @@ class DayPlanner:
                 continue
             end = start + timedelta(minutes=duration)
             if end <= close_time:
-                return start, end, max(0, int((start - arrival).total_seconds() // 60))
+                return start, end, max(0, int((start - arrival).total_seconds() // 60)), close_time, last_entry
         return None
 
     @staticmethod
@@ -797,6 +799,8 @@ class DayPlanner:
                 "interest_matches": matches,
                 "doors_time": row.get("doors_time"),
                 "source_event_end_status": row.get("end_status"),
+                "visit_window_end": step["window_end"].isoformat() if step.get("window_end") else None,
+                "latest_entry": step["latest_entry"].isoformat() if step.get("latest_entry") else None,
             }
             if row.get("end_status") == "unknown" and row["kind"] == "event":
                 item["checks"].append("Actual event end time is unknown.")
@@ -900,6 +904,20 @@ def route_check_plan(
             actual_start = max(arrival, planned_start)
         duration = int(original["duration_minutes"])
         actual_end = actual_start + timedelta(minutes=duration)
+        latest_entry = datetime.fromisoformat(original["latest_entry"]) if original.get("latest_entry") else None
+        visit_window_end = datetime.fromisoformat(original["visit_window_end"]) if original.get("visit_window_end") else None
+        if latest_entry is not None and latest_entry.tzinfo is None:
+            latest_entry = latest_entry.replace(tzinfo=WARSAW_TZ)
+        if visit_window_end is not None and visit_window_end.tzinfo is None:
+            visit_window_end = visit_window_end.replace(tzinfo=WARSAW_TZ)
+        if not fixed and latest_entry is not None and actual_start > latest_entry:
+            conflicts.append(
+                f"Checked route reaches {original['title']} after its last accepted entry time."
+            )
+        if not fixed and visit_window_end is not None and actual_end > visit_window_end:
+            conflicts.append(
+                f"Checked route pushes {original['title']} past its available opening window."
+            )
         item = dict(original)
         item.update(
             {
