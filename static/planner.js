@@ -381,6 +381,7 @@
       activity_count: Number($('#plannerActivityCount').value),
       pace: $('#plannerPace').value,
       travel_mode: $('#plannerTravelMode').value,
+      event_buffer_minutes: Number($('#plannerEventBuffer').value),
       include_meal: $('#plannerIncludeMeal').checked,
       categories: [],
       interests: $$('.planner-interest-fieldset input:checked').map((input) => input.value),
@@ -405,6 +406,7 @@
     $('#plannerActivityCount').value = brief.activity_count;
     $('#plannerPace').value = brief.pace;
     $('#plannerTravelMode').value = brief.travel_mode;
+    $('#plannerEventBuffer').value = String(brief.event_buffer_minutes == null ? 15 : brief.event_buffer_minutes);
     $('#plannerIncludeMeal').checked = Boolean(brief.include_meal);
     $('#plannerTasteRefs').value = (brief.taste_refs || []).join(', ');
     $$('.planner-interest-fieldset input').forEach((input) => { input.checked = (brief.interests || []).includes(input.value); });
@@ -728,7 +730,7 @@
       origin:central.label, origin_lat:Number(central.lat), origin_lon:Number(central.lon),
       return_required:true, return_origin:central.label, return_lat:Number(central.lat), return_lon:Number(central.lon),
       people:2, budget_total:500, activity_count:3, pace:'balanced', travel_mode:'transit',
-      include_meal:true, categories:[], interests:['art','rock'], taste_refs:['Radiohead'],
+      event_buffer_minutes:15, include_meal:true, categories:[], interests:['art','rock'], taste_refs:['Radiohead'],
       must_include_ids:['event:simple-plan-2026-10-17'], locked_ids:['event:simple-plan-2026-10-17'], excluded_ids:[]
     };
     lockedIds = new Set(demo.locked_ids);
