@@ -2,6 +2,7 @@
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
   const STORE_KEY = 'unstuck-planner-saved-v1';
+  const LAST_DATE_KEY = 'unstuck-planner-last-date';
   const STORE_VERSION = 1;
 
   const rescueBtn = $('#rescueModeButton');
@@ -156,6 +157,7 @@
 
   async function selectDate(iso) {
     $('#plannerDate').value = iso;
+    localStorage.setItem(LAST_DATE_KEY, iso);
     calendarMonth = iso.slice(0, 7);
     renderCalendar();
     renderAgenda();
@@ -743,7 +745,8 @@
 
   async function ensureLoaded() {
     if (catalog) return;
-    const today = warsawDate();
+    const savedDate = localStorage.getItem(LAST_DATE_KEY) || '';
+    const today = /^\d{4}-\d{2}-\d{2}$/.test(savedDate) ? savedDate : warsawDate();
     $('#plannerDate').value = today;
     calendarMonth = today.slice(0,7);
     surface.dataset.mobileView = 'plan';
