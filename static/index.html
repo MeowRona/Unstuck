@@ -224,6 +224,15 @@
                 </select>
               </label>
             </div>
+            <label>Fixed-event arrival buffer
+              <select id="plannerEventBuffer" name="event_buffer_minutes">
+                <option value="0">No extra buffer</option>
+                <option value="10">10 min</option>
+                <option value="15" selected>15 min</option>
+                <option value="30">30 min</option>
+              </select>
+              <span class="field-hint">You must reach a fixed-time event this many minutes before its listed start.</span>
+            </label>
             <label class="planner-return-toggle"><input id="plannerIncludeMeal" type="checkbox" checked> Include one restaurant stop</label>
 
             <fieldset class="planner-interest-fieldset">
