@@ -275,7 +275,7 @@
         : 'No event records in selected loaded sources for this date';
     const order = {event:0, attraction:1, restaurant:2};
     const rows = dateCatalog.items.slice().sort((a,b) =>
-      (order[a.kind] || 9) - (order[b.kind] || 9) || a.title.localeCompare(b.title)
+      (order[a.kind] ?? 9) - (order[b.kind] ?? 9) || a.title.localeCompare(b.title)
     ).slice(0, 40);
     $('#plannerExploreList').innerHTML = rows.map((item) => {
       const disabled = !item.schedulable || item.date_status === 'closed';
@@ -740,8 +740,6 @@
     showNote('Demo day · 17 Oct 2026 · verified source snapshot. Simple Plan is locked; actual event end and ticket availability remain unknown.');
     await buildDay(demo);
   });
-
-  $('#plannerDate').addEventListener('change', () => selectDate($('#plannerDate').value));
 
   async function ensureLoaded() {
     if (catalog) return;
