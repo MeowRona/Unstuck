@@ -29,6 +29,7 @@ def brief(**patch):
         "activity_count": 3,
         "pace": "balanced",
         "travel_mode": "transit",
+        "event_buffer_minutes": 15,
         "include_meal": True,
         "categories": [],
         "interests": ["art", "rock"],
@@ -96,6 +97,31 @@ class DayPlannerTests(unittest.TestCase):
         self.assertEqual(event["display_start"], "18:00")
         self.assertEqual(event["source_event_end_status"], "unknown")
         self.assertIn("Actual event end time is unknown.", event["checks"])
+
+    def test_fixed_event_buffer_is_a_real_constraint(self):
+        row = next(
+            x for x in self.catalog.activities_for_date(date(2026, 10, 17))
+            if x["id"] == "event:simple-plan-2026-10-17"
+        )
+        too_late_for_buffer = _dt(date(2026, 10, 17), "17:50")
+        self.assertIsNone(
+            self.planner._slot(
+                row,
+                date(2026, 10, 17),
+                too_late_for_buffer,
+                "balanced",
+                15,
+            )
+        )
+        self.assertIsNotNone(
+            self.planner._slot(
+                row,
+                date(2026, 10, 17),
+                too_late_for_buffer,
+                "balanced",
+                0,
+            )
+        )
 
     def test_unknown_price_is_not_counted_as_zero(self):
         result = self.planner.generate(
