@@ -7,6 +7,7 @@
   <meta name="description" content="Unstuck finds the smallest acceptable change that saves a real-world plan.">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/planner.css">
 </head>
 <body>
   <main class="app-shell">
@@ -31,7 +32,12 @@
       </div>
     </header>
 
-    <section class="summary-strip" aria-label="Plan summary">
+    <nav class="mode-switcher" aria-label="Choose Unstuck mode">
+      <button id="rescueModeButton" class="active" type="button">Rescue a plan</button>
+      <button id="plannerModeButton" type="button">Plan a day</button>
+    </nav>
+
+    <section class="summary-strip rescue-only" aria-label="Plan summary">
       <button class="summary-plan summary-edit" type="button" data-edit-target="plan">
         <span class="summary-icon icon-slot" data-icon="meal"></span>
         <span class="summary-plan-copy">
@@ -69,12 +75,12 @@
       </div>
     </section>
 
-    <div class="mobile-view-toggle" role="group" aria-label="Choose results view">
+    <div class="mobile-view-toggle rescue-only" role="group" aria-label="Choose results view">
       <button id="showList" class="active" type="button">List</button>
       <button id="showMap" type="button">Map</button>
     </div>
 
-    <section class="workspace">
+    <section class="workspace rescue-only">
       <section id="mapPane" class="map-pane" aria-label="Map of recommendations">
         <div class="map-frame">
           <div id="map"></div>
@@ -124,7 +130,163 @@
       </section>
     </section>
 
-    <footer class="footer-meta">
+    <section id="plannerSurface" class="planner-surface hidden" aria-label="Plan a day">
+      <header class="planner-hero">
+        <div>
+          <div class="first-run-kicker">Warsaw only beta · calendar + events</div>
+          <h1>Build a day that still works when one piece changes.</h1>
+          <p>Choose a date, time window and one must-do if you have it. Unstuck checks opening windows, fixed event times, point-to-point travel and budget uncertainty before it proposes up to three day plans.</p>
+        </div>
+        <div class="planner-status-stack">
+          <span id="plannerTasteStatus" class="planner-status warning">Taste matching not live yet</span>
+          <span id="plannerCoverageStatus" class="planner-status">Loading event coverage…</span>
+        </div>
+      </header>
+
+      <div class="planner-mobile-tabs" role="group" aria-label="Planner view">
+        <button type="button" class="active" data-planner-view="plan">Plan</button>
+        <button type="button" data-planner-view="explore">Explore</button>
+        <button type="button" data-planner-view="map">Map</button>
+      </div>
+
+      <div class="planner-layout">
+        <aside class="planner-controls planner-panel">
+          <div class="planner-panel-head">
+            <div><strong>Calendar</strong><span>Saved plans stay in this browser.</span></div>
+            <div class="calendar-nav">
+              <button id="plannerPrevMonth" type="button" aria-label="Previous month">‹</button>
+              <strong id="plannerMonthLabel"></strong>
+              <button id="plannerNextMonth" type="button" aria-label="Next month">›</button>
+            </div>
+          </div>
+          <div class="planner-quick-dates">
+            <button type="button" data-planner-quick="today">Today</button>
+            <button type="button" data-planner-quick="tomorrow">Tomorrow</button>
+            <button type="button" data-planner-quick="weekend">This weekend</button>
+          </div>
+          <div id="plannerCalendar" class="planner-calendar" aria-label="Month calendar"></div>
+          <div id="plannerAgenda" class="planner-agenda"></div>
+
+          <form id="plannerForm" class="planner-form">
+            <div class="planner-form-grid two">
+              <label>Date
+                <input id="plannerDate" name="date" type="date" required>
+              </label>
+              <label>Activities
+                <select id="plannerActivityCount" name="activity_count">
+                  <option value="1">1 stop</option>
+                  <option value="2">2 stops</option>
+                  <option value="3" selected>3 stops</option>
+                  <option value="4">4 stops</option>
+                </select>
+              </label>
+            </div>
+            <div class="planner-form-grid two">
+              <label>Start
+                <input id="plannerStartTime" name="start_time" type="time" value="11:00" step="300" required>
+              </label>
+              <label>Finish by
+                <input id="plannerEndTime" name="end_time" type="time" value="22:00" step="300" required>
+              </label>
+            </div>
+            <label>Start from
+              <div class="planner-location-row">
+                <input id="plannerOrigin" name="origin" value="Warsaw Central" autocomplete="off" required>
+                <button id="plannerCurrentLocation" class="secondary-button compact" type="button">Current location</button>
+              </div>
+              <span id="plannerOriginStatus" class="field-hint">Saved Warsaw landmarks and exact addresses are supported.</span>
+            </label>
+            <label class="planner-return-toggle"><input id="plannerReturnRequired" type="checkbox" checked> Return to a location by the finish time</label>
+            <label id="plannerReturnWrap">Return to
+              <input id="plannerReturnOrigin" name="return_origin" value="Warsaw Central" autocomplete="off">
+            </label>
+
+            <div class="planner-form-grid two">
+              <label>People
+                <input id="plannerPeople" name="people" type="number" min="1" max="12" value="2" required>
+              </label>
+              <label>Total budget (PLN)
+                <input id="plannerBudget" name="budget_total" type="number" min="1" value="400" required>
+              </label>
+            </div>
+            <div class="planner-form-grid two">
+              <label>Pace
+                <select id="plannerPace" name="pace">
+                  <option value="easy">Easy</option>
+                  <option value="balanced" selected>Balanced</option>
+                  <option value="full">Full day</option>
+                </select>
+              </label>
+              <label>Travel
+                <select id="plannerTravelMode" name="travel_mode">
+                  <option value="transit" selected>Public transit</option>
+                  <option value="walk">Walk</option>
+                </select>
+              </label>
+            </div>
+            <label class="planner-return-toggle"><input id="plannerIncludeMeal" type="checkbox" checked> Include one restaurant stop</label>
+
+            <fieldset class="planner-interest-fieldset">
+              <legend>Interests</legend>
+              <label><input type="checkbox" value="art"> Art</label>
+              <label><input type="checkbox" value="history"> History</label>
+              <label><input type="checkbox" value="science"> Science</label>
+              <label><input type="checkbox" value="rock"> Music / rock</label>
+              <label><input type="checkbox" value="design"> Design</label>
+              <label><input type="checkbox" value="family"> Family</label>
+            </fieldset>
+            <label>Must-do <span class="field-hint">optional</span>
+              <select id="plannerMustInclude"><option value="">None</option></select>
+            </label>
+            <label>Taste references <span class="field-hint">Qloo pending</span>
+              <input id="plannerTasteRefs" placeholder="Radiohead, Amelie…">
+              <span class="field-hint">Stored in the plan brief, but not used for ranking until Qloo is connected.</span>
+            </label>
+            <div id="plannerFormError" class="form-error hidden"></div>
+            <div class="planner-form-actions">
+              <button id="plannerDemo" class="secondary-button" type="button">Load demo day</button>
+              <button class="primary-button" type="submit">Build day <span aria-hidden="true">→</span></button>
+            </div>
+          </form>
+        </aside>
+
+        <section class="planner-results planner-panel">
+          <div class="planner-results-head">
+            <div>
+              <strong id="plannerResultsTitle">Plan variants</strong>
+              <span id="plannerResultsMeta">Pick a date and build the day.</span>
+            </div>
+            <div id="plannerPlanActions" class="planner-plan-actions hidden">
+              <button id="plannerSavePlan" class="secondary-button compact" type="button">Save plan</button>
+              <button id="plannerExportIcs" class="secondary-button compact" type="button">Download .ics</button>
+            </div>
+          </div>
+          <div id="plannerVariantTabs" class="planner-variant-tabs hidden"></div>
+          <div id="plannerTimeline" class="planner-timeline">
+            <div class="planner-empty"><strong>No plan yet.</strong><span>Use the form or load the demo day.</span></div>
+          </div>
+          <div id="plannerRepairNote" class="planner-repair-note hidden"></div>
+          <details id="plannerEvidence" class="planner-evidence hidden">
+            <summary>Sources, coverage & assumptions</summary>
+            <div id="plannerEvidenceBody"></div>
+          </details>
+        </section>
+
+        <section class="planner-explore planner-panel">
+          <div class="planner-results-head">
+            <div><strong>Explore this date</strong><span id="plannerExploreMeta">Loading verified items…</span></div>
+          </div>
+          <div id="plannerExploreList" class="planner-explore-list"></div>
+        </section>
+
+        <section class="planner-map planner-panel">
+          <div id="plannerMap"></div>
+          <div class="planner-map-note">Numbered plan stops · © OpenStreetMap contributors</div>
+        </section>
+      </div>
+    </section>
+
+    <footer class="footer-meta rescue-only">
       <div id="footerSources"><strong>Sources:</strong> public listings</div>
       <span class="footer-divider">|</span>
       <div id="footerMethod"><strong>Method:</strong> hard constraints first · live Qloo taste ranking pending API connection</div>
@@ -325,5 +487,6 @@
 
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/app.js"></script>
+  <script src="/planner.js"></script>
 </body>
 </html>
