@@ -96,6 +96,7 @@ class PlannerBrief:
     activity_count: int
     pace: str
     travel_mode: str
+    event_buffer_minutes: int
     include_meal: bool
     categories: tuple[str, ...]
     interests: tuple[str, ...]
@@ -186,6 +187,7 @@ class PlannerBrief:
             activity_count=activity_count,
             pace=pace,
             travel_mode=travel_mode,
+            event_buffer_minutes=max(0, min(60, int(payload.get("event_buffer_minutes", 15)))),
             include_meal=bool(payload.get("include_meal", True)),
             categories=strings("categories"),
             interests=strings("interests"),
@@ -212,6 +214,7 @@ class PlannerBrief:
             "activity_count": self.activity_count,
             "pace": self.pace,
             "travel_mode": self.travel_mode,
+            "event_buffer_minutes": self.event_buffer_minutes,
             "include_meal": self.include_meal,
             "categories": list(self.categories),
             "interests": list(self.interests),
@@ -605,7 +608,7 @@ class DayPlanner:
             target = (float(venue["lat"]), float(venue["lon"]))
             travel = _minutes_between(coords, target, brief.travel_mode)
             arrival = current + timedelta(minutes=travel)
-            slot = self._slot(row, day, arrival, brief.pace)
+            slot = self._slot(row, day, arrival, brief.pace, brief.event_buffer_minutes)
             if slot is None:
                 return None
             activity_start, activity_end, waiting, window_end, latest_entry = slot
@@ -659,11 +662,13 @@ class DayPlanner:
         day: date,
         arrival: datetime,
         pace: str,
+        event_buffer_minutes: int = 0,
     ) -> tuple[datetime, datetime, int, datetime | None, datetime | None] | None:
         duration = self._duration(row, pace)
         if row["kind"] == "event" and row.get("start_time") and not row.get("flexible_visit_window"):
             start = _dt(day, str(row["start_time"]))
-            if start < arrival:
+            latest_arrival = start - timedelta(minutes=max(0, event_buffer_minutes))
+            if arrival > latest_arrival:
                 return None
             waiting = int((start - arrival).total_seconds() // 60)
             end = _dt(day, str(row["end_time"])) if row.get("end_time") else start + timedelta(minutes=duration)
@@ -855,6 +860,7 @@ class DayPlanner:
             "end_time": brief.end_time,
             "return_required": brief.return_required,
             "return_origin": brief.return_origin if brief.return_required else None,
+            "event_buffer_minutes": brief.event_buffer_minutes,
         }
 
     @staticmethod
