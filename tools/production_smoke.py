@@ -164,6 +164,10 @@ def main() -> int:
             raise RuntimeError("planner did not expose a same-candidate-pool no-taste baseline")
         if comparison.get("with_qloo_top_plan_id") != planner_result["plans"][0]["id"]:
             raise RuntimeError("planner same-pool evidence does not match its own top recommendation")
+        if comparison.get("study_baseline", {}).get("id") != comparison.get("baseline_top_plan_id"):
+            raise RuntimeError("blind experiment baseline must be the genuine same-pool baseline")
+        if comparison.get("study_with_qloo", {}).get("id") != comparison.get("with_qloo_top_plan_id"):
+            raise RuntimeError("blind experiment taste option must be the genuine same-pool Qloo plan")
 
     removable = next(
         row["activity_id"]
