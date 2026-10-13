@@ -184,6 +184,14 @@ def main() -> int:
                 "planner_repair": True,
                 "planner_ics": True,
                 "planner_taste_status": planner_result.get("taste_status"),
+                "planner_qloo_coverage": {
+                    "attempted": (planner_result.get("taste_audit") or {}).get("candidate_count"),
+                    "resolved": (planner_result.get("taste_audit") or {}).get("resolved_count"),
+                    "ranked": (planner_result.get("taste_audit") or {}).get("ranked_count"),
+                    "insights_called": (planner_result.get("taste_audit") or {}).get("insights_called"),
+                    "unresolved_candidate_count": len((planner_result.get("taste_audit") or {}).get("unresolved_candidate_ids", [])),
+                    "recognized_interest_count": len((planner_result.get("taste_audit") or {}).get("recognized_signals", [])),
+                },
             },
             ensure_ascii=False,
         )
