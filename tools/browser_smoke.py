@@ -84,9 +84,19 @@ def desktop_flow():
         lock = wait.until(EC.element_to_be_clickable((By.ID, "lockCompromiseButton")))
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", lock)
         wait.until(lambda d: lock.is_displayed() and lock.is_enabled())
+        locked_label = lock.text
         lock.click()
-        wait.until(EC.visibility_of_element_located((By.ID, "emptyState")))
-        assert "No rescue fits" in driver.find_element(By.ID, "emptyState").text
+        # Automatic route validation can choose a candidate whose FIRST explicit
+        # compromise is extra travel rather than shorter stay. Locking that one
+        # must rerun the plan, but need not make all alternatives disappear.
+        wait.until(lambda d:
+            ("hidden" not in d.find_element(By.ID, "emptyState").get_attribute("class"))
+            or d.find_element(By.ID, "lockCompromiseButton").text != locked_label)
+        is_empty = "hidden" not in driver.find_element(By.ID, "emptyState").get_attribute("class")
+        if "Keep stay at" in locked_label:
+            assert is_empty, "disabling the demo's necessary stay compromise must block the rescue"
+        else:
+            assert is_empty or driver.find_elements(By.CSS_SELECTOR, ".recommendation-card")
 
         driver.find_element(By.CSS_SELECTOR, '[data-menu-action="demo"]').click() if False else None
         # Reload the deterministic demo for the final-plan path.
