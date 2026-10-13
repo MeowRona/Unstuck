@@ -83,7 +83,16 @@ def main() -> int:
     if any(card.get("name") == "HOŻA Steakhouse" for card in first["cards"]):
         raise RuntimeError("failed venue reappeared in recommendations")
     if first.get("provider_mode") != "live" or first.get("taste_audit", {}).get("status") != "live":
-        raise RuntimeError("Live Qloo search did not complete successfully")
+        audit = first.get("taste_audit") or {}
+        # Diagnostic counts only: never log the API key, addresses or any user data.
+        raise RuntimeError(
+            "Live Qloo search did not complete successfully: "
+            f"mode={first.get('provider_mode')!r}, status={audit.get('status')!r}, "
+            f"error_code={audit.get('error_code')!r}, "
+            f"recognized_count={len(audit.get('recognized_signals') or [])}, "
+            f"candidate_entities={audit.get('candidate_entity_count', 0)}, "
+            f"ranked_entities={audit.get('ranked_entity_count', 0)}"
+        )
     if not first.get("taste_audit", {}).get("recognized_signals"):
         raise RuntimeError("Live Qloo did not resolve any taste references")
     if first.get("taste_audit", {}).get("candidate_entity_count", 0) < 1:
