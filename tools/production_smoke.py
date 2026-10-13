@@ -150,6 +150,11 @@ def main() -> int:
         evidence = planner_result.get("taste_audit") or {}
         if not evidence.get("insights_called") or evidence.get("ranked_count", 0) < 2:
             raise RuntimeError("planner claimed live Qloo without ranking at least two restaurants")
+        comparison = evidence.get("same_pool_comparison") or {}
+        if comparison.get("method") != "same_feasible_plan_pool":
+            raise RuntimeError("planner did not expose a same-candidate-pool no-taste baseline")
+        if comparison.get("with_qloo_top_plan_id") != planner_result["plans"][0]["id"]:
+            raise RuntimeError("planner same-pool evidence does not match its own top recommendation")
 
     removable = next(
         row["activity_id"]
