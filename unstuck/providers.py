@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import time
 import unicodedata
@@ -328,52 +327,11 @@ class RealQlooProvider:
     def __init__(self, transport: QlooTransport | None = None):
         self.transport = transport or QlooTransport()
 
-    @staticmethod
-    def _row_coordinates(row: dict) -> tuple[float, float] | None:
-        """Optional independent check on the geographic match; Qloo may omit coordinates."""
-        props = row.get("properties") if isinstance(row.get("properties"), dict) else {}
-        geocode = props.get("geocode") if isinstance(props.get("geocode"), dict) else {}
-        for item in (geocode, props, row):
-            lat = item.get("latitude", item.get("lat"))
-            lon = item.get("longitude", item.get("lon", item.get("lng")))
-            if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-                if math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180:
-                    return float(lat), float(lon)
-        return None
-
-    @staticmethod
-    def _distance_miles(a: tuple[float, float], b: tuple[float, float]) -> float:
-        lat1, lon1, lat2, lon2 = map(math.radians, (a[0], a[1], b[0], b[1]))
-        delta_lat = lat2 - lat1
-        delta_lon = lon2 - lon1
-        arc = math.sin(delta_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lon / 2) ** 2
-        return 3958.76 * 2 * math.asin(min(1.0, math.sqrt(arc)))
-
-    def _resolve(
-        self, name: str, *, entity_type: str | None = None,
-        location: tuple[float, float] | None = None,
-    ) -> tuple[str, str]:
-        params: dict[str, str | int | float] = {"query": name, "take": 10 if location else 5}
+    def _resolve(self, name: str, *, entity_type: str | None = None) -> tuple[str, str]:
+        params: dict[str, str | int] = {"query": name, "take": 5}
         if entity_type:
             params["types"] = entity_type
-        if location is not None:
-            # Official Qloo GET /search: filter.location is 'latitude,longitude',
-            # filter.radius is in miles. Restrict similarly named chain branches
-            # to a 0.6-mile local search, never accept a remote exact-name match.
-            # https://github.com/qloo/docs-public/blob/main/reference/get-search.md
-            lat, lon = location
-            if not all(math.isfinite(n) for n in (lat, lon)) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
-                raise ValueError("Invalid venue coordinates")
-            params["filter.location"] = f"{lat:.6f},{lon:.6f}"
-            params["filter.radius"] = 0.6
-        try:
-            payload = self.transport.get_json("/search", params)
-        except RuntimeError as exc:
-            # Qloo documents HTTP 404 as "No results" for /search.
-            # Treat this as absent catalog coverage rather than breaking the plan.
-            if str(exc) == "QLOO_HTTP_404":
-                raise ValueError(f"Qloo entity not found: {name}") from exc
-            raise
+        payload = self.transport.get_json("/search", params)
         rows = _entity_rows(payload)
         comparable = _comparable_name(name)
         exact = [
@@ -381,19 +339,16 @@ class RealQlooProvider:
             for row in rows
             if _comparable_name(_name(row)) == comparable
             and (not entity_type or entity_type in _types(row))
-            and (location is None or (
-                self._row_coordinates(row) is None or
-                self._distance_miles(location, self._row_coordinates(row)) <= 0.6
-            ))
         ]
-        # A search response may repeat the same entity under multiple result rows.
-        unique = {entity_id: resolved_name for _row, entity_id, resolved_name in exact if entity_id}
-        if len(unique) == 1:
-            return next(iter(unique.items()))
-        if not rows or not unique:
-            raise ValueError(f"Qloo exact entity not found: {name}")
+        # An API search can return multiple copies of the same entity. Distinct
+        # result rows are not necessarily distinct matches.
+        exact_by_id = {entity_id: resolved_name for _row, entity_id, resolved_name in exact if entity_id}
+        if len(exact_by_id) == 1:
+            return next(iter(exact_by_id.items()))
+        if not rows:
+            raise ValueError(f"Qloo could not resolve interest: {name}")
         options = ", ".join(_name(row) for row in rows[:3] if _name(row))
-        raise ValueError(f"Ambiguous Qloo entity '{name}'. Matches: {options}")
+        raise ValueError(f"Ambiguous Qloo interest '{name}'. Matches: {options}")
 
     def resolve_interest(self, name: str) -> tuple[str, str]:
         # Explicit domain hints make ambiguous cultural references resolvable
@@ -411,26 +366,8 @@ class RealQlooProvider:
             return self._resolve(rest.strip(), entity_type=hints[label.strip().casefold()])
         return self._resolve(name)
 
-    def resolve_place(
-        self, name: str, *, location: tuple[float, float] | None = None
-    ) -> tuple[str, str]:
-        return self._resolve(name, entity_type="urn:entity:place", location=location)
-
-    def resolve_candidate(self, place: Place, *, retry_alias: bool = True) -> tuple[str, str]:
-        """Match a local branch; bounded optional retry for a location-annotated name."""
-        location = (place.lat, place.lon)
-        try:
-            return self.resolve_place(place.name, location=location)
-        except ValueError as original_error:
-            if retry_alias:
-                # Retry only for a small, explicitly budgeted subset in
-                # rank_with_context; a suffix is not proof of identity.
-                for sep in (" — ", " – ", " - "):
-                    if sep in place.name:
-                        base, _annotation = place.name.rsplit(sep, 1)
-                        if len(base.strip()) >= 4:
-                            return self.resolve_place(base.strip(), location=location)
-            raise original_error
+    def resolve_place(self, name: str) -> tuple[str, str]:
+        return self._resolve(name, entity_type="urn:entity:place")
 
     def rank(self, places: list[Place], taste_refs: Iterable[str]) -> TasteResults:
         return self.rank_with_context(places, taste_refs, failed_place=None)
@@ -496,21 +433,9 @@ class RealQlooProvider:
 
         resolved_place_ids: dict[str, str] = {}
         unresolved_candidates: list[str] = []
-        alias_retry_reservations = 0
         for place in qloo_places:
-            # At most 2 optional suffix retries. Ordinary search = 10 candidates,
-            # plus cultural seeds, optional anchor and 1 Insights request. Reserve
-            # room inside the strict 18-attempt job limit for the meaningful rank.
-            allow_alias = (
-                alias_retry_reservations < 2
-                and any(sep in place.name for sep in (" — ", " – ", " - "))
-            )
-            if allow_alias:
-                alias_retry_reservations += 1
             try:
-                resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_candidate(
-                    place, retry_alias=allow_alias
-                )[0]
+                resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_place(place.name)[0]
             except ValueError:
                 # Warsaw OSM venues are not guaranteed to exist in Qloo's catalog.
                 # Do not silently associate a venue with a similarly named entity.
