@@ -533,7 +533,7 @@
       if (item.source && item.source.url) used.set(item.source.url, item.source);
     });
     body.innerHTML = '<p><strong>Event coverage:</strong> ' + esc(coverage.event_sources_loaded_from) + ' → ' +
-      esc(coverage.event_sources_loaded_through) + '. ' + esc(coverage.scope) + '</p>' +
+      esc(coverage.event_sources_loaded_through) + '. ' + esc(coverage.scope) + (coverage.last_manual_refresh ? ' Last manual event refresh: ' + esc(coverage.last_manual_refresh) + '.' : '') + '</p>' +
       '<p><strong>No-results semantics:</strong> ' + esc(coverage.no_results_meaning) + '</p>' +
       '<p><strong>Routing:</strong> initial plans use estimates; selected plans are checked leg by leg. Warsaw transit is scheduled, not realtime.</p>' +
       '<p><strong>Taste:</strong> ' + esc(plan?.taste_note || (plan?.taste_status === 'not_requested' ? 'No taste matching requested.' : 'Taste coverage unavailable.')) + '</p>' +
