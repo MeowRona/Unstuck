@@ -64,6 +64,44 @@ class PlannerCatalogTests(unittest.TestCase):
             self.assertIsNotNone(venue.get("lat"), venue_id)
             self.assertIsNotNone(venue.get("lon"), venue_id)
 
+    def test_2026_event_refresh_has_real_future_dates_and_explicit_unknowns(self):
+        expected = [
+            ("2026-10-27", "event:msn-seniors-guided-tour-2026-10-27", "13:00"),
+            ("2026-10-29", "event:fado-gala-relax-2026-10-29", "20:00"),
+            ("2026-11-04", "event:nigel-kennedy-2026-11-04", "20:00"),
+            ("2026-11-08", "event:fryderyk-chopin-recital-2026-11-08", "17:00"),
+        ]
+        self.assertEqual(self.catalog.payload["coverage"]["last_manual_refresh"], "2026-10-14")
+        for when, event_id, start in expected:
+            rows = self.catalog.activities_for_date(date.fromisoformat(when))
+            row = next(x for x in rows if x["id"] == event_id)
+            self.assertTrue(row["schedulable"], event_id)
+            self.assertEqual(row["start_time"], start)
+            self.assertIsNotNone(row["venue"].get("lat"), event_id)
+            self.assertIsNotNone(row["venue"].get("lon"), event_id)
+            self.assertEqual(row["availability"], "unknown", event_id)
+            self.assertEqual(row["price"]["status"], "unknown", event_id)
+            self.assertTrue(row["info_url"].startswith("https://"), event_id)
+
+        no_time = next(x for x in self.catalog.activities_for_date(date(2026, 11, 9))
+                       if x["id"] == "event:yamato-roma-2026-11-09")
+        self.assertFalse(no_time["schedulable"])
+        self.assertIsNone(no_time["start_time"])
+        self.assertIn("not verified", no_time["unschedulable_reason"])
+
+    def test_future_dated_official_recital_is_plannable_with_unknown_ticket_status(self):
+        plan = DayPlanner(self.catalog).generate(
+            brief(date="2026-11-08", start_time="13:00", end_time="21:30",
+                  activity_count=1, include_meal=False,
+                  must_include_ids=["event:fryderyk-chopin-recital-2026-11-08"])
+        )["plans"][0]
+        recital = next(x for x in plan["items"]
+                       if x["activity_id"] == "event:fryderyk-chopin-recital-2026-11-08")
+        self.assertEqual(recital["display_start"], "17:00")
+        self.assertEqual(recital["source_event_end_status"], "confirmed")
+        self.assertEqual(recital["availability"], "unknown")
+        self.assertTrue(plan["checks"])
+
     def test_multiday_series_keeps_distinct_occurrences(self):
         rows = [row for row in self.catalog.events if row.get("series_id") == "series:targi-rzeczy-wyjatkowych-2026"]
         self.assertEqual({row["date"] for row in rows}, {"2026-10-17", "2026-10-18"})
