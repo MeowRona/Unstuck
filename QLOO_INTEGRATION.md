@@ -47,6 +47,7 @@ The Hackathon Kit says to use the smallest request that answers the product ques
 - at most 10 live ranking options;
 - one shared insights ranking request, not separate per-option affinity calls;
 - short-lived process-memory cache only;
+- a documented Qloo search 404 means an unmatched seed or restaurant, **not** an API outage; if every taste reference is unmatched, do not make venue-resolution or Insights requests that could not personalize the result;
 - bounded network-call budget;
 - bounded retry count and explicit 429 handling;
 - no bulk Qloo scraping and no persistent local Qloo database.
