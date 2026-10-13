@@ -1585,7 +1585,7 @@ async function loadJudgeDemo() {
     start_time: '18:30',
     return_by: '20:45',
     min_stay_minutes: 120,
-    taste_refs: ['Amelie', 'Radiohead'], // clearly example references, not the visitor's profile
+    taste_refs: ['film: Amelie', 'artist: Radiohead'], // clearly example references, not the visitor's profile
     max_one_way_minutes: 25,
     negotiable_extra_travel_minutes: 0,
     negotiable_stay_reduction_minutes: 30,

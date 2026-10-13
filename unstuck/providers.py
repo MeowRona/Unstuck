@@ -340,15 +340,30 @@ class RealQlooProvider:
             if _comparable_name(_name(row)) == comparable
             and (not entity_type or entity_type in _types(row))
         ]
-        exact = [x for x in exact if x[1]]
-        if len(exact) == 1:
-            return exact[0][1], exact[0][2]
+        # An API search can return multiple copies of the same entity. Distinct
+        # result rows are not necessarily distinct matches.
+        exact_by_id = {entity_id: resolved_name for _row, entity_id, resolved_name in exact if entity_id}
+        if len(exact_by_id) == 1:
+            return next(iter(exact_by_id.items()))
         if not rows:
             raise ValueError(f"Qloo could not resolve interest: {name}")
         options = ", ".join(_name(row) for row in rows[:3] if _name(row))
         raise ValueError(f"Ambiguous Qloo interest '{name}'. Matches: {options}")
 
     def resolve_interest(self, name: str) -> tuple[str, str]:
+        # Explicit domain hints make ambiguous cultural references resolvable
+        # without secretly guessing which "Amelie" or "Radiohead" was meant.
+        hints = {
+            "artist": "urn:entity:artist",
+            "music": "urn:entity:artist",
+            "film": "urn:entity:movie",
+            "movie": "urn:entity:movie",
+            "book": "urn:entity:book",
+            "tv": "urn:entity:tv_show",
+        }
+        label, sep, rest = name.partition(":")
+        if sep and label.strip().casefold() in hints and rest.strip():
+            return self._resolve(rest.strip(), entity_type=hints[label.strip().casefold()])
         return self._resolve(name)
 
     def resolve_place(self, name: str) -> tuple[str, str]:

@@ -48,6 +48,16 @@ class PlannerCatalogTests(unittest.TestCase):
         engine = build_engine("fixture", "real")
         cls.catalog = PlannerCatalog(engine.places)
 
+    def test_restaurant_pool_expands_with_explicit_unknown_fact_status(self):
+        rows = self.catalog.restaurant_rows
+        self.assertGreaterEqual(len(rows), 10)
+        self.assertLessEqual(len(rows), 32)
+        self.assertEqual(len({row["id"] for row in rows}), len(rows))
+        unknown = [r for r in rows if r["price"]["status"] not in {"confirmed", "fixture"}
+                   or r["hours_status"] not in {"confirmed", "fixture"}]
+        self.assertTrue(unknown, "additional restaurants must retain unverified metadata")
+        self.assertTrue(any(r["hours_status"] in {"confirmed", "fixture"} for r in rows))
+
     def test_verified_snapshot_has_resolvable_core_venues(self):
         for venue_id in ("venue:polin", "venue:kopernik", "venue:msn", "venue:muzeum-warszawy"):
             venue = self.catalog.venues[venue_id]

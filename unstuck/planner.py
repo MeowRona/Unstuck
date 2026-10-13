@@ -268,13 +268,32 @@ class PlannerCatalog:
 
     def _restaurant_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
-        strong = [
+        # Do not equate an incomplete source record with a nonexistent restaurant.
+        # Keep verified venues first; include a bounded sample with *explicitly unknown*
+        # prices/hours so planning still offers alternatives without fabricating facts.
+        candidates = [
             p for p in self.places
-            if p.category == "restaurant"
-            and p.price.status in {"confirmed", "fixture"}
-            and p.hours_status in {"confirmed", "fixture"}
+            if p.category == "restaurant" and p.serves_meal
+            and isinstance(p.lat, (int, float)) and isinstance(p.lon, (int, float))
+            and p.name.strip() and p.address.strip()
         ]
-        for place in strong[:12]:
+        candidates.sort(key=lambda p: (
+            -(int(p.price.status in {"confirmed", "fixture"}) +
+              int(p.hours_status in {"confirmed", "fixture"})),
+            0 if p.google_place_id or p.qloo_entity_id else 1,
+            p.name.casefold(), p.id,
+        ))
+        seen_names: set[tuple[str, str]] = set()
+        selected: list[Place] = []
+        for place in candidates:
+            identity = (place.name.casefold(), place.address.casefold())
+            if identity in seen_names:
+                continue
+            seen_names.add(identity)
+            selected.append(place)
+            if len(selected) >= 32:
+                break
+        for place in selected:
             rows.append(
                 {
                     "id": f"restaurant:{place.id}",
@@ -840,7 +859,7 @@ class DayPlanner:
             if row.get("end_status") == "unknown" and row["kind"] == "event":
                 checks.append(f"End time for {row['title']} is unknown; the timeline uses a planning estimate.")
             if row["kind"] == "restaurant" and row.get("hours_status") not in {"confirmed", "fixture"}:
-                checks.append(f"Opening hours for {row['title']} need verification.")
+                checks.append(f"Opening hours for {row['title']} are unverified; the 11:00–23:00 planning window is a placeholder, not a claim that it is open.")
             tags = {str(x).casefold() for x in row.get("tags", [])}
             tags.add(str(row.get("category") or "").casefold())
             matches = [interest for interest in brief.interests if interest.casefold() in tags]
