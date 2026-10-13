@@ -457,6 +457,39 @@ class QlooContractTests(unittest.TestCase):
             if old is not None:
                 os.environ["QLOO_API_KEY"] = old
 
+    def test_explicit_cultural_domain_disambiguates_without_guessing(self):
+        class FakeTransport:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                return {"results": [
+                    {"entity_id": "artist:radiohead", "name": "Radiohead",
+                     "types": ["urn:entity:artist"]},
+                    {"entity_id": "book:radiohead", "name": "Radiohead",
+                     "types": ["urn:entity:book"]},
+                ]}
+        fake = FakeTransport()
+        provider = RealQlooProvider(fake)
+        with self.assertRaisesRegex(ValueError, "Ambiguous"):
+            provider.resolve_interest("Radiohead")
+        entity_id, resolved = provider.resolve_interest("artist: Radiohead")
+        self.assertEqual((entity_id, resolved), ("artist:radiohead", "Radiohead"))
+        self.assertEqual(fake.calls[-1][1]["query"], "Radiohead")
+        self.assertEqual(fake.calls[-1][1]["types"], "urn:entity:artist")
+
+    def test_duplicate_search_rows_for_same_entity_are_not_ambiguous(self):
+        class DuplicateTransport:
+            def get_json(self, path, params=None):
+                return {"results": [
+                    {"entity_id": "artist:radiohead", "name": "Radiohead",
+                     "types": ["urn:entity:artist"]},
+                    {"entity_id": "artist:radiohead", "name": "Radiohead",
+                     "types": ["urn:entity:artist"]},
+                ]}
+        provider = RealQlooProvider(DuplicateTransport())
+        self.assertEqual(provider.resolve_interest("Radiohead")[0], "artist:radiohead")
+
     def test_same_pool_ranking_uses_place_filter(self):
         class FakeTransport:
             def __init__(self):
