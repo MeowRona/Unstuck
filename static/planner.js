@@ -544,6 +544,14 @@
           esc(plan.taste_audit.recognized_signals?.length || 0) + ' taste signal(s) recognized. ' +
           (plan.taste_audit.insights_called ? 'Insights API called.' : 'Insights API not called.') +
           '</p>' : '') +
+      (plan?.taste_audit?.same_pool_comparison
+        ? '<section class="planner-qloo-comparison"><h4>What did Qloo change?</h4>' +
+          '<p><strong>Without taste:</strong> ' + esc(plan.taste_audit.same_pool_comparison.baseline_restaurant || 'no restaurant') + '</p>' +
+          '<p><strong>With Qloo:</strong> ' + esc(plan.taste_audit.same_pool_comparison.with_qloo_restaurant || 'no restaurant') + '</p>' +
+          '<p><strong>Top plan changed:</strong> ' + (plan.taste_audit.same_pool_comparison.top_plan_changed ? 'Yes' : 'No — the available taste signal did not change the top plan.') + '</p>' +
+          '<p><strong>Same feasibility pool:</strong> ' + esc(plan.taste_audit.same_pool_comparison.candidate_plan_count) +
+          ' generated schedules, before detailed route checks. This demonstrates a ranking difference, not user preference or venue availability.</p></section>'
+        : '') +
       (plan?.taste_audit?.recognized_signals?.length ? '<p><strong>Qloo recognized:</strong> ' + plan.taste_audit.recognized_signals.map(s => esc(s.name)).join(', ') + '</p>' : '') +
       (plan?.taste_audit?.unresolved_signals?.length ? '<p><strong>Skipped:</strong> ' + plan.taste_audit.unresolved_signals.map(s => esc(s.input)).join(', ') + '</p>' : '') +
       (used.size ? '<p><strong>Used sources:</strong><br>' + Array.from(used.values()).map((source) =>
