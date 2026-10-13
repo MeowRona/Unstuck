@@ -144,8 +144,12 @@ def main() -> int:
     planner_item_ids = {row["activity_id"] for row in planner_plan["items"]}
     if "event:simple-plan-2026-10-17" not in planner_item_ids:
         raise RuntimeError("planner lost the locked fixed event")
-    if planner_result.get("taste_status") != "not_live":
-        raise RuntimeError("planner must not claim live Qloo before connection")
+    if planner_result.get("taste_status") not in {"live_restaurants", "insufficient_coverage", "unavailable"}:
+        raise RuntimeError("live planner must report actual Qloo restaurant coverage or a truthful fallback")
+    if planner_result.get("taste_status") == "live_restaurants":
+        evidence = planner_result.get("taste_audit") or {}
+        if not evidence.get("insights_called") or evidence.get("ranked_count", 0) < 2:
+            raise RuntimeError("planner claimed live Qloo without ranking at least two restaurants")
 
     removable = next(
         row["activity_id"]
