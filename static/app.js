@@ -1458,8 +1458,8 @@ async function copySelectedPlan() {
 
 function rejectReasonCopy(reason) {
   const messages = {
-    too_far: 'This removes only this venue from the current session. Your travel limit stays exactly as you set it.',
-    not_my_vibe: 'This removes only this venue. It does not retrain a model or change distance limits; live Qloo taste is still pending connection.',
+    too_far: 'This venue is excluded. You can now tighten the travel limit yourself; Unstuck will not silently change locked conditions.',
+    not_my_vibe: 'This venue is excluded. Review or refine your optional Qloo cultural references; rejecting it does not retrain Qloo.',
     been_there: 'This removes only this venue so the next round can surface another option.',
     skip: 'This removes only this venue from the current session. All conditions stay unchanged.',
   };
@@ -1492,7 +1492,12 @@ async function submitReject(reason) {
   const placeId = pendingRejectPlaceId;
   $('#rejectExplain').textContent = rejectReasonCopy(reason);
   closeReject();
-  await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
+  const result = await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
+  // A rejection reason now offers a relevant *explicit* correction path.
+  // Do not change the travel ceiling or cultural tastes without the user's
+  // confirmation, and do not pretend this click trained a Qloo model.
+  if (result && reason === 'too_far') openEditor('travel');
+  if (result && reason === 'not_my_vibe') openEditor('taste');
 }
 
 function openAbout() {
