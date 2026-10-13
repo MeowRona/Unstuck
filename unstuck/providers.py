@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import unicodedata
 from collections import deque
@@ -358,7 +359,55 @@ class RealQlooProvider:
         options = ", ".join(_name(row) for row in rows[:3] if _name(row))
         raise ValueError(f"Ambiguous Qloo interest '{name}'. Matches: {options}")
 
+    def suggest_taste_entities(self, name: str, kind: str = "artist") -> list[dict[str, str]]:
+        """Explicit user-triggered Qloo search: one request, no eager lookups."""
+        kinds = {
+            "artist": "urn:entity:artist",
+            "movie": "urn:entity:movie",
+            "book": "urn:entity:book",
+            "tv_show": "urn:entity:tv_show",
+        }
+        if kind not in kinds:
+            raise ValueError("taste type must be artist, movie, book or tv_show")
+        if not isinstance(name, str) or not 2 <= len(name.strip()) <= 70:
+            raise ValueError("taste search must contain 2–70 characters")
+        if any(ord(char) < 32 for char in name):
+            raise ValueError("taste search contains invalid characters")
+        with self.transport.request_scope(max_calls=1):
+            try:
+                payload = self.transport.get_json(
+                    "/search", {"query": name.strip(), "types": kinds[kind], "take": 6}
+                )
+            except RuntimeError as exc:
+                if str(exc) == "QLOO_HTTP_404":
+                    return []
+                raise
+        options: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for row in _entity_rows(payload):
+            entity_id, display_name = _entity_id(row), _name(row)
+            if (not entity_id or not display_name or kinds[kind] not in _types(row)
+                    or not re.fullmatch(r"[A-Za-z0-9_:/.-]{3,160}", entity_id)
+                    or entity_id in seen):
+                continue
+            seen.add(entity_id)
+            options.append({"id": entity_id, "name": display_name[:80], "kind": kind})
+        return options[:6]
+
     def resolve_interest(self, name: str) -> tuple[str, str]:
+        # A choice from the explicit Qloo picker avoids a second ambiguous /search
+        # request; Insights still determines whether this entity actually ranks.
+        # A submitted id is not evidence of a successful insight.
+        if name.startswith("qloo-id:"):
+            payload = name[len("qloo-id:"):].split("|")
+            if len(payload) != 3:
+                raise ValueError("Invalid selected Qloo entity")
+            entity_id, kind, title = payload
+            if (not re.fullmatch(r"[A-Za-z0-9_:/.-]{3,160}", entity_id)
+                    or kind not in {"artist", "movie", "book", "tv_show"}
+                    or not 1 <= len(title) <= 80 or any(ch in title for ch in "|,\\n\\r")):
+                raise ValueError("Invalid selected Qloo entity")
+            return entity_id, title
         # Explicit domain hints make ambiguous cultural references resolvable
         # without secretly guessing which "Amelie" or "Radiohead" was meant.
         hints = {
