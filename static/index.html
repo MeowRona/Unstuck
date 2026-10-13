@@ -247,15 +247,17 @@
             <label>Must-do <span class="field-hint">optional</span>
               <select id="plannerMustInclude"><option value="">None</option></select>
             </label>
-            <label>Taste references <span class="field-hint">Qloo pending</span>
+            <label>Taste references <span class="field-hint">Qloo · eligible restaurants only</span>
               <input id="plannerTasteRefs" placeholder="Radiohead, Amelie…">
-              <span class="field-hint">Stored in the plan brief, but not used for ranking until Qloo is connected.</span>
+              <span class="field-hint">When enough restaurant entities match, Qloo can rank them by taste. Concerts, museums and unmatched restaurants remain operationally ranked.</span>
             </label>
             <div id="plannerFormError" class="form-error hidden"></div>
             <div class="planner-form-actions">
               <button id="plannerDemo" class="secondary-button" type="button">Load demo day</button>
               <button class="primary-button" type="submit">Build day <span aria-hidden="true">→</span></button>
             </div>
+            <button id="plannerRescueDemo" class="secondary-button planner-rescue-demo" type="button">Try a full-evening rescue · 90 sec</button>
+            <span class="field-hint">Reproducible 17 Oct 2026 scenario: one dinner is reported unavailable; the concert stays locked. No real closure is claimed.</span>
           </form>
         </aside>
 
