@@ -4,6 +4,7 @@ import hashlib
 import itertools
 import json
 import math
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -429,8 +430,10 @@ class PlannerCatalog:
 
 
 class DayPlanner:
-    def __init__(self, catalog: PlannerCatalog):
+    def __init__(self, catalog: PlannerCatalog, taste_provider=None):
         self.catalog = catalog
+        self.taste_provider = taste_provider
+        self._places_by_id = {place.id: place for place in catalog.places}
 
     def generate(
         self,
@@ -441,11 +444,12 @@ class DayPlanner:
         day = date.fromisoformat(brief.date)
         items = self.catalog.activities_for_date(day)
         eligible, blockers = self._eligible(items, brief)
+        taste_ranks, taste_audit = self._restaurant_taste(eligible, brief)
         requested = brief.activity_count
         variants: list[dict[str, Any]] = []
         used_count = requested
         for count in range(requested, 0, -1):
-            variants = self._variants(eligible, brief, count, preferred_ids=preferred_ids)
+            variants = self._variants(eligible, brief, count, preferred_ids=preferred_ids, taste_ranks=taste_ranks)
             if variants:
                 used_count = count
                 break
@@ -458,7 +462,8 @@ class DayPlanner:
                 "requested_activity_count": requested,
                 "planned_activity_count": 0,
                 "explanation": self._no_plan_explanation(blockers, brief),
-                "taste_status": "not_live" if brief.taste_refs else "not_requested",
+                "taste_status": taste_audit["status"],
+                "taste_audit": taste_audit,
                 "coverage": self.catalog.payload.get("coverage"),
             }
 
@@ -468,6 +473,13 @@ class DayPlanner:
                 f"Only {used_count} activity{'ies' if used_count != 1 else 'y'} fit the current window "
                 f"without breaking locked time/date conditions; requested {requested}."
             )
+        for variant in variants:
+            variant["taste_status"] = taste_audit["status"]
+            variant["taste_note"] = taste_audit["note"]
+            variant["taste_audit"] = taste_audit
+            for item in variant["items"]:
+                if item["kind"] == "restaurant":
+                    item["taste_rank"] = taste_ranks.get(item["activity_id"])
         return {
             "brief": brief.to_dict(),
             "plans": variants[:3],
@@ -475,12 +487,45 @@ class DayPlanner:
             "requested_activity_count": requested,
             "planned_activity_count": used_count,
             "explanation": explanation,
-            "taste_status": "not_live" if brief.taste_refs else "not_requested",
-            "taste_note": (
-                "Taste matching not live yet. These variants are ordered by feasibility, explicit interests, "
-                "preservation during repair, and travel—not by Qloo."
-            ),
+            "taste_status": taste_audit["status"],
+            "taste_note": taste_audit["note"],
+            "taste_audit": taste_audit,
             "coverage": self.catalog.payload.get("coverage"),
+        }
+
+    def _restaurant_taste(self, eligible: list[dict[str, Any]], brief: PlannerBrief) -> tuple[dict[str, int], dict[str, Any]]:
+        """Only rank eligible restaurant options; no inferred event or museum affinity."""
+        if not brief.taste_refs:
+            return {}, {"status": "not_requested", "note": "No taste profile requested."}
+        if not self.taste_provider or self.taste_provider.mode != "live":
+            return {}, {"status": "not_live", "note": "Qloo was not called for this planner session."}
+        restaurants = [r for r in eligible if r["kind"] == "restaurant" and r["id"].startswith("restaurant:")]
+        places = [self._places_by_id[r["id"].split(":", 1)[1]] for r in restaurants[:10]
+                  if r["id"].split(":", 1)[1] in self._places_by_id]
+        if len(places) < 2:
+            return {}, {"status": "insufficient_coverage",
+                        "note": "Fewer than two eligible restaurant choices; Qloo was not called."}
+        transport = getattr(self.taste_provider, "transport", None)
+        scope = transport.request_scope() if transport and hasattr(transport, "request_scope") else nullcontext()
+        try:
+            with scope:
+                results = self.taste_provider.rank_with_context(places, brief.taste_refs, failed_place=None)
+        except (RuntimeError, ValueError) as exc:
+            return {}, {"status": "unavailable", "error_code": str(exc)[:100],
+                        "note": "Qloo could not rank restaurants; operational planning remains available."}
+        trace = dict(getattr(results, "trace", {}) or {})
+        ranks = {f"restaurant:{row.place_id}": int(row.rank) for row in results if row.rank is not None}
+        verified = trace.get("status") == "live" and len(ranks) >= 2
+        return (ranks if verified else {}), {
+            "status": "live_restaurants" if verified else "insufficient_coverage",
+            "note": ("Qloo ranked restaurant options only. Concerts and museums use explicit interests and "
+                     "logistical feasibility, not claimed Qloo affinity.") if verified
+                    else "Qloo could not compare at least two restaurants; only operational ranking was used.",
+            "recognized_signals": trace.get("recognized_signals", []),
+            "unresolved_signals": trace.get("unresolved_signals", []),
+            "candidate_count": len(places),
+            "ranked_count": len(ranks),
+            "insights_called": bool(trace.get("insights_called")),
         }
 
     def repair(self, plan: dict[str, Any], brief: PlannerBrief, removed_id: str) -> dict[str, Any]:
@@ -550,7 +595,9 @@ class DayPlanner:
         count: int,
         *,
         preferred_ids: tuple[str, ...],
+        taste_ranks: dict[str, int] | None = None,
     ) -> list[dict[str, Any]]:
+        taste_ranks = taste_ranks or {}
         required = set(brief.must_include_ids) | set(brief.locked_ids)
         if len(required) > count:
             return []
@@ -580,6 +627,8 @@ class DayPlanner:
                 -row["preserved_preferred_count"],
                 0 if row["feasibility"] == "confirmed" else 1,
                 -row["interest_match_count"],
+                sum(taste_ranks.get(item["activity_id"], 999) for item in row["items"]
+                    if item["kind"] == "restaurant") if taste_ranks else 0,
                 row["total_travel_minutes"],
                 row["known_cost_max"] if row["known_cost_max"] is not None else float("inf"),
                 row["id"],
