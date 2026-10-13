@@ -19,11 +19,11 @@ Sources:
 | Scheduled public transport | Very high for **Tech / Design** | Use transit mode. The selected card shows a scheduled route with departure/arrival, lines, transfers, stop list and map geometry | Implemented from bundled Warsaw GTFS; explicitly not realtime |
 | Walking route | High for **Tech / Design** | Switch Travel mode to Walk and choose a result; map changes to the routed pedestrian street path with route duration | Implemented via Valhalla/OpenStreetMap |
 | Remove non-functional settings | High for **Design** | Open Review conditions: original-plan prose, failed-place name and failure reason are no longer exposed because they did not change ranking | Implemented |
-| Taste references can be cross-domain | Critical for **Qloo / Quality of Idea** | Enter film/music/creator references and compare ranking once live Qloo is enabled | UI/adapter ready; live Qloo key still pending |
+| Taste references can be cross-domain | Critical for **Qloo / Quality of Idea** | Enter film/music/creator references and compare ranking once live Qloo is enabled | Live Rescue integration verified on 2026-10-13; per-reference coverage is now disclosed |
 | Google Maps photo/rating | Medium for **Design** | Near submission, enable Places and inspect restaurant thumbnail + rating | Integration ready but deliberately disabled to preserve free quota for judging |
 | Dark mode | Low/medium for **Design polish** | Toggle moon/sun in header or menu and reload | Implemented; persisted in localStorage |
 | Stable external hosting | **Submission-critical** | Open https://unstuck-city-compass.onrender.com from a clean browser/network | PASS — Render deployment is independent of the development PC; root/health and public search→reject flow were tested |
-| Live Qloo | **Stage-one critical** | Run the public demo after Qloo live mode is enabled; repository includes live adapter and smoke command | BLOCKED_NO_API_KEY until key arrives |
+| Live Qloo | **Stage-one critical** | Run the public demo after Qloo live mode is enabled; repository includes live adapter and smoke command | Qloo live in Rescue; selected planner restaurants can be ranked when at least two resolve |
 
 ## Warsaw-only decision
 
