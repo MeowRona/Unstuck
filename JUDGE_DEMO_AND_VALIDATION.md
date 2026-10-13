@@ -21,6 +21,8 @@ GitHub Actions runs unit, HTTP, desktop browser and 390x844 mobile UI checks on 
 
 ## Human evaluation protocol (not yet conducted)
 
+**The app now includes an opt-in blind trial instrument:** open Plan a day, generate a result with two distinct same-pool rankings, expand **Optional blind comparison · real testers**, and click **Start one blind trial**. Option A/B is randomized client-side and does not reveal which option used Qloo. The chosen plan and decision time are kept only in that browser's local storage; use **Export anonymous CSV** to collect responses. The preview contains only the original schedule estimates, not later route-check validation. No result is transmitted to a server and **no real human trials have yet been run or claimed**. A tester should consent before participating. If Qloo makes no difference or does not cover two alternatives, the button is disabled and no artificial preference test is created.
+
 Recruit **6–10 willing testers**. For each tester use a clear consent statement and no identifying information, account registration, or Qloo private user data. Show two options from an **identical frozen feasible pool** with identical source facts, budget, travel and date, once with Qloo taste ordering and once with the operational no-taste ordering. Randomize which unlabeled ranking appears first. Do not tell testers which is Qloo until their choice is recorded.
 
 Record only anonymized trial number, scenario ID, whether two-plus Qloo options were actually ranked, the selected proposal (or “neither”), time to first decision, reason for rejection, and whether a non-taste hard constraint was violated. Include no-coverage and no-order-change trials, don't cherry-pick the best case, and don't invent a result.

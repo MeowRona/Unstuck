@@ -4,6 +4,7 @@
   const STORE_KEY = 'unstuck-planner-saved-v1';
   const LAST_DATE_KEY = 'unstuck-planner-last-date';
   const STORE_VERSION = 1;
+  const STUDY_STORE_KEY = 'unstuck-anonymous-study-v1';
 
   const rescueBtn = $('#rescueModeButton');
   const plannerBtn = $('#plannerModeButton');
@@ -25,6 +26,7 @@
   let markerLayer = null;
   let routeLayer = null;
   let routeSerial = 0;
+  let activeStudyTrial = null;
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -523,7 +525,153 @@
     $$('[data-plan-index]').forEach((button) => button.classList.toggle('active', Number(button.dataset.planIndex) === selectedPlan));
   }
 
+  function studyComparison() {
+    return plans[selectedPlan]?.taste_audit?.same_pool_comparison || null;
+  }
+
+  function studyAvailable(comparison) {
+    return !!(
+      comparison?.study_baseline && comparison?.study_with_qloo &&
+      comparison.baseline_top_plan_id !== comparison.with_qloo_top_plan_id &&
+      comparison.method === 'same_feasible_plan_pool'
+    );
+  }
+
+  function studyRows() {
+    try {
+      const rows = JSON.parse(localStorage.getItem(STUDY_STORE_KEY) || '[]');
+      return Array.isArray(rows) ? rows.slice(-60) : [];
+    } catch (_) { return []; }
+  }
+
+  function updateStudyAvailability() {
+    const comparison = studyComparison();
+    const available = studyAvailable(comparison);
+    $('#plannerStudyStart').disabled = !available;
+    if (activeStudyTrial && activeStudyTrial.key !== (
+      comparison?.baseline_top_plan_id + '|' + comparison?.with_qloo_top_plan_id
+    )) activeStudyTrial = null;
+    if (!activeStudyTrial) {
+      $('#plannerStudyContent').textContent = available
+        ? 'Two distinct options from the same feasible-plan pool are ready for a blind trial. A real person must make the choice.'
+        : 'No two distinct Qloo-versus-operational options are available for this plan. A non-change is a valid finding; do not fabricate a comparison.';
+    }
+  }
+
+  function renderBlindCard(preview, label, source) {
+    const card = document.createElement('section');
+    card.className = 'planner-study-card';
+    const heading = document.createElement('strong');
+    heading.textContent = 'Option ' + label;
+    card.append(heading);
+    for (const item of preview.stops || []) {
+      const row = document.createElement('p');
+      row.textContent = (item.start || '?') + '–' + (item.end || '?') +
+        ' · ' + (item.title || 'Unknown activity');
+      card.append(row);
+    }
+    const meta = document.createElement('small');
+    meta.textContent = 'Estimated travel: ' + preview.estimated_travel_minutes +
+      ' min · known cost ceiling: ' + (preview.known_cost_max == null ? 'unknown' : preview.known_cost_max + ' PLN') +
+      ' · unpriced components: ' + (preview.unknown_cost_components || 0) +
+      ' · budget cap: ' + preview.budget_total + ' PLN. Opening hours and transit still require verification.';
+    card.append(meta);
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'secondary-button';
+    select.textContent = 'Choose option ' + label;
+    select.addEventListener('click', () => finishBlindTrial(source));
+    card.append(select);
+    return card;
+  }
+
+  function finishBlindTrial(chosen) {
+    if (!activeStudyTrial) return;
+    const elapsed = Math.round((performance.now() - activeStudyTrial.started) / 100) / 10;
+    const rows = studyRows();
+    rows.push({
+      trial: rows.length + 1,
+      scenario_date: activeStudyTrial.date,
+      ranked_restaurant_count: activeStudyTrial.ranked,
+      candidate_plan_count: activeStudyTrial.candidateCount,
+      shown_first: activeStudyTrial.shownFirst,
+      selected: chosen,
+      seconds_to_decision: elapsed,
+    });
+    try {
+      localStorage.setItem(STUDY_STORE_KEY, JSON.stringify(rows.slice(-60)));
+      $('#plannerStudyContent').textContent = 'Anonymous trial stored on this device. ' +
+        rows.length + ' recorded trial(s). Export CSV when actual people have completed the comparisons. ' +
+        'A model or automated click is not a human preference result.';
+    } catch (_) {
+      $('#plannerStudyContent').textContent = 'Browser storage is disabled; this trial was not saved.';
+    }
+    activeStudyTrial = null;
+  }
+
+  $('#plannerStudyStart').addEventListener('click', () => {
+    const comparison = studyComparison();
+    if (!studyAvailable(comparison)) return;
+    $('#plannerEvidence').open = false;
+    const swapped = Math.random() < 0.5;
+    const options = swapped
+      ? [
+          {source:'qloo', preview:comparison.study_with_qloo},
+          {source:'baseline', preview:comparison.study_baseline},
+        ] : [
+          {source:'baseline', preview:comparison.study_baseline},
+          {source:'qloo', preview:comparison.study_with_qloo},
+        ];
+    activeStudyTrial = {
+      key:comparison.baseline_top_plan_id + '|' + comparison.with_qloo_top_plan_id,
+      date:comparison.study_baseline.date,
+      ranked:comparison.ranked_restaurant_count || 0,
+      candidateCount:comparison.candidate_plan_count || 0,
+      shownFirst:options[0].source,
+      started:performance.now(),
+    };
+    const content = $('#plannerStudyContent');
+    content.replaceChildren();
+    const intro = document.createElement('p');
+    intro.textContent = 'Choose which whole plan you would prefer, or neither. The labels deliberately hide the ranking method.';
+    content.append(intro);
+    const grid = document.createElement('div');
+    grid.className = 'planner-study-grid';
+    options.forEach((option, index) => grid.append(
+      renderBlindCard(option.preview, index === 0 ? 'A' : 'B', option.source)
+    ));
+    content.append(grid);
+    const neither = document.createElement('button');
+    neither.type = 'button';
+    neither.className = 'secondary-button';
+    neither.textContent = 'Neither option';
+    neither.addEventListener('click', () => finishBlindTrial('neither'));
+    content.append(neither);
+  });
+
+  $('#plannerStudyExport').addEventListener('click', () => {
+    const rows = studyRows();
+    if (!rows.length) {
+      $('#plannerStudyContent').textContent = 'There are no real trial responses on this device to export.';
+      return;
+    }
+    const fields = ['trial', 'scenario_date', 'ranked_restaurant_count',
+      'candidate_plan_count', 'shown_first', 'selected', 'seconds_to_decision'];
+    const cell = (value) => '"' + String(value ?? '').replaceAll('"', '""') + '"';
+    const csv = [fields.map(cell).join(','), ...rows.map(row =>
+      fields.map(key => cell(row[key])).join(','))].join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'unstuck-anonymous-preference-trials.csv';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
   function renderEvidence() {
+    updateStudyAvailability();
     const body = $('#plannerEvidenceBody');
     if (!catalog) return;
     const coverage = catalog.coverage || {};
