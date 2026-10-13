@@ -533,7 +533,7 @@ class QlooContractTests(unittest.TestCase):
             def read(self, _limit):
                 return b'{"results":[]}'
         transport = QlooTransport(api_key="test-key", max_network_calls=1, cache_ttl_seconds=0, window_seconds=60)
-        with patch("unstuck.providers.urlopen", return_value=Response()) as mocked, patch("unstuck.providers.time.monotonic", side_effect=[100, 100, 100, 161, 161]):
+        with patch("unstuck.providers.urlopen", return_value=Response()) as mocked, patch("unstuck.providers.time.monotonic", side_effect=[100, 100, 100, 100, 161, 161]):
             transport.get_json("/search", {"query": "first"})
             with self.assertRaisesRegex(RuntimeError, "QLOO_RATE_WINDOW_EXHAUSTED"):
                 transport.get_json("/search", {"query": "blocked"})
