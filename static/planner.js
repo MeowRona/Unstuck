@@ -620,13 +620,22 @@
     const plan = plans[selectedPlan];
     try {
       const result = await post('/api/planner/repair', {
-        brief: Object.assign({}, currentBrief, {locked_ids:Array.from(lockedIds), excluded_ids:Array.from(excludedIds)}),
+        // Keep exclusions from all prior repairs; the UI's manual exclusions
+        // may lag until the server returns its patched brief.
+        brief: Object.assign({}, currentBrief, {
+          locked_ids:Array.from(new Set([...(currentBrief?.locked_ids || []), ...lockedIds])),
+          excluded_ids:Array.from(new Set([...(currentBrief?.excluded_ids || []), ...excludedIds])),
+        }),
         plan: plan,
         removed_id: id,
       });
       plans = result.plans || [];
       selectedPlan = 0;
-      if (result.brief) currentBrief = result.brief;
+      if (result.brief) {
+        currentBrief = result.brief;
+        lockedIds = new Set(result.brief.locked_ids || []);
+        excludedIds = new Set(result.brief.excluded_ids || []);
+      }
       renderResult(result);
       const info = plans[0] && plans[0].repair;
       if (info) {
