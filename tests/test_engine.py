@@ -457,6 +457,61 @@ class QlooContractTests(unittest.TestCase):
             if old is not None:
                 os.environ["QLOO_API_KEY"] = old
 
+    def test_taste_picker_uses_one_typed_api_search_with_no_autoselection(self):
+        class SearchTransport:
+            def __init__(self):
+                self.calls = []
+                self.scopes = []
+            def request_scope(self, max_calls=18):
+                from contextlib import nullcontext
+                self.scopes.append(max_calls)
+                return nullcontext()
+            def get_json(self, path, params=None):
+                self.calls.append((path, params))
+                return {"results": [
+                    {"entity_id": "artist:first", "name": "Same Name",
+                     "types": ["urn:entity:artist"]},
+                    {"entity_id": "artist:second", "name": "Same Name",
+                     "types": ["urn:entity:artist"]},
+                    {"entity_id": "book:wrong", "name": "Same Name",
+                     "types": ["urn:entity:book"]},
+                    {"entity_id": "artist:first", "name": "Same Name",
+                     "types": ["urn:entity:artist"]},
+                ]}
+        fake = SearchTransport()
+        provider = RealQlooProvider(fake)
+        options = provider.suggest_taste_entities("Same Name", "artist")
+        self.assertEqual([x["id"] for x in options], ["artist:first", "artist:second"])
+        self.assertEqual(fake.scopes, [1])
+        self.assertEqual(fake.calls, [
+            ("/search", {"query": "Same Name", "types": "urn:entity:artist", "take": 6})
+        ])
+        self.assertEqual(provider.resolve_interest("qloo-id:artist:second|artist|Same Name"),
+                         ("artist:second", "Same Name"))
+        self.assertEqual(len(fake.calls), 1, "chosen entity must bypass repeated ambiguous search")
+
+    def test_taste_picker_rejects_invalid_or_control_character_ids(self):
+        class SearchTransport:
+            def request_scope(self, max_calls=18):
+                from contextlib import nullcontext
+                return nullcontext()
+            def get_json(self, path, params=None):
+                raise RuntimeError("QLOO_HTTP_404")
+        provider = RealQlooProvider(SearchTransport())
+        self.assertEqual(provider.suggest_taste_entities("Unknown", "movie"), [])
+        for invalid in (
+            "qloo-id:abc,def|artist|Name",
+            "qloo-id:abc|restaurant|Name",
+            "qloo-id:abc|artist|New\nline",
+            "qloo-id:abc",
+        ):
+            with self.assertRaisesRegex(ValueError, "Invalid selected Qloo entity"):
+                provider.resolve_interest(invalid)
+        with self.assertRaisesRegex(ValueError, "taste type"):
+            provider.suggest_taste_entities("Hello", "place")
+        with self.assertRaisesRegex(ValueError, "2–70"):
+            provider.suggest_taste_entities("X" * 71, "artist")
+
     def test_explicit_cultural_domain_disambiguates_without_guessing(self):
         class FakeTransport:
             def __init__(self):

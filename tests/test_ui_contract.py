@@ -78,6 +78,19 @@ class UiContractTests(unittest.TestCase):
         self.assertIn('data-planner-view="map"', self.html)
         self.assertIn("@media (max-width: 760px)", planner_css)
 
+    def test_exact_entity_picker_is_shared_and_user_triggered(self):
+        picker = (ROOT / "static" / "taste-picker.js").read_text(encoding="utf-8")
+        self.assertIn('src="/taste-picker.js"', self.html)
+        self.assertIn("mount(document.querySelector('#plannerTasteRefs'))", picker)
+        self.assertIn("document.querySelector('#editorForm", picker)
+        self.assertIn("'/api/taste-entities'", picker)
+        self.assertIn("find.addEventListener('click'", picker)
+        self.assertIn("no result is selected automatically", picker)
+        self.assertIn("qloo-id:", picker)
+        self.assertIn("replace(/[|,", picker)
+        self.assertIn(".qloo-picker-find", (ROOT / "static" / "styles.css").read_text(encoding="utf-8"))
+        self.assertNotIn("once the Qloo API is connected", self.html)
+
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("@media (max-width: 760px)", css)

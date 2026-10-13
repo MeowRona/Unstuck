@@ -1002,3 +1002,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Opt-in cultural entity selection shared by Rescue and Plan a Day. */
+.qloo-picker { padding: 7px 0 9px; min-width: 0; }
+.qloo-picker-controls { display: flex; align-items: stretch; gap: 7px; flex-wrap: wrap; }
+.qloo-picker-controls select,
+.qloo-picker-find {
+  min-height: 36px; padding: 8px 11px; border-radius: 9px;
+  border: 1px solid var(--line-strong); background: var(--surface);
+  color: var(--ink); font-size: 12px; cursor: pointer;
+}
+.qloo-picker-find { font-weight: 750; border-color: var(--blue); color: var(--blue); }
+.qloo-picker-find:disabled { opacity: .65; cursor: wait; }
+.qloo-picker-matches { display: grid; gap: 6px; margin-top: 7px; font-size: 12px; }
+.qloo-picker-matches p { margin: 0; color: var(--muted); }
+.qloo-picker-option {
+  display: block; width: 100%; padding: 8px 10px; text-align: left;
+  border-radius: 8px; border: 1px solid var(--line);
+  color: var(--ink); background: var(--surface-soft);
+  cursor: pointer; font-size: 11px; overflow-wrap: anywhere;
+}
+.qloo-picker-option:hover, .qloo-picker-option:focus-visible {
+  border-color: var(--blue); outline-offset: 2px;
+}
+.qloo-picker-selected { display: flex; gap: 6px; flex-wrap: wrap; margin: 7px 0 0; }
+.qloo-picker-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line); color: var(--ink);
+  background: var(--blue-soft); padding: 4px 6px 4px 10px;
+  border-radius: 20px; font-size: 11px; max-width: 100%;
+}
+.qloo-picker-chip > span { overflow-wrap: anywhere; }
+.qloo-picker-chip button {
+  border: 0; background: transparent; color: var(--muted);
+  font-size: 17px; line-height: 1; cursor: pointer;
+}
+.qloo-picker-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+@media (max-width: 760px) {
+  .qloo-picker-controls select { flex: 1; min-width: 115px; }
+  .qloo-picker-find { flex: 1; min-width: 145px; }
+}

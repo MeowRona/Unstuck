@@ -66,6 +66,40 @@ class HttpFlowTests(unittest.TestCase):
             return response.headers, response.read()
 
 
+    def test_entity_picker_is_disabled_without_live_qloo(self):
+        response = self.post_json("/api/taste-entities", {"query": "Radiohead", "kind": "artist"})
+        self.assertFalse(response["available"])
+        self.assertEqual(response["options"], [])
+
+    def test_entity_picker_proxies_only_explicit_bounded_search(self):
+        from unstuck.providers import RealQlooProvider
+        class OneCallTransport:
+            def __init__(self):
+                self.calls = []
+            def request_scope(self, max_calls=18):
+                from contextlib import nullcontext
+                if max_calls != 1:
+                    raise AssertionError("taste picker exceeded a single request")
+                return nullcontext()
+            def get_json(self, path, params=None):
+                self.calls.append((path, params))
+                return {"results": [
+                    {"entity_id": "artist:radiohead", "name": "Radiohead",
+                     "types": ["urn:entity:artist"]}
+                ]}
+        fake = OneCallTransport()
+        old = Handler.app_state.engine.taste_provider
+        Handler.app_state.engine.taste_provider = RealQlooProvider(fake)
+        try:
+            response = self.post_json("/api/taste-entities",
+                                      {"query": "Radiohead", "kind": "artist"})
+            self.assertTrue(response["available"])
+            self.assertEqual(response["options"][0]["id"], "artist:radiohead")
+            self.assertEqual(fake.calls[0][0], "/search")
+            self.assertEqual(len(fake.calls), 1)
+        finally:
+            Handler.app_state.engine.taste_provider = old
+
     def test_search_reject_update_end_to_end(self):
         version = self.get_json("/api/version")
         self.assertEqual(version["git_repo"], os.environ.get("RENDER_GIT_REPO_SLUG", "MeowRona/Unstuck"))

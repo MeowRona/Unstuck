@@ -478,6 +478,18 @@ class Handler(BaseHTTPRequestHandler):
                 filename = f"unstuck-{str(raw_plan.get('date') or 'plan')}.ics"
                 self._bytes(200, ics, content_type="text/calendar; charset=utf-8", filename=filename)
                 return
+            if path == "/api/taste-entities":
+                provider = self.app_state.engine.taste_provider
+                if not isinstance(provider, RealQlooProvider):
+                    self._json(200, {"available": False, "options": [],
+                                     "reason": "Live Qloo is not configured on this instance"})
+                    return
+                options = provider.suggest_taste_entities(
+                    str(payload.get("query") or ""), str(payload.get("kind") or "artist")
+                )
+                self._json(200, {"available": True, "options": options,
+                                 "note": "Select an exact Qloo entity; ranking remains subject to place coverage."})
+                return
             if path == "/api/search":
                 brief = SearchBrief.from_payload(payload)
                 session_id, result = self.app_state.create(brief)
