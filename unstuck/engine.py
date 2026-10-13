@@ -732,6 +732,8 @@ class UnstuckEngine:
                 "input_references": list(brief.taste_refs),
                 "failed_place_anchor": brief.failed_place or None,
                 "recognized_signals": list(taste_trace.get("recognized_signals", [])),
+                "unresolved_signals": list(taste_trace.get("unresolved_signals", [])),
+                "candidate_entity_count": int(taste_trace.get("candidate_entity_count", 0)),
                 "fixture_matches": list(taste_trace.get("fixture_matches", [])),
                 "anchor_used": bool(taste_trace.get("anchor_used", False)),
                 "anchor_error": taste_trace.get("anchor_error"),
