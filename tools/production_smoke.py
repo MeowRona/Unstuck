@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
@@ -20,8 +21,13 @@ def post_json(path: str, payload: dict) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(request, timeout=45) as response:
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urlopen(request, timeout=45) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        # The application's JSON error is safe to show and explains failed live resolutions.
+        detail = exc.read(1500).decode("utf-8", errors="replace")
+        raise RuntimeError(f"POST {path} returned HTTP {exc.code}: {detail}") from None
 
 
 def post_raw(path: str, payload: dict) -> tuple[str, bytes]:
