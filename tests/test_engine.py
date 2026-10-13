@@ -547,6 +547,48 @@ class QlooContractTests(unittest.TestCase):
                          ["Vegan Ramen Shop — Muranów", "Vegan Ramen Shop"])
         self.assertEqual(fake.calls[0][1]["filter.location"], fake.calls[1][1]["filter.location"])
 
+    def test_optional_local_name_retries_preserve_insights_job_budget(self):
+        from unstuck.providers import QLOO_MAX_RANK_OPTIONS
+
+        class BudgetedTransport:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                if len(self.calls) > 18:
+                    raise RuntimeError("QLOO_JOB_BUDGET_EXHAUSTED")
+                if path == "/search":
+                    query = params["query"]
+                    if params.get("types") == "urn:entity:artist":
+                        return {"results": [{"entity_id": "artist:radiohead", "name": query,
+                                            "types": ["urn:entity:artist"]}]}
+                    if query.endswith(" — District"):
+                        return {"results": []}
+                    return {"results": [{"entity_id": f"place:{query}", "name": query,
+                                        "types": ["urn:entity:place"]}]}
+                ids = params["filter.results.entities"].split(",")
+                return {"results": {"entities": [
+                    {"entity_id": entity_id, "query": {"affinity": 0.8 - i / 10}}
+                    for i, entity_id in enumerate(ids)
+                ]}}
+
+        original = load_fixture_engine().places[0]
+        places = [
+            replace(original, id=f"alias-{i}", name=f"Alias {i} — District",
+                    qloo_entity_id=None)
+            for i in range(QLOO_MAX_RANK_OPTIONS)
+        ]
+        transport = BudgetedTransport()
+        provider = RealQlooProvider(transport)
+        result = provider.rank_with_context(places, ["artist: Radiohead"], failed_place=None)
+        searched_names = [p["query"] for path, p in transport.calls if path == "/search"]
+        self.assertEqual(len([x for x in searched_names if "—" not in x and x.startswith("Alias")]), 2)
+        self.assertEqual(len([path for path, _ in transport.calls if path == "/v2/insights"]), 1)
+        self.assertLessEqual(len(transport.calls), 18)
+        self.assertEqual(result.trace["status"], "live")
+        self.assertEqual(result.trace["candidate_entity_count"], 2)
+        self.assertEqual(result.trace["ranked_entity_count"], 2)
+
     def test_documented_qloo_search_404_is_missing_coverage_not_server_crash(self):
         class NoResultsTransport:
             def get_json(self, path, params=None):
