@@ -691,7 +691,32 @@ class DayPlanner:
             def restaurant_label(plan: dict[str, Any]) -> str | None:
                 return next((item["title"] for item in plan["items"] if item["kind"] == "restaurant"), None)
 
+            def study_preview(plan: dict[str, Any]) -> dict[str, Any]:
+                # Frozen BEFORE live route checks: exactly the data available
+                # at the time the operational and Qloo orderings were compared.
+                return {
+                    "id": plan["id"],
+                    "date": plan["date"],
+                    "stops": [
+                        {
+                            "id": item["activity_id"],
+                            "title": item["title"],
+                            "kind": item["kind"],
+                            "start": item["display_start"],
+                            "end": item["display_end"],
+                        }
+                        for item in plan["items"]
+                    ],
+                    "estimated_travel_minutes": plan["total_travel_minutes"],
+                    "known_cost_max": plan["known_cost_max"],
+                    "unknown_cost_components": plan["unknown_cost_components"],
+                    "budget_total": plan["budget_total"],
+                    "feasibility": plan["feasibility"],
+                }
+
             personalized_top["taste_comparison"] = {
+                "study_baseline": study_preview(baseline_top),
+                "study_with_qloo": study_preview(personalized_top),
                 "method": "same_feasible_plan_pool",
                 "scope": "Generated local options before detailed route checks; operational facts and constraints are identical.",
                 "candidate_plan_count": len(plans),
