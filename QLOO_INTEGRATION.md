@@ -89,15 +89,15 @@ The contract separates:
 
 This separation matters because discovery and re-ranking are different product effects. If Qloo discovery is added later, it must be reported separately instead of being mixed into the same comparison.
 
-### Before the API key is connected
+### Live connection and fixture preview
 
-The hosted beta runs in fixture taste mode. Its `taste_audit.status` is `fixture_preview`.
+The production Rescue endpoint was verified with live Qloo on 2026-10-13. Fixture still exists for tests and offline development; in that mode `taste_audit.status` is `fixture_preview`.
 
 The interface may show the supplied references and a fixture preview order, but it must also say:
 
 - Qloo was not called;
 - fixture order is not proof of Qloo performance;
-- entity recognition, live ranking impact and the baseline-vs-Qloo comparison become available only after the Qloo connection.
+- entity recognition and actual live ranking coverage become available only in a successful live response (the connection alone is not proof).
 
 No affinity percentage or fabricated Qloo advantage is shown.
 

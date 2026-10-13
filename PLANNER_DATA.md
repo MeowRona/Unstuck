@@ -100,17 +100,18 @@ The store has an explicit schema version. Copying a saved plan to another date c
 
 ## Qloo
 
-Planner taste matching is **not live yet**.
+**Limited live Qloo restaurant ranking** is available when the shared provider is in live mode and at least two eligible restaurant entities are returned and ranked.
 
-Taste references are stored in the planner brief but do not affect ordering until a live Qloo planner contract is validated with the hackathon credential. Current ordering uses:
+Taste references are evaluated by Qloo for the restaurant shortlist only. At insufficient coverage the service visibly falls back to operational planning. Attractions and concerts use explicit interests and published operational facts, not fabricated cross-domain affinities. Current ordering uses:
 
 1. preservation of existing stops during Repair this day;
 2. feasibility confidence;
 3. explicit category/tag interests;
-4. travel;
-5. known cost.
+4. a verified *restaurant-only* Qloo ranking, when present;
+5. unplanned idle minutes, then travel;
+6. known cost.
 
-No fixture ranking is presented as Qloo evidence.
+Every plan includes a `taste_status`, a domain-limited `taste_note`, and an audit of recognized/unresolved signals. No fixture ranking is presented as Qloo evidence.
 
 ## Google Places
 

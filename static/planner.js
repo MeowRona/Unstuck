@@ -492,6 +492,11 @@
         '<div class="timeline-meta"><span class="timeline-chip">' + esc(back.status) + '</span>' +
         (back.scheduled ? '<span class="timeline-chip">scheduled · not realtime</span>' : '') + '</div></div></div>';
     }
+    if (plan.total_idle_minutes >= 60) {
+      html += '<div class="planner-repair-note"><strong>Large gap in this schedule:</strong> about ' +
+        esc(plan.total_idle_minutes) + ' min beyond the required event arrival buffer (based on estimated travel). ' +
+        'Consider a later start or fewer stops; this is free time, not a scheduled activity.</div>';
+    }
     if (plan.checks && plan.checks.length) {
       html += '<div class="planner-repair-note"><strong>Before you rely on this plan:</strong><br>' +
         plan.checks.map(esc).join('<br>') + '</div>';
@@ -530,7 +535,9 @@
       esc(coverage.event_sources_loaded_through) + '. ' + esc(coverage.scope) + '</p>' +
       '<p><strong>No-results semantics:</strong> ' + esc(coverage.no_results_meaning) + '</p>' +
       '<p><strong>Routing:</strong> initial plans use estimates; selected plans are checked leg by leg. Warsaw transit is scheduled, not realtime.</p>' +
-      '<p><strong>Taste:</strong> ' + ((plan && plan.taste_status === 'not_live') ? 'Qloo was not called. Taste references do not affect ranking yet.' : 'No taste matching requested.') + '</p>' +
+      '<p><strong>Taste:</strong> ' + esc(plan?.taste_note || (plan?.taste_status === 'not_requested' ? 'No taste matching requested.' : 'Taste coverage unavailable.')) + '</p>' +
+      (plan?.taste_audit?.recognized_signals?.length ? '<p><strong>Qloo recognized:</strong> ' + plan.taste_audit.recognized_signals.map(s => esc(s.name)).join(', ') + '</p>' : '') +
+      (plan?.taste_audit?.unresolved_signals?.length ? '<p><strong>Skipped:</strong> ' + plan.taste_audit.unresolved_signals.map(s => esc(s.input)).join(', ') + '</p>' : '') +
       (used.size ? '<p><strong>Used sources:</strong><br>' + Array.from(used.values()).map((source) =>
         '<a href="' + esc(source.url) + '" target="_blank" rel="noreferrer">' + esc(source.name || source.url) + '</a>' +
         (source.checked_at ? ' · checked ' + esc(source.checked_at) : '')
@@ -542,7 +549,12 @@
   function renderResult(result) {
     $('#plannerResultsMeta').textContent = result.explanation ||
       (plans.length ? plans.length + ' variant' + (plans.length === 1 ? '' : 's') + ' · ' + (result.planned_activity_count || plans[0].items.length) + ' stops' : 'No feasible plan');
-    $('#plannerTasteStatus').textContent = result.taste_status === 'not_live' ? 'Taste matching not live yet' : 'Taste not requested';
+    $('#plannerTasteStatus').textContent = result.taste_status === 'live_restaurants'
+      ? 'Live Qloo · restaurants ranked'
+      : result.taste_status === 'not_requested' ? 'Taste not requested'
+      : result.taste_status === 'not_live' ? 'Taste matching not live yet'
+      : result.taste_status === 'insufficient_coverage' ? 'Taste coverage too limited'
+      : 'Taste unavailable · operational plan';
     const tabs = $('#plannerVariantTabs');
     if (plans.length > 1) {
       tabs.classList.remove('hidden');
@@ -600,7 +612,11 @@
       if (result.brief) currentBrief = result.brief;
       renderResult(result);
       const info = plans[0] && plans[0].repair;
-      if (info) showNote('Repair kept ' + info.kept_ids.length + ' existing stop(s), removed one, and added ' + info.added_ids.length + '. Locked stops stayed fixed.');
+      if (info) {
+        const shifted = (info.shifted || []).filter(x => x.minutes !== 0);
+        const changes = shifted.length ? ' Shifted: ' + shifted.map(x => x.activity_id + ' ' + (x.minutes > 0 ? '+' : '') + x.minutes + ' min').join(', ') + '.' : ' No kept stop changed start time.';
+        showNote('Repair kept ' + info.kept_ids.length + ' existing stop(s), replaced ' + info.removed + ' with ' + info.added_ids.join(', ') + '. ' + shifted.length + ' time shift(s).' + changes);
+      }
       if (plans.length) await checkRoutes();
     } catch (err) {
       showNote(err.message);

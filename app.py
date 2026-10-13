@@ -135,7 +135,7 @@ class AppState:
         self.sessions: dict[str, SearchState] = {}
         self.lock = threading.Lock()
         self.planner_catalog = PlannerCatalog(engine.places)
-        self.day_planner = DayPlanner(self.planner_catalog)
+        self.day_planner = DayPlanner(self.planner_catalog, engine.taste_provider)
 
     def create(self, brief: SearchBrief) -> tuple[str, dict]:
         session_id = uuid.uuid4().hex

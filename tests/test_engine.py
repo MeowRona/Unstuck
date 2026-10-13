@@ -517,9 +517,81 @@ class QlooContractTests(unittest.TestCase):
         transport = QlooTransport(api_key="test-key", max_network_calls=1, cache_ttl_seconds=0)
         with patch("unstuck.providers.urlopen", return_value=Response()) as mocked:
             transport.get_json("/search", {"query": "first"})
-            with self.assertRaisesRegex(RuntimeError, "QLOO_CALL_BUDGET_EXHAUSTED"):
+            with self.assertRaisesRegex(RuntimeError, "QLOO_RATE_WINDOW_EXHAUSTED"):
                 transport.get_json("/search", {"query": "second"})
         self.assertEqual(mocked.call_count, 1)
+
+
+    def test_rolling_window_recovers_without_restart(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, _limit):
+                return b'{"results":[]}'
+        transport = QlooTransport(api_key="test-key", max_network_calls=1, cache_ttl_seconds=0, window_seconds=60)
+        with patch("unstuck.providers.urlopen", return_value=Response()) as mocked, patch("unstuck.providers.time.monotonic", side_effect=[100, 100, 100, 100, 161, 161]):
+            transport.get_json("/search", {"query": "first"})
+            with self.assertRaisesRegex(RuntimeError, "QLOO_RATE_WINDOW_EXHAUSTED"):
+                transport.get_json("/search", {"query": "blocked"})
+            transport.get_json("/search", {"query": "after-window"})
+        self.assertEqual(mocked.call_count, 2)
+
+    def test_job_budget_resets_and_does_not_depend_on_lifetime(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, _limit):
+                return b'{"results":[]}'
+        transport = QlooTransport(api_key="test-key", max_network_calls=10, cache_ttl_seconds=0)
+        with patch("unstuck.providers.urlopen", return_value=Response()) as mocked:
+            with transport.request_scope(max_calls=1):
+                transport.get_json("/search", {"query": "first"})
+                with self.assertRaisesRegex(RuntimeError, "QLOO_JOB_BUDGET_EXHAUSTED"):
+                    transport.get_json("/search", {"query": "second"})
+            with transport.request_scope(max_calls=1):
+                transport.get_json("/search", {"query": "third"})
+        self.assertEqual(mocked.call_count, 2)
+
+    def test_live_provider_error_keeps_operational_results_and_truthful_trace(self):
+        class BrokenProvider:
+            mode = "live"
+            def rank_with_context(self, *_args, **_kwargs):
+                raise RuntimeError("QLOO_RATE_WINDOW_EXHAUSTED")
+        engine = load_fixture_engine()
+        engine.taste_provider = BrokenProvider()
+        result = engine.search(SearchState(brief()))
+        self.assertEqual(result["taste_audit"]["status"], "unavailable")
+        self.assertFalse(result["taste_audit"]["insights_called"])
+        self.assertTrue(result["cards"])
+
+    def test_shorter_stay_uses_minimum_needed_not_maximum_allowed(self):
+        engine = load_fixture_engine()
+        original = brief(failed_place="", taste_refs=[], min_stay_minutes=75,
+                         negotiable_stay_reduction_minutes=30, max_one_way_minutes=60,
+                         budget_total=1000)
+        travel = estimate_travel_minutes(original, engine.places[0])
+        # Exactly five minutes short of the original target, with ample travel allowance.
+        from datetime import timedelta
+        deadline = (datetime.strptime(original.start_time, "%H:%M") +
+                    timedelta(minutes=2 * travel + 70)).strftime("%H:%M")
+        adjusted = brief(failed_place="", taste_refs=[], min_stay_minutes=75,
+                         negotiable_stay_reduction_minutes=30, max_one_way_minutes=60,
+                         budget_total=1000, return_by=deadline)
+        result = engine.search(SearchState(adjusted))
+        self.assertTrue(result["cards"])
+        stay_changes = [change["delta"] for card in result["cards"]
+                        for change in card["change"] if change["field"] == "minimum stay"]
+        self.assertTrue(stay_changes)
+        self.assertTrue(all(0 < delta <= 30 for delta in stay_changes))
+        self.assertIn(5, stay_changes)
 
 
 if __name__ == "__main__":

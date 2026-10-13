@@ -213,7 +213,7 @@ No login is required. The Qloo API key is server-side.
 
 **https://unstuck-city-compass.onrender.com**
 
-Deployment smoke: root and `/api/health` returned HTTP 200, and a public `search -> reject all first 3 -> next alternatives` flow passed. The hosted build remains in fixture-taste mode until the live Qloo credential is intentionally enabled near submission.
+Deployment smoke: root and `/api/health` returned HTTP 200, and a public `search -> reject all first 3 -> next alternatives` flow passed. Live Qloo Rescue ranking was verified in production on 2026-10-13. Coverage is shown per request, and planner Qloo ranking is limited to comparable eligible restaurants.
 
 ### Video
 
@@ -228,8 +228,8 @@ Not required by the current Qloo hackathon submission baseline. If an optional s
 
 Do **not** final-submit while any of these is true:
 
-- `python live_smoke.py` still returns `BLOCKED_NO_API_KEY`;
-- public demo is in fixture taste mode instead of verified live Qloo mode;
+- real Qloo ranking is unavailable in the final public demonstration;
+- public demo cannot show a verified live Qloo call and distinguish no-coverage or API failures;
 - a live Qloo request cannot resolve the chosen taste references/candidate places;
 - a rejected result can reappear in the next round;
 - an unknown material fact is displayed as confirmed;

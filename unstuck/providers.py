@@ -4,6 +4,9 @@ import json
 import os
 import time
 import unicodedata
+from collections import deque
+from contextlib import contextmanager
+from threading import RLock, local
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -143,8 +146,9 @@ class QlooTransport:
         api_key: str | None = None,
         base_url: str = HACKATHON_BASE_URL,
         *,
-        max_network_calls: int = 40,
+        max_network_calls: int = 30,
         cache_ttl_seconds: int = 300,
+        window_seconds: int = 60,
     ):
         self.api_key = (api_key if api_key is not None else os.environ.get("QLOO_API_KEY", "")).strip()
         self.base_url = base_url.rstrip("/")
@@ -152,8 +156,12 @@ class QlooTransport:
             raise RuntimeError("BLOCKED_NO_API_KEY")
         if max_network_calls < 1:
             raise ValueError("max_network_calls must be at least 1")
-        self.max_network_calls = max_network_calls
-        self.network_calls = 0
+        self.max_network_calls = max_network_calls  # rolling window, not process lifetime
+        self.window_seconds = max(1, int(window_seconds))
+        self.network_calls = 0  # cumulative diagnostics, never a lifetime blocker
+        self._recent_calls = deque()
+        self._lock = RLock()
+        self._request_local = local()
         self.cache_ttl_seconds = max(0, cache_ttl_seconds)
         # Deliberately process-memory only: no Qloo output is persisted to disk.
         # This avoids building a local Qloo database and only deduplicates short-lived calls.
@@ -164,24 +172,53 @@ class QlooTransport:
         return json.dumps([path, sorted((params or {}).items())], separators=(",", ":"), ensure_ascii=False)
 
     def clear_cache(self) -> None:
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
+
+    @contextmanager
+    def request_scope(self, max_calls: int = 18):
+        """Limit each planning job separately from the renewable service-wide window."""
+        previous = getattr(self._request_local, "remaining", None)
+        self._request_local.remaining = min(max(1, max_calls), previous) if previous is not None else max(1, max_calls)
+        try:
+            yield
+        finally:
+            if previous is None:
+                del self._request_local.remaining
+            else:
+                self._request_local.remaining = previous
+
+    def _reserve_attempt(self) -> None:
+        # Each HTTP attempt, including retries, consumes a token atomically.
+        with self._lock:
+            now = time.monotonic()
+            while self._recent_calls and self._recent_calls[0] <= now - self.window_seconds:
+                self._recent_calls.popleft()
+            remaining = getattr(self._request_local, "remaining", None)
+            if remaining is not None and remaining <= 0:
+                raise RuntimeError("QLOO_JOB_BUDGET_EXHAUSTED")
+            if len(self._recent_calls) >= self.max_network_calls:
+                raise RuntimeError("QLOO_RATE_WINDOW_EXHAUSTED")
+            self._recent_calls.append(now)
+            self.network_calls += 1
+            if remaining is not None:
+                self._request_local.remaining = remaining - 1
 
     def get_json(self, path: str, params: dict[str, str | int | float] | None = None) -> dict:
         if not path.startswith("/"):
             raise ValueError("path must start with /")
         cache_key = self._cache_key(path, params)
         now = time.monotonic()
-        cached = self._cache.get(cache_key)
-        if cached and now - cached[0] <= self.cache_ttl_seconds:
-            return cached[1]
-        if self.network_calls >= self.max_network_calls:
-            raise RuntimeError("QLOO_CALL_BUDGET_EXHAUSTED")
-        self.network_calls += 1
+        with self._lock:
+            cached = self._cache.get(cache_key)
+            if cached and now - cached[0] <= self.cache_ttl_seconds:
+                return cached[1]
         query = urlencode(params or {})
         url = f"{self.base_url}{path}" + (f"?{query}" if query else "")
         request = Request(url, headers={"X-Api-Key": self.api_key, "Accept": "application/json"})
         last_error: Exception | None = None
         for attempt in range(3):
+            self._reserve_attempt()
             try:
                 with urlopen(request, timeout=12) as response:
                     raw = response.read(4_000_001)
@@ -191,10 +228,11 @@ class QlooTransport:
                 if not isinstance(payload, dict):
                     raise RuntimeError("Unexpected Qloo response")
                 if self.cache_ttl_seconds:
-                    if len(self._cache) >= 128:
-                        oldest = min(self._cache, key=lambda key: self._cache[key][0])
-                        self._cache.pop(oldest, None)
-                    self._cache[cache_key] = (time.monotonic(), payload)
+                    with self._lock:
+                        if len(self._cache) >= 128:
+                            oldest = min(self._cache, key=lambda key: self._cache[key][0])
+                            self._cache.pop(oldest, None)
+                        self._cache[cache_key] = (time.monotonic(), payload)
                 return payload
             except HTTPError as exc:
                 last_error = exc
@@ -331,7 +369,9 @@ class RealQlooProvider:
             return TasteResults(
                 [TasteResult(p.id, None, None, (), "qloo") for p in places],
                 trace={
-                    "status": "live",
+                    "status": "no_signals",
+                    "insights_called": False,
+                    "ranked_entity_count": 0,
                     "input_references": [],
                     "recognized_signals": [],
                     "failed_place_anchor": None,
@@ -390,7 +430,9 @@ class RealQlooProvider:
             return TasteResults(
                 [TasteResult(p.id, None, None, (), "qloo") for p in places],
                 trace={
-                    "status": "live",
+                    "status": "no_coverage",
+                    "insights_called": False,
+                    "ranked_entity_count": 0,
                     "input_references": refs,
                     "recognized_signals": recognized_signals,
                     "failed_place_anchor": failed_place or None,
@@ -432,7 +474,9 @@ class RealQlooProvider:
                 for p in places
             ],
             trace={
-                "status": "live",
+                "status": "live" if by_entity else "no_coverage",
+                "insights_called": True,
+                "ranked_entity_count": len(by_entity),
                 "input_references": refs,
                 "recognized_signals": recognized_signals,
                 "failed_place_anchor": failed_place or None,

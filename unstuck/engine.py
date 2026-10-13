@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
@@ -329,7 +330,8 @@ def _sort_key(ev: Evaluation) -> tuple[Any, ...]:
     unknown_penalty = len(ev.needs_checking)
     affinity_sort = -(ev.affinity if ev.affinity is not None else -1.0)
     taste_rank = ev.taste_rank if ev.taste_rank is not None else 9999
-    return (sum(vector), vector, unknown_penalty, affinity_sort, taste_rank, ev.place.name.casefold())
+    # Explicit lexicographic policy: do not add minutes and category changes.
+    return (vector[2], vector[1], vector[0], unknown_penalty, affinity_sort, taste_rank, ev.place.name.casefold())
 
 
 def _constraint_checks(ev: Evaluation, brief: SearchBrief) -> list[dict[str, str]]:
@@ -532,11 +534,28 @@ class UnstuckEngine:
             log.append(f"Taste-ranking pool contains {len(rank_pool)} candidates after hard prefiltering.")
 
         rank_with_context = getattr(self.taste_provider, "rank_with_context", None)
-        if callable(rank_with_context):
-            taste_results = rank_with_context(rank_pool, brief.taste_refs, failed_place=brief.failed_place or None)
-        else:
-            taste_results = self.taste_provider.rank(rank_pool, brief.taste_refs)
-        taste_trace = dict(getattr(taste_results, "trace", {}) or {})
+        transport = getattr(self.taste_provider, "transport", None)
+        scope = transport.request_scope() if transport is not None and hasattr(transport, "request_scope") else nullcontext()
+        try:
+            with scope:
+                if callable(rank_with_context):
+                    taste_results = rank_with_context(rank_pool, brief.taste_refs, failed_place=brief.failed_place or None)
+                else:
+                    taste_results = self.taste_provider.rank(rank_pool, brief.taste_refs)
+            taste_trace = dict(getattr(taste_results, "trace", {}) or {})
+        except RuntimeError as exc:
+            if self.taste_provider.mode != "live" or not str(exc).startswith("QLOO_"):
+                raise
+            # Explicit operational fallback, never fixture results masquerading as live Qloo.
+            taste_results = [TasteResult(p.id, None, None, (), "unavailable") for p in rank_pool]
+            taste_trace = {
+                "status": "unavailable",
+                "error_code": str(exc),
+                "input_references": list(brief.taste_refs),
+                "insights_called": False,
+                "ranked_entity_count": 0,
+            }
+            log.append(f"Qloo unavailable ({str(exc)}); kept operational feasibility ranking.")
         taste_by_place = {row.place_id: row for row in taste_results}
         log.append(f"Taste provider '{self.taste_provider.mode}' ranked the current candidate pool.")
 
@@ -579,18 +598,39 @@ class UnstuckEngine:
         strategy_used = "strict"
         last_evaluated: list[Evaluation] = []
         for strategy_name, travel_limit, stay_minutes, category_relaxed in strategies:
-            evaluated = [
-                evaluate_place(
-                    place,
-                    brief,
-                    taste_by_place.get(place.id),
-                    allowed_travel_minutes=travel_limit,
-                    stay_minutes=stay_minutes,
-                    category_relaxed=category_relaxed,
-                    route_override=state.route_overrides.get(place.id),
-                )
-                for place in candidates
-            ]
+            evaluated = []
+            for place in candidates:
+                route_override = state.route_overrides.get(place.id)
+                # The allowed shortening is a CEILING. Find the longest viable stay
+                # on a declared 5-minute grid instead of always using the full allowance.
+                durations = [brief.min_stay_minutes]
+                if strategy_name in {"shorter_stay", "category_change"}:
+                    lower = max(15, brief.min_stay_minutes - brief.negotiable_stay_reduction_minutes)
+                    durations += [
+                        max(lower, brief.min_stay_minutes - delta)
+                        for delta in range(5, brief.min_stay_minutes - lower + 5, 5)
+                    ]
+                    durations.append(lower)
+                seen_durations: set[int] = set()
+                current_ev = None
+                for duration in durations:
+                    if duration in seen_durations:
+                        continue
+                    seen_durations.add(duration)
+                    ev = evaluate_place(
+                        place,
+                        brief,
+                        taste_by_place.get(place.id),
+                        allowed_travel_minutes=travel_limit,
+                        stay_minutes=duration,
+                        category_relaxed=category_relaxed,
+                        route_override=route_override,
+                    )
+                    current_ev = ev
+                    if ev.viable:
+                        break
+                if current_ev is not None:
+                    evaluated.append(current_ev)
             last_evaluated = evaluated
             current = [ev for ev in evaluated if ev.confirmed]
             current_provisional = [ev for ev in evaluated if ev.viable and not ev.confirmed]
@@ -688,7 +728,7 @@ class UnstuckEngine:
         ranked_order = [ev.place.name for ev in selected]
         provider_mode = self.taste_provider.mode
         if provider_mode == "live":
-            taste_status = "live"
+            taste_status = str(taste_trace.get("status") or "unavailable")
         elif provider_mode == "fixture":
             taste_status = "fixture_preview"
         else:
@@ -734,17 +774,21 @@ class UnstuckEngine:
                 "recognized_signals": list(taste_trace.get("recognized_signals", [])),
                 "unresolved_signals": list(taste_trace.get("unresolved_signals", [])),
                 "candidate_entity_count": int(taste_trace.get("candidate_entity_count", 0)),
+                "ranked_entity_count": int(taste_trace.get("ranked_entity_count", 0)),
+                "insights_called": bool(taste_trace.get("insights_called", False)),
+                "error_code": taste_trace.get("error_code"),
+                "unresolved_candidate_count": len(taste_trace.get("unresolved_candidate_ids", [])),
                 "fixture_matches": list(taste_trace.get("fixture_matches", [])),
                 "anchor_used": bool(taste_trace.get("anchor_used", False)),
                 "anchor_error": taste_trace.get("anchor_error"),
                 "discovery_used": bool(taste_trace.get("discovery_used", False)),
                 "candidate_pool_size": len(comparison_pool),
                 "baseline_order": baseline_order,
-                "ranked_order": ranked_order if provider_mode == "live" else [],
+                "ranked_order": ranked_order if taste_status == "live" else [],
                 "fixture_preview_order": ranked_order if provider_mode == "fixture" else [],
                 "changed_top_choice": (
                     bool(baseline_order and ranked_order and baseline_order[0] != ranked_order[0])
-                    if provider_mode == "live"
+                    if taste_status == "live"
                     else None
                 ),
             },

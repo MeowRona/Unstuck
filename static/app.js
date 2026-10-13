@@ -54,7 +54,7 @@ function makeDefaultBrief() {
   travel_mode: 'transit',
   max_one_way_minutes: 20,
   categories: ['restaurant'],
-  taste_refs: ['Amelie', 'Radiohead'],
+  taste_refs: [],
   meal_required: true,
   negotiable_extra_travel_minutes: 10,
   negotiable_stay_reduction_minutes: 15,
@@ -308,6 +308,8 @@ async function fetchJson(url, options = {}) {
 }
 
 function showSearching() {
+  // A previous route-check response must never replace a newer user edit or search.
+  ++routeRequestSerial;
   firstRun.classList.add('hidden');
   resultContent.classList.add('hidden');
   searchingState.classList.remove('hidden');
@@ -729,7 +731,7 @@ function renderActualRoute(route, returnRoute = null) {
     : 'Checked pedestrian route · OpenStreetMap streets';
 }
 
-async function loadSelectedRoute() {
+async function loadSelectedRoute(attempt = 0) {
   const card = activeResult?.cards?.[selectedIndex];
   if (!card || !validCardLocation(card) || !sessionId) {
     routePanel.classList.add('hidden');
@@ -765,6 +767,9 @@ async function loadSelectedRoute() {
       routePanel.classList.remove('hidden');
       routePanel.classList.add('route-conflict');
       routePanel.innerHTML = `<div class="route-warning"><strong>Route check changed the result.</strong><span>${escapeHtml(payload.route_note || 'The checked trip no longer fits the current conditions, so Unstuck reranked the remaining options.')}</span></div>`;
+      if (attempt < 2 && payload.cards?.length && payload.cards[0].id !== placeId) {
+        await loadSelectedRoute(attempt + 1);
+      }
     }
   } catch (error) {
     if (serial !== routeRequestSerial) return;
@@ -777,14 +782,15 @@ async function loadSelectedRoute() {
 
 function renderFooter(result) {
   const mode = result.provider_mode;
-  $('#footerSources').innerHTML = mode === 'live'
-    ? '<strong>Sources:</strong> public listings · live Qloo taste signal'
+  const liveTaste = result.taste_audit?.status === 'live';
+  $('#footerSources').innerHTML = liveTaste
+    ? '<strong>Sources:</strong> public listings · returned Qloo taste ranking'
     : mode === 'fixture'
       ? '<strong>Sources:</strong> public listings · taste preview only (Qloo not connected)'
       : '<strong>Sources:</strong> public listings · no-taste baseline';
-  $('#footerMethod').innerHTML = mode === 'live'
-    ? '<strong>Method:</strong> hard conditions first · smallest allowed change · live Qloo ranking'
-    : '<strong>Method:</strong> hard conditions first · smallest allowed change · live Qloo ranking pending connection';
+  $('#footerMethod').innerHTML = liveTaste
+    ? '<strong>Method:</strong> feasible conditions · allowed compromises · observed Qloo ordering'
+    : '<strong>Method:</strong> feasible conditions · allowed compromises · no verified Qloo ranking for this request';
   const needs = (result.cards || []).reduce((sum, card) => sum + (card.needs_checking?.length || 0), 0);
   $('#footerNeeds').textContent = needs ? `Needs checking: ${needs} flagged fact${needs === 1 ? '' : 's'}` : 'Needs checking: none flagged by current data';
 }
@@ -806,7 +812,12 @@ function renderDecisionEvidence(result) {
     ).join('');
     const baseline = (audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result';
     const ranked = (audit.ranked_order || []).map(escapeHtml).join(' → ') || 'No Qloo-ranked result';
-    qlooSection = `<section><h4>What did Qloo change?</h4><p>Same feasible candidate pool; Qloo only changes ordering after condition checks.</p><ul>${signals || '<li>No recognized taste signals returned.</li>'}</ul><div><strong>Without taste:</strong> ${baseline}</div><div><strong>With Qloo:</strong> ${ranked}</div><div><strong>Top choice changed:</strong> ${audit.changed_top_choice ? 'yes' : 'no'}</div><div><strong>Qloo discovery:</strong> ${audit.discovery_used ? 'used separately' : 'not used; ranking only'}</div></section>`;
+    const skipped = (audit.unresolved_signals || []).map(x => `<li>${escapeHtml(x.input)}: ${escapeHtml(x.reason)}</li>`).join('');
+    const coverage = `${audit.ranked_entity_count || 0} ranked / ${audit.candidate_entity_count || 0} resolved / ${audit.candidate_pool_size || 0} considered`;
+    qlooSection = `<section><h4>What did Qloo change?</h4><p>Partial Qloo coverage: ${escapeHtml(coverage)}. Unmatched places keep operational ordering.</p><ul>${signals || '<li>No recognized taste signals returned.</li>'}</ul>${skipped ? `<div><strong>Skipped references:</strong><ul>${skipped}</ul></div>` : ''}<div><strong>Without taste:</strong> ${baseline}</div><div><strong>With Qloo:</strong> ${ranked}</div><div><strong>Top choice changed:</strong> ${audit.changed_top_choice ? 'yes' : 'no'}</div><div><strong>Qloo discovery:</strong> ${audit.discovery_used ? 'used separately' : 'not used; ranking only'}</div></section>`;
+  } else if (['unavailable', 'no_coverage', 'no_signals'].includes(audit.status)) {
+    const skipped = (audit.unresolved_signals || []).map(x => `<li>${escapeHtml(x.input)}: ${escapeHtml(x.reason)}</li>`).join('');
+    qlooSection = `<section><h4>What did Qloo change?</h4><p><strong>No verified Qloo ranking on this request.</strong> ${audit.status === 'unavailable' ? 'Taste unavailable; operational plan preserved.' : audit.status === 'no_signals' ? 'No taste profile was supplied.' : 'No usable ranking for the given signals and places.'}</p>${audit.error_code ? `<p>${escapeHtml(audit.error_code)}</p>` : ''}${skipped ? `<p>Skipped references:</p><ul>${skipped}</ul>` : ''}</section>`;
   } else if (audit.status === 'fixture_preview') {
     const preview = (audit.fixture_preview_order || []).map(escapeHtml).join(' → ') || 'No preview ranking';
     qlooSection = `<section><h4>What did Qloo change?</h4><p><strong>Available after Qloo connection.</strong> Qloo was not called for this result. The current taste order is a fixture preview and is not evidence of Qloo performance.</p><div><strong>References:</strong> ${refs || 'none'}</div><div><strong>Fixture preview:</strong> ${preview}</div><div><strong>Without taste:</strong> ${(audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result'}</div></section>`;
@@ -1574,13 +1585,14 @@ async function loadJudgeDemo() {
     start_time: '18:30',
     return_by: '20:45',
     min_stay_minutes: 120,
+    taste_refs: ['Amelie', 'Radiohead'], // clearly example references, not the visitor's profile
     max_one_way_minutes: 25,
     negotiable_extra_travel_minutes: 0,
     negotiable_stay_reduction_minutes: 30,
     allow_category_change: false,
   };
   const note = $('#demoScenarioNote');
-  note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The engine must rescue the evening within the stated limits.';
+  note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The sample film/music taste references are examples; only Qloo-resolved signals affect ranking. The engine must rescue the evening within the stated limits.';
   note.classList.remove('hidden');
   updateSummary(draftBrief);
   await runLatest('/api/search', draftBrief);
@@ -1640,7 +1652,7 @@ async function loadStatus() {
     refreshStatusLabel();
     dataStatus.title = statusInfo.provider_mode === 'fixture'
       ? 'Taste preview only. Live Qloo is not connected yet.'
-      : statusInfo.provider_mode === 'live' ? 'Live Qloo taste ranking is active.' : 'Taste ranking disabled for comparison.';
+      : statusInfo.provider_mode === 'live' ? 'Qloo is configured. Verified ranking coverage is shown per result.' : 'Taste ranking disabled for comparison.';
   } catch {
     dataStatus.textContent = 'Backend unavailable';
   }
@@ -1651,7 +1663,7 @@ function refreshStatusLabel() {
   dataStatus.classList.toggle('live', statusInfo.provider_mode === 'live');
   dataStatus.classList.toggle('baseline', statusInfo.provider_mode === 'baseline');
   const compact = window.matchMedia('(max-width: 760px)').matches;
-  if (statusInfo.provider_mode === 'live') dataStatus.textContent = compact ? 'Qloo live' : 'Live · Qloo';
+  if (statusInfo.provider_mode === 'live') dataStatus.textContent = compact ? 'Qloo ready' : 'Qloo · configured';
   else if (statusInfo.provider_mode === 'baseline') dataStatus.textContent = compact ? 'Baseline' : 'Baseline · no taste';
   else dataStatus.textContent = compact ? 'Qloo pending' : 'Demo · Qloo pending';
 }

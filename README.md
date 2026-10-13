@@ -99,7 +99,7 @@ The bundled planner snapshot is checked **2026-10-06** and deliberately small: s
 
 It is **not** marketed as every Warsaw event. Source/coverage semantics and refresh rules are documented in [PLANNER_DATA.md](PLANNER_DATA.md).
 
-Planner taste references are stored, but **Taste matching is not live yet**. Qloo is not called by Plan a day until a live planner-specific contract is validated with the hackathon credential. Google Places remains disabled.
+In live mode, Plan a day now attempts **Qloo ranking of at least two eligible restaurant choices**. It never pretends to rank museums or concerts with restaurant affinities. If Qloo does not resolve enough candidates, the planner keeps a clearly labeled operational ranking. Google Places remains disabled.
 
 ## Data modes
 
@@ -261,9 +261,9 @@ The engine does not hard-code a winning venue for this demo.
 
 ## Deployment path
 
-`render.yaml` is prepared for the zero-cost Render web service in `fixture` taste mode with the real Warsaw catalog. This keeps the stable demo available before credentials arrive and avoids accidental Qloo or Google Places quota use. Near submission, switch the hosted service to live Qloo only after `python live_smoke.py` passes locally and the server-side `QLOO_API_KEY` is configured. Free hosting can cold-start, so verify the public URL from a clean browser session before final submission.
+`render.yaml` supports both fixture and live modes. Production selects live Qloo using the server-side `UNSTUCK_MODE=live` and a Render-secret `QLOO_API_KEY`; neither credential nor live response data is committed to GitHub. The live transport has a renewable, bounded request window and a separate budget per search. A Qloo failure returns clearly marked operational recommendations rather than pretending fixture rankings are live. Free hosting can cold-start, so verify the public URL from a clean browser session before final submission.
 
-Stable public demo: **https://unstuck-city-compass.onrender.com**. It runs on Render independently of the development PC. The current hosted build intentionally uses `fixture` taste mode with the real Warsaw catalog until live Qloo is enabled near submission. Devpost submission remains a separate final action. The free Render instance can cold-start after inactivity, so the first request may take a few seconds; this does not depend on the development PC being online.
+Stable public demo: **https://unstuck-city-compass.onrender.com**. It runs on Render independently of the development PC. The hosted service was switched to live Qloo on 2026-10-13. Actual Qloo insights coverage is reported per request rather than inferred from the configured API key. Devpost submission remains a separate final action. The free Render instance can cold-start after inactivity, so the first request may take a few seconds; this does not depend on the development PC being online.
 
 ## Limitations
 
