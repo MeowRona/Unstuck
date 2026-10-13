@@ -297,5 +297,54 @@ class IcsTests(unittest.TestCase):
         self.assertIn("Actual event end time is unknown", ics)
 
 
+
+class PlannerLiveTasteTests(unittest.TestCase):
+    def test_planner_uses_verified_restaurant_only_qloo_ranks(self):
+        from unstuck.providers import TasteResult, TasteResults
+
+        class FakeProvider:
+            mode = "live"
+
+            def rank_with_context(self, places, taste_refs, *, failed_place):
+                self.last_places = places
+                return TasteResults(
+                    [TasteResult(p.id, 0.9 if i == 0 else 0.6, i + 1, ("Radiohead",), "qloo")
+                     for i, p in enumerate(places)],
+                    trace={
+                        "status": "live",
+                        "insights_called": True,
+                        "recognized_signals": [{"input": "Radiohead", "name": "Radiohead",
+                                                 "entity_id": "artist:test", "kind": "taste_reference"}],
+                    },
+                )
+
+        engine = build_engine("fixture", "real")
+        provider = FakeProvider()
+        planner = DayPlanner(PlannerCatalog(engine.places), provider)
+        result = planner.generate(brief(activity_count=2, must_include_ids=[]))
+        self.assertEqual(result["taste_status"], "live_restaurants")
+        self.assertTrue(result["taste_audit"]["insights_called"])
+        self.assertGreaterEqual(result["taste_audit"]["ranked_count"], 2)
+        self.assertTrue(result["plans"])
+        self.assertTrue(any(item.get("taste_rank") is not None
+                            for plan in result["plans"] for item in plan["items"]
+                            if item["kind"] == "restaurant"))
+        for plan in result["plans"]:
+            self.assertIn("Concerts and museums", plan["taste_note"])
+
+    def test_missing_planner_qloo_does_not_invent_live_taste(self):
+        class UnavailableProvider:
+            mode = "live"
+            def rank_with_context(self, *_args, **_kwargs):
+                raise RuntimeError("QLOO_RATE_WINDOW_EXHAUSTED")
+        engine = build_engine("fixture", "real")
+        planner = DayPlanner(PlannerCatalog(engine.places), UnavailableProvider())
+        result = planner.generate(brief(activity_count=2))
+        self.assertEqual(result["taste_status"], "unavailable")
+        self.assertTrue(result["plans"])
+        self.assertTrue(all(not any(item.get("taste_rank") for item in p["items"])
+                            for p in result["plans"]))
+
+
 if __name__ == "__main__":
     unittest.main()
