@@ -2,7 +2,7 @@
 
 Canonical repository: https://github.com/MeowRona/Unstuck
 
-Last updated: 2026-10-06
+Last updated: 2026-10-13
 
 ## Working now
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-06
 - Planner venue / attraction / event-occurrence objects are distinct. Separate days in a series remain separate occurrences; events with no captured session time remain discoverable but unschedulable; unknown prices/availability/event ends are not filled in.
 - Planner feasibility checks opening windows, last entry, explicit 0/10/15/30-minute fixed-event buffer, sequential travel, fixed event times, budget uncertainty and optional return. The selected plan is then route-checked segment-by-segment at the actual previous-stop departure time.
 - Saved planner state uses versioned browser localStorage (`unstuck-planner-saved-v1`) with no account sync. The last selected planner date also survives refresh. Copying settings to another date drops fixed event occurrences and re-runs feasibility.
-- Planner Taste matching is explicitly **not live yet**: taste references are stored but do not affect planner ordering until a live Qloo planner contract is validated. Google Places remains disabled.
+- In live mode, Qloo can rank eligible **restaurant** choices in Plan a day when at least two Qloo-ranked venues are available. Museum/concert matching remains explicit-interest based. All reduced-coverage cases are labeled. Google Places remains disabled.
 - Responsive English **City Compass** UI: compact plan summary, real OpenStreetMap pane on desktop, vertically stacked result cards, synchronized card/marker selection, explicit kept/changed/check condition states, source/assumption disclosure, and mobile List/Map switching.
 - Full plan editor preserves wheel pickers for time/minute fields. Save refreshes the existing session through `/api/update`; Cancel and Escape restore the previous brief instead of leaking unsaved wheel state.
 - Default planning date/start time now comes from the user's browser-local clock (5-minute rounding); the judge demo keeps its fixed reproducible time.
@@ -46,7 +46,7 @@ Last updated: 2026-10-06
 | Logic/unit suite | PASS | 74/74 tests in GitHub Actions: `python -m unittest discover -s tests -q` |
 | HTTP end-to-end | PASS | rescue `search -> route-check -> reject(reason) -> undo -> update` plus planner `catalog -> generate -> route-check -> repair -> ICS` coverage |
 | Browser UI load | PASS | GitHub Actions headless Chrome verifies Rescue plus Plan a day demo, local save/refresh/load, repair with locked event preserved, and both rescue/planner mobile navigation at 390x844 |
-| Live Qloo | BLOCKED_NO_API_KEY | `python live_smoke.py` exits blocked when `QLOO_API_KEY` is absent |
+| Live Qloo | PASS on 2026-10-13 | Production smoke confirmed Rescue live Qloo ranking: https://github.com/MeowRona/Unstuck/actions/runs/38462819881 |
 | Human blind comparison | NOT RUN | protocol documented in README; no fabricated result |
 | Public deployment | PENDING THIS DEPLOY | Existing Render service is live at https://unstuck-city-compass.onrender.com; this branch will be merged only after CI passes, then the workflow waits for the exact commit and runs `tools/production_smoke.py` against the public service |
 | Public open-source repository | PASS | https://github.com/MeowRona/Unstuck |
@@ -54,15 +54,15 @@ Last updated: 2026-10-06
 
 ## Current blockers to claiming hackathon readiness
 
-1. Obtain/set the hackathon `QLOO_API_KEY` and run `python live_smoke.py`.
+1. Verify the new Astra-audit branch's full browser and production smoke after merge; live Qloo was connected on 2026-10-13.
 2. Inspect raw live Qloo results for entity resolution and same-pool ranking; fix any contract mismatch instead of adapting fixtures to hide it.
-3. Validate the planner-specific Qloo taste contract before allowing taste references to affect attraction/event ordering; until then the planner remains feasibility + explicit-interest based.
+3. Qloo planner ranking is intentionally limited to restaurants; only expand into music/attraction domains after validating a domain-specific API workflow.
 4. Run the documented live-Qloo vs no-taste comparison with real testers; record real results only.
 5. Refresh/extend the selected event snapshot near judging if broader future-date coverage is needed; never imply complete Warsaw coverage.
-6. Re-test the stable Render deployment after switching from fixture taste to live Qloo near submission.
+6. Confirm stable Render deployment and sufficient Qloo request budget for real jurors before final release.
 7. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
 
-Until item 1 passes, the project is a working local MVP with a prepared Qloo integration, **not** a competition-ready live Qloo submission.
+Rescue live Qloo has been verified, but coverage, complete-plan repair, and human preference testing are **not yet** fully proven. No claim of competition-ready product is made.
 
 ## Resume point
 
