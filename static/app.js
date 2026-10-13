@@ -308,6 +308,8 @@ async function fetchJson(url, options = {}) {
 }
 
 function showSearching() {
+  // A previous route-check response must never replace a newer user edit or search.
+  ++routeRequestSerial;
   firstRun.classList.add('hidden');
   resultContent.classList.add('hidden');
   searchingState.classList.remove('hidden');
