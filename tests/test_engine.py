@@ -490,6 +490,47 @@ class QlooContractTests(unittest.TestCase):
         provider = RealQlooProvider(DuplicateTransport())
         self.assertEqual(provider.resolve_interest("Radiohead")[0], "artist:radiohead")
 
+    def test_qloo_404_unknown_interest_skips_unusable_venue_searches(self):
+        class MissingSeedTransport:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                raise RuntimeError("QLOO_HTTP_404")
+
+        transport = MissingSeedTransport()
+        provider = RealQlooProvider(transport)
+        places = load_fixture_engine().places[:6]
+        ranked = provider.rank_with_context(places, ["film: Unknown Fake Movie"], failed_place=None)
+        self.assertEqual(ranked.trace["status"], "no_coverage")
+        self.assertFalse(ranked.trace["insights_called"])
+        self.assertEqual(len(ranked.trace["unresolved_signals"]), 1)
+        self.assertEqual(ranked.trace["candidate_entity_count"], 0)
+        self.assertEqual(len(transport.calls), 1, "must not spend quota on unusable venue resolution")
+        self.assertTrue(all(r.rank is None for r in ranked))
+
+    def test_qloo_404_missing_venue_preserves_usable_plan(self):
+        class MissingVenueTransport:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                if params.get("types") == "urn:entity:place":
+                    raise RuntimeError("QLOO_HTTP_404")
+                return {"results": [{"entity_id": "movie:blade-runner", "name": "Blade Runner",
+                                    "types": ["urn:entity:movie"]}]}
+
+        transport = MissingVenueTransport()
+        provider = RealQlooProvider(transport)
+        place = replace(load_fixture_engine().places[0], qloo_entity_id=None)
+        ranked = provider.rank_with_context([place], ["film: Blade Runner"], failed_place=None)
+        self.assertEqual(ranked.trace["status"], "no_coverage")
+        self.assertEqual(ranked.trace["recognized_signals"][0]["name"], "Blade Runner")
+        self.assertEqual(ranked.trace["unresolved_candidate_ids"], [place.id])
+        self.assertFalse(ranked.trace["insights_called"])
+        self.assertEqual(len(transport.calls), 2)
+        self.assertIsNone(ranked[0].rank)
+
     def test_live_pool_excludes_closed_places_before_using_qloo_slots(self):
         from unstuck.providers import TasteResults
         base = load_fixture_engine().places[0]
