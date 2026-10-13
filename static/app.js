@@ -310,6 +310,7 @@ async function fetchJson(url, options = {}) {
 function showSearching() {
   // A previous route-check response must never replace a newer user edit or search.
   ++routeRequestSerial;
+  $('#rejectionRefine')?.classList.add('hidden');
   firstRun.classList.add('hidden');
   resultContent.classList.add('hidden');
   searchingState.classList.remove('hidden');
@@ -1493,11 +1494,27 @@ async function submitReject(reason) {
   $('#rejectExplain').textContent = rejectReasonCopy(reason);
   closeReject();
   const result = await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
-  // A rejection reason now offers a relevant *explicit* correction path.
-  // Do not change the travel ceiling or cultural tastes without the user's
-  // confirmation, and do not pretend this click trained a Qloo model.
-  if (result && reason === 'too_far') openEditor('travel');
-  if (result && reason === 'not_my_vibe') openEditor('taste');
+  // Offer an optional refinement while keeping the new results and Undo usable.
+  // Never change locked limits or personal tastes without a user's click.
+  if (result && (reason === 'too_far' || reason === 'not_my_vibe')) {
+    const action = $('#rejectionRefine');
+    const isDistance = reason === 'too_far';
+    action.replaceChildren();
+    const message = document.createElement('span');
+    message.textContent = isDistance
+      ? 'Too far? You can tighten the travel limit for future recommendations.'
+      : 'Not your vibe? You can choose an exact cultural reference in Qloo.';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary-button';
+    button.textContent = isDistance ? 'Adjust travel' : 'Refine taste';
+    button.addEventListener('click', () => {
+      action.classList.add('hidden');
+      openEditor(isDistance ? 'travel' : 'taste');
+    });
+    action.append(message, button);
+    action.classList.remove('hidden');
+  }
 }
 
 function openAbout() {
