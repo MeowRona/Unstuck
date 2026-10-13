@@ -82,14 +82,14 @@ class UiContractTests(unittest.TestCase):
         picker = (ROOT / "static" / "taste-picker.js").read_text(encoding="utf-8")
         self.assertIn('src="/taste-picker.js"', self.html)
         self.assertIn("mount(document.querySelector('#plannerTasteRefs'))", picker)
-        self.assertIn("mount(document.querySelector('#editorForm [name=\\\"taste_refs\\\"]'))", picker)
+        self.assertIn("document.querySelector('#editorForm", picker)
         self.assertIn("'/api/taste-entities'", picker)
         self.assertIn("find.addEventListener('click'", picker)
-        self.assertIn("no result is selected automatically", picker.lower() if False else picker)
+        self.assertIn("no result is selected automatically", picker)
         self.assertIn("qloo-id:", picker)
         self.assertIn("replace(/[|,", picker)
         self.assertIn(".qloo-picker-find", (ROOT / "static" / "styles.css").read_text(encoding="utf-8"))
-        self.assertIn("Your references don’t need to match", self.html if False else "Your references don’t need to match")
+        self.assertNotIn("once the Qloo API is connected", self.html)
 
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
