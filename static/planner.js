@@ -819,15 +819,54 @@
         ? timeShifts.map((item) => item.activity_id + ' ' + (item.minutes > 0 ? '+' : '') +
             item.minutes + ' min').join(', ')
         : 'none';
-      showNote('SIMULATED DINNER FAILURE · 17 Oct 2026 (historical scenario; no live closure detected). ' +
+      const firstOutcome = 'SIMULATED DINNER FAILURE · 17 Oct 2026 (historical scenario; no live closure detected). ' +
         'BEFORE: ' + originalNames.join(' → ') + '. ' +
-        'REPORTED UNAVAILABLE: ' + failed.title + '. ' +
-        'AFTER: ' + actualNames.join(' → ') + '. ' +
-        'ADDED: ' + (added.join(', ') || 'none') + '. ' +
+        'FIRST REPLACEMENT: ' + actualNames.join(' → ') + '. ' +
+        'REMOVED: ' + failed.title + '. ADDED: ' + (added.join(', ') || 'none') + '. ' +
         'KEPT: ' + preservedNames.filter((name) => actualNames.includes(name)).join(', ') + '. ' +
-        'TIME SHIFTS: ' + shiftDetail + '. ' +
-        (lockedConcertRetained ? 'Locked concert retained.' : 'Concert could not be retained — do not use this result.') +
-        ' Prices, ticket availability and unverified routes still require checking.');
+        'TIME SHIFTS: ' + shiftDetail + '. ';
+      if (!lockedConcertRetained || repaired.feasibility === 'conflict') {
+        showNote(firstOutcome + 'Route or lock conflict: no successful second repair is claimed.');
+        return;
+      }
+      // Second *user-reported* failure, not a live closure or booking check.
+      // Reuse the actual /api/planner/repair endpoint and the patched excluded_ids.
+      // Two attempts are a hard limit: no uncontrolled agent loop.
+      const secondFailure = repaired.items.find(item =>
+        item.kind === 'restaurant' && item.activity_id !== failed.activity_id);
+      if (!secondFailure) {
+        showNote(firstOutcome + 'No replacement dinner remained to simulate a second failure.');
+        return;
+      }
+      showNote(firstOutcome + 'FIRST ALTERNATIVE ALSO REPORTED UNAVAILABLE: ' +
+        secondFailure.title + '. Looking for one final replacement…');
+      const second = await repair(secondFailure.activity_id);
+      if (!second?.plans?.length) {
+        showNote(firstOutcome + 'SECOND FAILURE: ' + secondFailure.title +
+          '. No second feasible replacement exists within the locks and budget. No success is claimed.');
+        return;
+      }
+      const finalPlan = plans[selectedPlan] || second.plans[0];
+      const finalNames = finalPlan.items.map(item => item.title);
+      const remainingRestaurant = finalPlan.items.find(item => item.kind === 'restaurant');
+      const keptConcert = finalPlan.items.some(item =>
+        item.activity_id === 'event:simple-plan-2026-10-17');
+      const excluded = new Set(currentBrief?.excluded_ids || []);
+      const validReplacement = !!remainingRestaurant &&
+        !excluded.has(remainingRestaurant.activity_id) &&
+        !finalPlan.items.some(item =>
+          item.activity_id === failed.activity_id || item.activity_id === secondFailure.activity_id);
+      const checkedState = finalPlan.route_status === 'checked' && finalPlan.feasibility !== 'conflict'
+        ? 'Travel checked using available routing data (transit is scheduled).'
+        : 'Route remains estimated or conflicted; no route validation success is claimed.';
+      showNote(firstOutcome +
+        'SECOND FAILURE: ' + secondFailure.title + '. ' +
+        'AFTER: ' + finalNames.join(' → ') + '. ' +
+        'LOCKED CONCERT: ' + (keptConcert ? 'retained' : 'not retained — unusable result') + '. ' +
+        'BOTH FAILED RESTAURANTS: ' + (excluded.has(failed.activity_id) && excluded.has(secondFailure.activity_id)
+          ? 'excluded' : 'exclusion not confirmed') + '. ' +
+        'FINAL SUBSTITUTE: ' + (validReplacement ? remainingRestaurant.title : 'not verified') + '. ' +
+        checkedState + ' Ticket inventory, prices and unverified hours still require checking.');
     } catch (err) {
       showNote('Demo could not complete: ' + err.message + '. No success was assumed.');
     } finally {
