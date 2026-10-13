@@ -475,7 +475,8 @@
         '<span class="timeline-chip">' + esc(item.duration_minutes) + ' min' + (item.duration_status === 'estimate' ? ' planned' : '') + '</span>' +
         '<span class="timeline-chip' + (item.price && item.price.status === 'unknown' ? ' unknown' : '') + '">' +
         esc(item.price && item.price.min != null ? Math.round(item.price.min) + '–' + Math.round(item.price.max) + ' ' + item.price.currency : 'price unknown') +
-        '</span>' + (item.kind === 'event' && item.availability === 'unknown' ? '<span class="timeline-chip unknown">availability unknown</span>' : '') +
+        '</span>' + (item.kind === 'restaurant' && Number.isInteger(item.taste_rank) ? '<span class="timeline-chip">Qloo #'+esc(item.taste_rank)+' (matched shortlist)</span>' : '') +
+        (item.kind === 'event' && item.availability === 'unknown' ? '<span class="timeline-chip unknown">availability unknown</span>' : '') +
         (lockedIds.has(item.activity_id) ? '<span class="timeline-chip">locked</span>' : '') + '</div>' +
         (item.checks && item.checks.length ? '<ul class="timeline-checks">' + item.checks.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
         '<div class="timeline-actions"><button type="button" data-item-action="lock">' + (lockedIds.has(item.activity_id) ? 'Unlock' : 'Lock') +
@@ -536,6 +537,13 @@
       '<p><strong>No-results semantics:</strong> ' + esc(coverage.no_results_meaning) + '</p>' +
       '<p><strong>Routing:</strong> initial plans use estimates; selected plans are checked leg by leg. Warsaw transit is scheduled, not realtime.</p>' +
       '<p><strong>Taste:</strong> ' + esc(plan?.taste_note || (plan?.taste_status === 'not_requested' ? 'No taste matching requested.' : 'Taste coverage unavailable.')) + '</p>' +
+      (plan?.taste_audit?.candidate_count != null
+        ? '<p><strong>Actual Qloo coverage:</strong> ' + esc(plan.taste_audit.ranked_count || 0) + ' ranked / ' +
+          esc(plan.taste_audit.resolved_count || 0) + ' resolved / ' +
+          esc(plan.taste_audit.candidate_count) + ' considered; ' +
+          esc(plan.taste_audit.recognized_signals?.length || 0) + ' taste signal(s) recognized. ' +
+          (plan.taste_audit.insights_called ? 'Insights API called.' : 'Insights API not called.') +
+          '</p>' : '') +
       (plan?.taste_audit?.recognized_signals?.length ? '<p><strong>Qloo recognized:</strong> ' + plan.taste_audit.recognized_signals.map(s => esc(s.name)).join(', ') + '</p>' : '') +
       (plan?.taste_audit?.unresolved_signals?.length ? '<p><strong>Skipped:</strong> ' + plan.taste_audit.unresolved_signals.map(s => esc(s.input)).join(', ') + '</p>' : '') +
       (used.size ? '<p><strong>Used sources:</strong><br>' + Array.from(used.values()).map((source) =>
@@ -550,7 +558,8 @@
     $('#plannerResultsMeta').textContent = result.explanation ||
       (plans.length ? plans.length + ' variant' + (plans.length === 1 ? '' : 's') + ' · ' + (result.planned_activity_count || plans[0].items.length) + ' stops' : 'No feasible plan');
     $('#plannerTasteStatus').textContent = result.taste_status === 'live_restaurants'
-      ? 'Live Qloo · restaurants ranked'
+      ? 'Live Qloo · ' + esc(result.taste_audit?.ranked_count || 0) + '/' +
+          esc(result.taste_audit?.candidate_count || 0) + ' restaurants ranked'
       : result.taste_status === 'not_requested' ? 'Taste not requested'
       : result.taste_status === 'not_live' ? 'Taste matching not live yet'
       : result.taste_status === 'insufficient_coverage' ? 'Taste coverage too limited'
