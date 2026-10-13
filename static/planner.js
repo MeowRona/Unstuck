@@ -552,7 +552,7 @@
     $('#plannerTasteStatus').textContent = result.taste_status === 'live_restaurants'
       ? 'Live Qloo · restaurants ranked'
       : result.taste_status === 'not_requested' ? 'Taste not requested'
-      : result.taste_status === 'not_live' ? 'Taste preview off'
+      : result.taste_status === 'not_live' ? 'Taste matching not live yet'
       : result.taste_status === 'insufficient_coverage' ? 'Taste coverage too limited'
       : 'Taste unavailable · operational plan';
     const tabs = $('#plannerVariantTabs');
