@@ -430,6 +430,11 @@ class PlannerLiveTasteTests(unittest.TestCase):
         self.assertTrue(result["plans"])
         comparison = result["taste_audit"]["same_pool_comparison"]
         self.assertEqual(comparison["method"], "same_feasible_plan_pool")
+        self.assertEqual(comparison["study_baseline"]["id"], comparison["baseline_top_plan_id"])
+        self.assertEqual(comparison["study_with_qloo"]["id"], comparison["with_qloo_top_plan_id"])
+        self.assertTrue(comparison["study_baseline"]["stops"])
+        self.assertTrue(all("start" in stop and "end" in stop for stop in comparison["study_with_qloo"]["stops"]))
+        self.assertEqual(comparison["study_baseline"]["budget_total"], comparison["study_with_qloo"]["budget_total"])
         self.assertEqual(comparison["with_qloo_top_plan_id"], result["plans"][0]["id"])
         operational = DayPlanner(planner.catalog).generate(brief(activity_count=2, must_include_ids=[]))
         self.assertEqual(comparison["baseline_top_plan_id"], operational["plans"][0]["id"])
