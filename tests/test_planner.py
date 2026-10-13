@@ -251,6 +251,28 @@ class DayPlannerTests(unittest.TestCase):
             any("last accepted entry" in row or "opening window" in row for row in checked["route_conflicts"])
         )
 
+    def test_reported_dinner_failure_replaces_only_dinner_and_keeps_concert(self):
+        # User-reported unavailability is an explicit demo condition, never a live closure claim.
+        chosen = brief(
+            activity_count=3, include_meal=True,
+            must_include_ids=["event:simple-plan-2026-10-17"],
+            locked_ids=["event:simple-plan-2026-10-17"],
+        )
+        original = self.planner.generate(chosen)["plans"][0]
+        original_restaurant = next(item for item in original["items"] if item["kind"] == "restaurant")
+        locked_event = next(item for item in original["items"] if item["activity_id"] == "event:simple-plan-2026-10-17")
+        result = self.planner.repair(original, chosen, original_restaurant["activity_id"])
+        self.assertTrue(result["plans"], "demo must have a genuinely feasible alternative dinner")
+        next_plan = result["plans"][0]
+        ids = {item["activity_id"] for item in next_plan["items"]}
+        self.assertNotIn(original_restaurant["activity_id"], ids)
+        self.assertIn(locked_event["activity_id"], ids)
+        next_event = next(item for item in next_plan["items"] if item["activity_id"] == locked_event["activity_id"])
+        self.assertEqual(next_event["start"], locked_event["start"])
+        self.assertEqual(next_plan["repair"]["removed"], original_restaurant["activity_id"])
+        self.assertTrue(next_plan["repair"]["added_ids"])
+        self.assertTrue(any(item["kind"] == "restaurant" for item in next_plan["items"]))
+
     def test_repair_keeps_locked_item_and_excludes_removed_item(self):
         b = brief(
             activity_count=3,
