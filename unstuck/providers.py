@@ -347,8 +347,15 @@ class RealQlooProvider:
         qloo_places = places[:QLOO_MAX_RANK_OPTIONS]
         interests: list[tuple[str, str]] = []
         recognized_signals: list[dict[str, str]] = []
+        unresolved_signals: list[dict[str, str]] = []
         for ref in refs:
-            entity_id, resolved_name = self.resolve_interest(ref)
+            try:
+                entity_id, resolved_name = self.resolve_interest(ref)
+            except ValueError as exc:
+                # Ambiguous cultural signals must not invalidate otherwise viable plans.
+                # They are omitted from the live request and disclosed in the trace.
+                unresolved_signals.append({"input": ref, "reason": str(exc)})
+                continue
             interests.append((entity_id, resolved_name))
             recognized_signals.append(
                 {"input": ref, "entity_id": entity_id, "name": resolved_name, "kind": "taste_reference"}
@@ -370,10 +377,16 @@ class RealQlooProvider:
                 anchor_error = str(exc)
 
         resolved_place_ids: dict[str, str] = {}
+        unresolved_candidates: list[str] = []
         for place in qloo_places:
-            resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_place(place.name)[0]
-        candidate_ids = list(resolved_place_ids.values())
-        if not interests:
+            try:
+                resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_place(place.name)[0]
+            except ValueError:
+                # Warsaw OSM venues are not guaranteed to exist in Qloo's catalog.
+                # Do not silently associate a venue with a similarly named entity.
+                unresolved_candidates.append(place.id)
+        candidate_ids = list(dict.fromkeys(resolved_place_ids.values()))
+        if not interests or not candidate_ids:
             return TasteResults(
                 [TasteResult(p.id, None, None, (), "qloo") for p in places],
                 trace={
@@ -383,6 +396,9 @@ class RealQlooProvider:
                     "failed_place_anchor": failed_place or None,
                     "anchor_used": anchor_used,
                     "anchor_error": anchor_error,
+                    "unresolved_signals": unresolved_signals,
+                    "unresolved_candidate_ids": unresolved_candidates,
+                    "candidate_entity_count": len(candidate_ids),
                     "discovery_used": False,
                 },
             )
@@ -422,6 +438,8 @@ class RealQlooProvider:
                 "failed_place_anchor": failed_place or None,
                 "anchor_used": anchor_used,
                 "anchor_error": anchor_error,
+                "unresolved_signals": unresolved_signals,
+                "unresolved_candidate_ids": unresolved_candidates,
                 "candidate_entity_count": len(candidate_ids),
                 "discovery_used": False,
             },
