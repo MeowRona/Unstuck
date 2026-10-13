@@ -542,14 +542,24 @@ class DayPlanner:
             }
         )
         result = self.generate(patched, preferred_ids=tuple(x for x in original_ids if x != removed_id))
+        original_items = {str(item["activity_id"]): item for item in plan.get("items", [])}
         for candidate in result.get("plans", []):
             new_ids = [item["activity_id"] for item in candidate["items"]]
             kept = [x for x in original_ids if x != removed_id and x in new_ids]
             added = [x for x in new_ids if x not in original_ids]
+            moved = []
+            for item in candidate["items"]:
+                previous = original_items.get(item["activity_id"])
+                if previous and previous.get("start") and item.get("start") and previous["start"] != item["start"]:
+                    delta = int((datetime.fromisoformat(item["start"]) -
+                                 datetime.fromisoformat(previous["start"])).total_seconds() // 60)
+                    moved.append({"activity_id": item["activity_id"], "minutes": delta,
+                                  "from": previous["display_start"], "to": item["display_start"]})
             candidate["repair"] = {
                 "removed": removed_id,
                 "kept_ids": kept,
                 "added_ids": added,
+                "shifted": moved,
                 "locked_ids": list(locked_ids),
                 "changed_count": len(added),
             }
@@ -629,6 +639,7 @@ class DayPlanner:
                 -row["interest_match_count"],
                 sum(taste_ranks.get(item["activity_id"], 999) for item in row["items"]
                     if item["kind"] == "restaurant") if taste_ranks else 0,
+                row["total_idle_minutes"],
                 row["total_travel_minutes"],
                 row["known_cost_max"] if row["known_cost_max"] is not None else float("inf"),
                 row["id"],
@@ -897,6 +908,13 @@ class DayPlanner:
             "items": items,
             "travel_legs": travel_legs,
             "total_travel_minutes": total_travel,
+            "total_idle_minutes": sum(
+                max(0, int(step.get("wait_minutes", 0)) -
+                    (brief.event_buffer_minutes if step.get("activity", {}).get("kind") == "event"
+                     and step.get("activity", {}).get("start_time") and
+                     not step.get("activity", {}).get("flexible_visit_window") else 0))
+                for step in scheduled if step.get("activity") is not None
+            ),
             "known_cost_min": round(known_min, 2) if has_known_cost else None,
             "known_cost_max": round(known_max, 2) if has_known_cost else None,
             "currency": "PLN",
