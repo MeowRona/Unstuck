@@ -424,6 +424,7 @@
   }
 
   async function buildDay(explicit) {
+    ++routeSerial;  // invalidate checked legs for the previously selected plan
     const error = $('#plannerFormError');
     error.classList.add('hidden');
     try {
@@ -765,6 +766,7 @@
   }
 
   async function repair(id) {
+    ++routeSerial;  // stop obsolete route checks overwriting a new repair
     const plan = plans[selectedPlan];
     try {
       const result = await post('/api/planner/repair', {
@@ -804,24 +806,46 @@
     $('#plannerRepairNote').classList.remove('hidden');
   }
 
-  async function checkRoutes() {
-    const plan = plans[selectedPlan];
-    if (!plan || !currentBrief || plan.route_status === 'checked') return;
+  async function checkRoutes(attempt = 0) {
+    const planIndex = selectedPlan;
+    const plan = plans[planIndex];
+    if (!plan || !currentBrief) return;
+    if (plan.route_status === 'checked' && plan.feasibility !== 'conflict') return;
+    // A previously checked conflict is not retried without generating new
+    // candidate plans: otherwise this could spin on the same bad route.
+    if (plan.route_status === 'checked' && plan.feasibility === 'conflict') return;
     const serial = ++routeSerial;
     $('#plannerResultsMeta').textContent = 'Checking each travel leg at the correct departure time…';
     try {
       const result = await post('/api/planner/route-check', {brief:currentBrief, plan:plan});
-      if (serial !== routeSerial) return;
-      plans[selectedPlan] = result.plan;
+      if (serial !== routeSerial || selectedPlan !== planIndex || plans[planIndex] !== plan) return;
+      plans[planIndex] = result.plan;
       renderSelected();
       renderEvidence();
-      $('#plannerResultsMeta').textContent = result.plan.feasibility === 'conflict'
-        ? 'Checked route found a conflict'
-        : 'Travel checked segment by segment · scheduled transit is not realtime';
+      if (result.plan.feasibility !== 'conflict') {
+        $('#plannerResultsMeta').textContent = 'Travel checked segment by segment · scheduled transit is not realtime';
+        return;
+      }
+      const conflicts = (result.plan.route_conflicts || []).join(' · ') || 'Route violated a locked constraint.';
+      const nextIndex = attempt < 2
+        ? plans.findIndex((candidate, index) =>
+            index > planIndex && candidate.route_status !== 'checked' && candidate.feasibility !== 'conflict')
+        : -1;
+      if (nextIndex >= 0) {
+        selectedPlan = nextIndex;
+        renderSelected();
+        $('#plannerResultsMeta').textContent = 'Checked route conflicted; validating option ' +
+          (nextIndex + 1) + ' automatically (' + (attempt + 2) + '/3 attempts).';
+        await checkRoutes(attempt + 1);
+      } else {
+        $('#plannerResultsMeta').textContent = 'No unchecked alternative remains within the 3-attempt route budget.';
+        showNote('Checked route conflict: ' + conflicts +
+          ' Review a different date, travel mode or constraint. No route was marked successful.');
+      }
     } catch (err) {
       if (serial !== routeSerial) return;
       $('#plannerResultsMeta').textContent = 'Detailed routing unavailable · keeping estimates';
-      showNote(err.message);
+      showNote('Unable to check this route: ' + err.message + '. Estimated travel is not verified.');
     }
   }
 
