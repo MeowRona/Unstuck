@@ -2,21 +2,22 @@
 
 Status: 2026-10-13. Public app: https://unstuck-city-compass.onrender.com/
 
-## Interactive 90-second walkthrough
+## Interactive 110-second walkthrough
 
-Use **Plan a day → Try a full-evening rescue · 90 sec**. The button runs a *fixed, reproducible scenario* dated **17 October 2026** against the bundled Warsaw source snapshot. It is not an assertion about today's event listings or a real restaurant closure.
+Use **Plan a day → Try a two-failure rescue · 110 sec**. The button runs a *fixed, reproducible scenario* dated **17 October 2026** against the bundled Warsaw source snapshot. It is not an assertion about today's event listings or a real restaurant closure.
 
 1. **0–15 s — The commitments.** Observe a three-stop day with a concert (Simple Plan) locked in place, a meal, a budget, and a return deadline. Check unknown ticket availability and event end separately; neither is magically verified.
 2. **15–30 s — The disruption.** The demonstration explicitly **simulates a user reporting the selected restaurant unavailable**. Unstuck excludes that restaurant from the new plan. The app does not monitor actual closures or restaurant availability.
 3. **30–55 s — The repair.** The planner reuses the existing candidate search and schedule constraints. It is allowed to replace dinner but not remove the locked concert or silently expand the deadline/budget.
-4. **55–75 s — The evidence.** Read the **BEFORE / AFTER** note, the actual added and preserved stops, and any time shifts. Review the resulting timeline and the travel-check status. If no feasible replacement is found, it should state that failure—not display a fabricated success.
-5. **75–90 s — Qloo and export.** Open **Sources, coverage & assumptions**. Qloo currently ranks *eligible restaurants only*, and only when at least two distinct Qloo entities and a usable taste profile are returned. On insufficient coverage, the planner deliberately reports the limitation and keeps feasibility ranking. Click **Download .ics** to export the displayed plan.
+4. **55–80 s — A second disruption.** The first replacement is also *reported* unavailable. The app calls its actual repair operation a second time, carrying both excluded restaurant IDs forward; the locked concert cannot be removed. This loop is deliberately bounded at two attempts. If no second alternative exists or its checked travel fails, the interface must report that outcome rather than claiming a successful rescue.
+5. **80–100 s — Evidence.** Read the genuine **BEFORE / AFTER** differences and the final substitute. Confirm the two excluded places and review checks for budget, opening times and travel.
+6. **100–110 s — Qloo and export.** Open **Sources, coverage & assumptions**. Qloo currently ranks *eligible restaurants only*, and only when at least two distinct Qloo entities and a usable taste profile are returned. On insufficient coverage, the planner deliberately reports the limitation and keeps feasibility ranking. Click **Download .ics** to export the displayed plan.
 
 **Do not claim:** autonomous closure detection, ticket inventory, realtime transit, a fully personalized concert/museum ranking, or that 17 October is a current live event feed.
 
 ## What the current automation validates
 
-GitHub Actions runs unit, HTTP, desktop browser and 390x844 mobile UI checks on pull requests. The full-evening demo browser check verifies that the concert remains, the missing dinner is replaced by the real repair flow, and BEFORE/AFTER notes are shown. On merge to main, the pipeline checks the *exact* Render commit and executes production smoke. This is not a user preference study.
+GitHub Actions runs unit, HTTP, desktop browser and 390x844 mobile UI checks on pull requests. The full-evening demo browser check verifies that the concert remains, both user-reported unavailable dinners are excluded by the real repair flow, the locked concert is retained, and BEFORE/AFTER notes are shown. On merge to main, the pipeline checks the *exact* Render commit and executes production smoke. This is not a user preference study.
 
 ## Human evaluation protocol (not yet conducted)
 
