@@ -54,7 +54,7 @@ function makeDefaultBrief() {
   travel_mode: 'transit',
   max_one_way_minutes: 20,
   categories: ['restaurant'],
-  taste_refs: ['Amelie', 'Radiohead'],
+  taste_refs: [],
   meal_required: true,
   negotiable_extra_travel_minutes: 10,
   negotiable_stay_reduction_minutes: 15,
@@ -1583,13 +1583,14 @@ async function loadJudgeDemo() {
     start_time: '18:30',
     return_by: '20:45',
     min_stay_minutes: 120,
+    taste_refs: ['Amelie', 'Radiohead'], // clearly example references, not the visitor's profile
     max_one_way_minutes: 25,
     negotiable_extra_travel_minutes: 0,
     negotiable_stay_reduction_minutes: 30,
     allow_category_change: false,
   };
   const note = $('#demoScenarioNote');
-  note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The engine must rescue the evening within the stated limits.';
+  note.textContent = 'Demo scenario · 9 Oct 2026 · bundled Warsaw data snapshot · assumes HOŻA is unavailable for this scenario only, not that it is actually closed. The sample film/music taste references are examples; only Qloo-resolved signals affect ranking. The engine must rescue the evening within the stated limits.';
   note.classList.remove('hidden');
   updateSummary(draftBrief);
   await runLatest('/api/search', draftBrief);
