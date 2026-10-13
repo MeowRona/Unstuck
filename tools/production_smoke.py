@@ -86,6 +86,8 @@ def main() -> int:
         raise RuntimeError("Live Qloo search did not complete successfully")
     if not first.get("taste_audit", {}).get("recognized_signals"):
         raise RuntimeError("Live Qloo did not resolve any taste references")
+    if first.get("taste_audit", {}).get("candidate_entity_count", 0) < 1:
+        raise RuntimeError("Live Qloo did not resolve any candidate place for comparison")
 
     session_id = first["session_id"]
     rejected = first["cards"][0]["id"]
