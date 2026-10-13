@@ -205,6 +205,9 @@ def planner_flow():
         note = driver.find_element(By.ID, "plannerRepairNote").text
         assert "no live closure detected" in note.lower(), note
         assert "BEFORE:" in note and "AFTER:" in note, note
+        assert "SECOND FAILURE:" in note, note
+        assert "BOTH FAILED RESTAURANTS: excluded" in note, note
+        assert "FINAL SUBSTITUTE:" in note and "not verified" not in note, note
         ids = [row.get_attribute("data-plan-item") for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
         assert self_event in ids, f"simulated dinner failure moved locked concert: {ids}"
         assert_no_severe_console(driver)
