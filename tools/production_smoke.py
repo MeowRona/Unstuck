@@ -41,6 +41,10 @@ def main() -> int:
         raise RuntimeError("public health check failed")
     if health.get("google_places_enabled"):
         raise RuntimeError("Google Places must stay disabled during this development smoke")
+    if health.get("provider_mode") != "live":
+        raise RuntimeError(f"Production must run live Qloo; got {health.get('provider_mode')!r}")
+    if not health.get("qloo_api_key_present"):
+        raise RuntimeError("Production Qloo API credential is missing")
 
     demo = {
         "original_plan": "Dinner at HOŻA Steakhouse",
@@ -72,8 +76,10 @@ def main() -> int:
         raise RuntimeError(f"demo did not use the intended minimal stay compromise: {first.get('strategy_used')}")
     if any(card.get("name") == "HOŻA Steakhouse" for card in first["cards"]):
         raise RuntimeError("failed venue reappeared in recommendations")
-    if first.get("taste_audit", {}).get("status") != "fixture_preview":
-        raise RuntimeError("hosted beta must not claim live Qloo before the connection is enabled")
+    if first.get("provider_mode") != "live" or first.get("taste_audit", {}).get("status") != "live":
+        raise RuntimeError("Live Qloo search did not complete successfully")
+    if not first.get("taste_audit", {}).get("recognized_signals"):
+        raise RuntimeError("Live Qloo did not resolve any taste references")
 
     session_id = first["session_id"]
     rejected = first["cards"][0]["id"]
