@@ -530,7 +530,9 @@
       esc(coverage.event_sources_loaded_through) + '. ' + esc(coverage.scope) + '</p>' +
       '<p><strong>No-results semantics:</strong> ' + esc(coverage.no_results_meaning) + '</p>' +
       '<p><strong>Routing:</strong> initial plans use estimates; selected plans are checked leg by leg. Warsaw transit is scheduled, not realtime.</p>' +
-      '<p><strong>Taste:</strong> ' + ((plan && plan.taste_status === 'not_live') ? 'Qloo was not called. Taste references do not affect ranking yet.' : 'No taste matching requested.') + '</p>' +
+      '<p><strong>Taste:</strong> ' + esc(plan?.taste_note || (plan?.taste_status === 'not_requested' ? 'No taste matching requested.' : 'Taste coverage unavailable.')) + '</p>' +
+      (plan?.taste_audit?.recognized_signals?.length ? '<p><strong>Qloo recognized:</strong> ' + plan.taste_audit.recognized_signals.map(s => esc(s.name)).join(', ') + '</p>' : '') +
+      (plan?.taste_audit?.unresolved_signals?.length ? '<p><strong>Skipped:</strong> ' + plan.taste_audit.unresolved_signals.map(s => esc(s.input)).join(', ') + '</p>' : '') +
       (used.size ? '<p><strong>Used sources:</strong><br>' + Array.from(used.values()).map((source) =>
         '<a href="' + esc(source.url) + '" target="_blank" rel="noreferrer">' + esc(source.name || source.url) + '</a>' +
         (source.checked_at ? ' · checked ' + esc(source.checked_at) : '')
@@ -542,7 +544,12 @@
   function renderResult(result) {
     $('#plannerResultsMeta').textContent = result.explanation ||
       (plans.length ? plans.length + ' variant' + (plans.length === 1 ? '' : 's') + ' · ' + (result.planned_activity_count || plans[0].items.length) + ' stops' : 'No feasible plan');
-    $('#plannerTasteStatus').textContent = result.taste_status === 'not_live' ? 'Taste matching not live yet' : 'Taste not requested';
+    $('#plannerTasteStatus').textContent = result.taste_status === 'live_restaurants'
+      ? 'Live Qloo · restaurants ranked'
+      : result.taste_status === 'not_requested' ? 'Taste not requested'
+      : result.taste_status === 'not_live' ? 'Taste preview off'
+      : result.taste_status === 'insufficient_coverage' ? 'Taste coverage too limited'
+      : 'Taste unavailable · operational plan';
     const tabs = $('#plannerVariantTabs');
     if (plans.length > 1) {
       tabs.classList.remove('hidden');
