@@ -331,7 +331,15 @@ class RealQlooProvider:
         params: dict[str, str | int] = {"query": name, "take": 5}
         if entity_type:
             params["types"] = entity_type
-        payload = self.transport.get_json("/search", params)
+        try:
+            payload = self.transport.get_json("/search", params)
+        except RuntimeError as exc:
+            # Official Qloo /search documents HTTP 404 as "No results".
+            # A missing seed or venue is not a connection outage, and must
+            # not cause the entire operational plan to fail.
+            if str(exc) == "QLOO_HTTP_404":
+                raise ValueError(f"Qloo entity not found: {name}") from exc
+            raise
         rows = _entity_rows(payload)
         comparable = _comparable_name(name)
         exact = [
@@ -431,6 +439,27 @@ class RealQlooProvider:
                 # Qloo cannot resolve it as an optional taste anchor.
                 anchor_error = str(exc)
 
+        if not interests:
+            # Without any resolved cultural input (or a valid optional anchor)
+            # Insights cannot personalize this search. Do not burn up to ten
+            # further calls trying to resolve venue IDs that cannot be ranked.
+            return TasteResults(
+                [TasteResult(p.id, None, None, (), "qloo") for p in places],
+                trace={
+                    "status": "no_coverage",
+                    "insights_called": False,
+                    "ranked_entity_count": 0,
+                    "input_references": refs,
+                    "recognized_signals": recognized_signals,
+                    "failed_place_anchor": failed_place or None,
+                    "anchor_used": False,
+                    "anchor_error": anchor_error,
+                    "unresolved_signals": unresolved_signals,
+                    "unresolved_candidate_ids": [],
+                    "candidate_entity_count": 0,
+                    "discovery_used": False,
+                },
+            )
         resolved_place_ids: dict[str, str] = {}
         unresolved_candidates: list[str] = []
         for place in qloo_places:
