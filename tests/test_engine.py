@@ -502,7 +502,7 @@ class QlooContractTests(unittest.TestCase):
         for invalid in (
             "qloo-id:abc,def|artist|Name",
             "qloo-id:abc|restaurant|Name",
-            "qloo-id:abc|artist|New\\nline",
+            "qloo-id:abc|artist|New\nline",
             "qloo-id:abc",
         ):
             with self.assertRaisesRegex(ValueError, "Invalid selected Qloo entity"):
