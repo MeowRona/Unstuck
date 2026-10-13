@@ -360,3 +360,21 @@
   .planner-plan-actions { width: 100%; justify-content: flex-start; margin-top: 5px; }
   .planner-results-head { align-items: flex-start; flex-wrap: wrap; }
 }
+
+/* Consent-based A/B preference experiment, entirely client-side and unlabelled. */
+.planner-study { margin-top: 12px; padding: 11px 13px; }
+.planner-study > p { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.planner-study-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.planner-study-controls button:disabled { opacity: .55; cursor: not-allowed; }
+.planner-study-content { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.planner-study-content > p { margin-top: 0; }
+.planner-study-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.planner-study-card { display: grid; gap: 8px; padding: 12px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 11px; }
+.planner-study-card > strong { font-size: 14px; color: var(--ink); }
+.planner-study-card p { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.planner-study-card small { line-height: 1.6; color: var(--muted); }
+.planner-study-card button { align-self: end; margin-top: 6px; }
+@media (max-width: 760px) {
+  .planner-study-grid { grid-template-columns: 1fr; }
+  .planner-study-controls button { flex: 1; min-width: 148px; }
+}
