@@ -248,8 +248,8 @@
               <select id="plannerMustInclude"><option value="">None</option></select>
             </label>
             <label>Taste references <span class="field-hint">Qloo · eligible restaurants only</span>
-              <input id="plannerTasteRefs" placeholder="Radiohead, Amelie…">
-              <span class="field-hint">When enough restaurant entities match, Qloo can rank them by taste. Concerts, museums and unmatched restaurants remain operationally ranked.</span>
+              <input id="plannerTasteRefs" placeholder="artist: Radiohead, film: Amelie…">
+              <span class="field-hint">Optional hint: artist: Radiohead or film: Amelie identifies the intended type. Ambiguous inputs are skipped, not guessed. Qloo only ranks eligible restaurants with matched entities.</span>
             </label>
             <div id="plannerFormError" class="form-error hidden"></div>
             <div class="planner-form-actions">
