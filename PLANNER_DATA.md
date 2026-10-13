@@ -2,7 +2,7 @@
 
 The **Plan a day** beta is intentionally narrower than a city-wide event search engine. It combines the existing Unstuck restaurant catalog with a small verified Warsaw attraction/event snapshot and the existing routing stack.
 
-Snapshot checked: **2026-10-06**.
+Attraction/hours base snapshot checked: **2026-10-06**. Selected future event occurrences refreshed from official listings: **2026-10-14**. Event refresh does not re-verify the older attraction facts.
 
 ## Coverage semantics
 
@@ -31,6 +31,12 @@ The current snapshot includes selected concrete occurrences such as:
 - GOD SAVE THE QUEEN — 2026-10-17, 20:00, Arena Ursynów
 - HAPPYSAD — 2026-10-15, 19:00, Klub Stodoła
 - Harlem Globetrotters — 2026-10-19, 19:00, COS Torwar
+- Modern Seniors Club sculpture tour — 2026-10-27, 13:00–14:30, Museum of Modern Art ([museum schedule](https://artmuseum.pl/en/events/the-modern-seniors-club-gives-a-guided-tour-of-the-exhibition?term=019eff31-4b7a-71cf-88cd-ca8d3b89a08e))
+- Fado Gala — 2026-10-29, 20:00, Scena Relax ([city events calendar](https://go2warsaw.pl/en/what-where-when/))
+- Nigel Kennedy — 2026-11-04, 20:00, Warsaw Philharmonic ([city event](https://go2warsaw.pl/en/events/nigel-kennedy-virtuoso-tour-349/))
+- Chopin recital — 2026-11-08, 17:00–18:00, Fryderyk Concert Hall ([organizer schedule](https://www.fryderyk.events/pl/pianist/chopin-concert-2/4720))
+
+Date-only Warsaw listings for Europe (20 Oct), Jazz Jamboree (23 Oct), and YAMATO (9 Nov) remain **discoverable only**, because this snapshot does not establish a specific performance start time. Source URL and verification date are stored with each record; tickets remain explicitly unknown.
 
 A festival/listing without a concrete captured session time can be shown in Explore but remains **not schedulable**. The planner never invents a start time.
 
@@ -111,7 +117,7 @@ Taste references are evaluated by Qloo for the restaurant shortlist only. At ins
 5. unplanned idle minutes, then travel;
 6. known cost.
 
-Every plan includes a `taste_status`, a domain-limited `taste_note`, and an audit of recognized/unresolved signals. No fixture ranking is presented as Qloo evidence.
+Every plan includes a `taste_status`, a domain-limited `taste_note`, and an audit of recognized/unresolved signals. For a successful live restaurant ranking, `same_pool_comparison` uses exactly the same generated feasible schedules for a no-taste versus taste comparison (before detailed route checks). Ranking impact is not the same as measured user preference. No fixture ranking is presented as Qloo evidence.
 
 ## Google Places
 

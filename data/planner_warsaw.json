@@ -2,12 +2,13 @@
   "schema_version": 1,
   "city": "Warsaw",
   "timezone": "Europe/Warsaw",
-  "checked_at": "2026-10-06",
+  "checked_at": "2026-10-14",
   "coverage": {
     "event_sources_loaded_from": "2026-10-06",
     "event_sources_loaded_through": "2026-11-09",
     "scope": "Selected verified Warsaw Tourism Office listings plus selected official institution schedules; not a complete Warsaw events feed.",
-    "no_results_meaning": "Within the coverage window, no matching record was loaded from the selected sources. Outside it, event data is not loaded."
+    "no_results_meaning": "Within the coverage window, no matching record was loaded from the selected sources. Outside it, event data is not loaded.",
+    "last_manual_refresh": "2026-10-14"
   },
   "sources": [
     {
@@ -43,6 +44,13 @@
       "name": "Museum of Warsaw",
       "url": "https://muzeumwarszawy.pl/en/visit/",
       "kind": "official_institution",
+      "ingestion": "manual_verified_snapshot"
+    },
+    {
+      "id": "fryderyk-hall",
+      "name": "Fryderyk Concert Hall official ticket calendar",
+      "url": "https://fryderyk.events/evtic/2026/11",
+      "kind": "official_venue_schedule",
       "ingestion": "manual_verified_snapshot"
     }
   ],
@@ -158,6 +166,47 @@
         "url": "https://www.kupbilecik.pl/en/place/2994/teatr-studio",
         "checked_at": "2026-10-06"
       }
+    },
+    {
+      "id": "venue:scena-relax",
+      "name": "Scena Relax",
+      "address": "Złota 8, Warszawa",
+      "lat": 52.2331239,
+      "lon": 21.011026,
+      "location_source": {
+        "name": "Published address coordinates",
+        "url": "https://www.kupbilecik.pl/en/place/4161/scena-relax",
+        "checked_at": "2026-10-14"
+      }
+    },
+    {
+      "id": "venue:filharmonia",
+      "name": "Warsaw Philharmonic / Filharmonia Narodowa",
+      "address": "Jasna 5, Warszawa",
+      "lat": 52.23454,
+      "lon": 21.01148,
+      "location_source": {
+        "name": "Published address coordinates",
+        "url": "https://www.kulturalna.warszawa.pl/pi/46018_1.pdf",
+        "checked_at": "2026-10-14"
+      }
+    },
+    {
+      "id": "venue:fryderyk-hall",
+      "name": "Fryderyk Concert Hall",
+      "address": "Podwale 13/15, Warszawa",
+      "lat": 52.2483,
+      "lon": 21.01,
+      "location_source": {
+        "name": "Published address coordinates",
+        "url": "https://sprawdzadres.pl/mazowieckie/warszawa/podwale/13_15",
+        "checked_at": "2026-10-14"
+      }
+    },
+    {
+      "id": "venue:roma",
+      "name": "Teatr Muzyczny ROMA",
+      "address": "Nowogrodzka 49, Warszawa"
     }
   ],
   "attractions": [
@@ -739,6 +788,245 @@
         "dance",
         "performance",
         "festival"
+      ]
+    },
+    {
+      "id": "event:europe-torwar-2026-10-20",
+      "title": "Europe — Warsaw concert",
+      "category": "concert",
+      "venue_id": "venue:torwar",
+      "description": "Concert date and venue listed by Warsaw's tourism office. The exact start time is not verified in this snapshot.",
+      "date": "2026-10-20",
+      "start_time": null,
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": null,
+      "planning_duration_status": "unknown",
+      "status": "planned",
+      "availability": "unknown",
+      "schedulable": false,
+      "unschedulable_reason": "Specific session start time not verified; browse the official organizer schedule before planning.",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/what-where-when/",
+      "info_url": "https://go2warsaw.pl/en/what-where-when/",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "rock",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:jazz-jamboree-stodola-2026-10-23",
+      "title": "Jazz Jamboree 2026",
+      "category": "festival",
+      "venue_id": "venue:stodola",
+      "description": "Jazz festival listing at Stodoła. No verified session time; browse the organizer for a performance.",
+      "date": "2026-10-23",
+      "start_time": null,
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": null,
+      "planning_duration_status": "unknown",
+      "status": "planned",
+      "availability": "unknown",
+      "schedulable": false,
+      "unschedulable_reason": "Specific session start time not verified; browse the official organizer schedule before planning.",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/what-where-when/",
+      "info_url": "https://go2warsaw.pl/en/what-where-when/",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "jazz",
+        "festival",
+        "music"
+      ]
+    },
+    {
+      "id": "event:msn-seniors-guided-tour-2026-10-27",
+      "title": "Modern Seniors Club — Sculpture Beyond the Solid guided tour",
+      "category": "museum_tour",
+      "venue_id": "venue:msn",
+      "description": "A scheduled guided tour of Sculpture Beyond the Solid at the Museum of Modern Art, led by the Modern Seniors Club. Attendance must be checked with the museum.",
+      "date": "2026-10-27",
+      "start_time": "13:00",
+      "doors_time": null,
+      "end_time": "14:30",
+      "end_status": "confirmed",
+      "planning_duration_minutes": 90,
+      "planning_duration_status": "published",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "msn",
+      "source_url": "https://artmuseum.pl/en/events/the-modern-seniors-club-gives-a-guided-tour-of-the-exhibition?term=019eff31-4b7a-71cf-88cd-ca8d3b89a08e",
+      "info_url": "https://artmuseum.pl/en/events/the-modern-seniors-club-gives-a-guided-tour-of-the-exhibition?term=019eff31-4b7a-71cf-88cd-ca8d3b89a08e",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "museum",
+        "sculpture",
+        "art",
+        "guided tour"
+      ]
+    },
+    {
+      "id": "event:fado-gala-relax-2026-10-29",
+      "title": "Gala Fado — Marta Pereira da Costa & Friends",
+      "category": "concert",
+      "venue_id": "venue:scena-relax",
+      "description": "Gala Fado concert listed at 20:00 by the Warsaw Tourism Office. Tickets and actual end time are not confirmed.",
+      "date": "2026-10-29",
+      "start_time": "20:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 110,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/what-where-when/",
+      "info_url": "https://go2warsaw.pl/en/what-where-when/",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "fado",
+        "portuguese music",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:nigel-kennedy-2026-11-04",
+      "title": "Nigel Kennedy — Virtuoso Tour",
+      "category": "concert",
+      "venue_id": "venue:filharmonia",
+      "description": "Nigel Kennedy in Warsaw, listed by Warsaw Tourism Office for 20:00. End time and ticket availability require verification.",
+      "date": "2026-11-04",
+      "start_time": "20:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 120,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/events/nigel-kennedy-virtuoso-tour-349/",
+      "info_url": "https://go2warsaw.pl/en/events/nigel-kennedy-virtuoso-tour-349/",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "violin",
+        "classical",
+        "jazz",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:fryderyk-chopin-recital-2026-11-08",
+      "title": "Chopin Piano Recital — Fryderyk Concert Hall",
+      "category": "concert",
+      "venue_id": "venue:fryderyk-hall",
+      "description": "Official Fryderyk Concert Hall event listing for an hour-long Chopin recital at 17:00 on 8 November. Verify current ticket inventory with the organizer.",
+      "date": "2026-11-08",
+      "start_time": "17:00",
+      "doors_time": null,
+      "end_time": "18:00",
+      "end_status": "confirmed",
+      "planning_duration_minutes": 60,
+      "planning_duration_status": "published",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "fryderyk-hall",
+      "source_url": "https://www.fryderyk.events/pl/pianist/chopin-concert-2/4720",
+      "info_url": "https://www.fryderyk.events/pl/pianist/chopin-concert-2/4720",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "chopin",
+        "piano",
+        "classical",
+        "concert"
+      ]
+    },
+    {
+      "id": "event:yamato-roma-2026-11-09",
+      "title": "YAMATO — The Drummers of Japan",
+      "category": "show",
+      "venue_id": "venue:roma",
+      "description": "Show date and venue listed by Warsaw Tourism Office; a confirmed performance time has not been loaded.",
+      "date": "2026-11-09",
+      "start_time": null,
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": null,
+      "planning_duration_status": "unknown",
+      "status": "planned",
+      "availability": "unknown",
+      "schedulable": false,
+      "unschedulable_reason": "Specific session start time not verified; browse the official organizer schedule before planning.",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/en/what-where-when/",
+      "info_url": "https://go2warsaw.pl/en/what-where-when/",
+      "ticket_url": null,
+      "checked_at": "2026-10-14",
+      "tags": [
+        "drumming",
+        "japanese music",
+        "performance"
       ]
     }
   ]
