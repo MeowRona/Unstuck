@@ -405,7 +405,7 @@ class RealQlooProvider:
             entity_id, kind, title = payload
             if (not re.fullmatch(r"[A-Za-z0-9_:/.-]{3,160}", entity_id)
                     or kind not in {"artist", "movie", "book", "tv_show"}
-                    or not 1 <= len(title) <= 80 or any(ch in title for ch in "|,\\n\\r")):
+                    or not 1 <= len(title) <= 80 or any(ch in "|," or ord(ch) < 32 for ch in title)):
                 raise ValueError("Invalid selected Qloo entity")
             return entity_id, title
         # Explicit domain hints make ambiguous cultural references resolvable
