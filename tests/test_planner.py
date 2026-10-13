@@ -321,6 +321,38 @@ class DayPlannerTests(unittest.TestCase):
         self.assertTrue(next_plan["repair"]["added_ids"])
         self.assertTrue(any(item["kind"] == "restaurant" for item in next_plan["items"]))
 
+    def test_two_repeated_dinner_failures_preserve_locks_and_exclusions(self):
+        b = brief(
+            activity_count=3, include_meal=True,
+            must_include_ids=["event:simple-plan-2026-10-17"],
+            locked_ids=["event:simple-plan-2026-10-17"],
+            budget_total=500,
+        )
+        initial = self.planner.generate(b)["plans"][0]
+        first_restaurant = next(x["activity_id"] for x in initial["items"] if x["kind"] == "restaurant")
+        locked_start = next(x["start"] for x in initial["items"]
+                            if x["activity_id"] == "event:simple-plan-2026-10-17")
+        first = self.planner.repair(initial, b, first_restaurant)
+        self.assertTrue(first["plans"], "first replacement should exist for the demo")
+        first_plan = first["plans"][0]
+        second_restaurant = next(x["activity_id"] for x in first_plan["items"]
+                                 if x["kind"] == "restaurant")
+        self.assertNotEqual(first_restaurant, second_restaurant)
+        after_first_brief = PlannerBrief.from_payload(first["brief"])
+        second = self.planner.repair(first_plan, after_first_brief, second_restaurant)
+        self.assertTrue(second["plans"], "second replacement should exist under the same locks")
+        final = second["plans"][0]
+        ids = {x["activity_id"] for x in final["items"]}
+        self.assertNotIn(first_restaurant, ids)
+        self.assertNotIn(second_restaurant, ids)
+        self.assertIn(first_restaurant, second["brief"]["excluded_ids"])
+        self.assertIn(second_restaurant, second["brief"]["excluded_ids"])
+        concert = next(x for x in final["items"]
+                       if x["activity_id"] == "event:simple-plan-2026-10-17")
+        self.assertEqual(concert["start"], locked_start)
+        self.assertEqual(final["repair"]["removed"], second_restaurant)
+        self.assertEqual(len(final["repair"]["added_ids"]), 1)
+
     def test_repair_keeps_locked_item_and_excludes_removed_item(self):
         b = brief(
             activity_count=3,
