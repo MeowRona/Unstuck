@@ -15,7 +15,8 @@ class UiContractTests(unittest.TestCase):
 
     def test_demo_and_qloo_status_are_plain_and_honest(self):
         self.assertIn("Try a rescue · 60 sec", self.html)
-        self.assertIn("Taste profile · not live yet", self.html)
+        self.assertIn("Optional taste profile", self.html)
+        self.assertNotIn("live Qloo ranking pending API connection", self.html)
         self.assertIn("Qloo was not called for this result", self.js)
         self.assertNotIn("Load the judge-friendly demo settings", self.html)
         self.assertNotIn("Demo · fixture taste", self.js)
@@ -57,7 +58,10 @@ class UiContractTests(unittest.TestCase):
         self.assertIn('id="plannerCalendar"', self.html)
         self.assertIn('id="plannerExplore"', self.html)
         self.assertIn('id="plannerMap"', self.html)
-        self.assertIn("Taste matching not live yet", self.html)
+        self.assertIn("Checking taste coverage", self.html)
+        self.assertIn("Qloo · eligible restaurants only", self.html)
+        self.assertIn('id="plannerRescueDemo"', self.html)
+        self.assertIn("SIMULATED DINNER FAILURE", planner_js)
         self.assertIn("/api/planner/generate", planner_js)
         self.assertIn("/api/planner/repair", planner_js)
         self.assertIn("/api/planner/route-check", planner_js)
