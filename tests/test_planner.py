@@ -358,6 +358,15 @@ class PlannerLiveTasteTests(unittest.TestCase):
         self.assertTrue(result["taste_audit"]["insights_called"])
         self.assertGreaterEqual(result["taste_audit"]["ranked_count"], 2)
         self.assertTrue(result["plans"])
+        comparison = result["taste_audit"]["same_pool_comparison"]
+        self.assertEqual(comparison["method"], "same_feasible_plan_pool")
+        self.assertEqual(comparison["with_qloo_top_plan_id"], result["plans"][0]["id"])
+        operational = DayPlanner(planner.catalog).generate(brief(activity_count=2, must_include_ids=[]))
+        self.assertEqual(comparison["baseline_top_plan_id"], operational["plans"][0]["id"])
+        self.assertEqual(
+            comparison["top_plan_changed"],
+            comparison["baseline_top_plan_id"] != comparison["with_qloo_top_plan_id"],
+        )
         self.assertTrue(any(item.get("taste_rank") is not None
                             for plan in result["plans"] for item in plan["items"]
                             if item["kind"] == "restaurant"))
@@ -373,6 +382,7 @@ class PlannerLiveTasteTests(unittest.TestCase):
         planner = DayPlanner(PlannerCatalog(engine.places), UnavailableProvider())
         result = planner.generate(brief(activity_count=2))
         self.assertEqual(result["taste_status"], "unavailable")
+        self.assertNotIn("same_pool_comparison", result["taste_audit"])
         self.assertTrue(result["plans"])
         self.assertTrue(all(not any(item.get("taste_rank") for item in p["items"])
                             for p in result["plans"]))

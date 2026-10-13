@@ -492,6 +492,10 @@ class DayPlanner:
                 f"Only {used_count} activity{'ies' if used_count != 1 else 'y'} fit the current window "
                 f"without breaking locked time/date conditions; requested {requested}."
             )
+        if variants:
+            comparison = variants[0].pop("taste_comparison", None)
+            if comparison is not None and taste_audit["status"] == "live_restaurants":
+                taste_audit["same_pool_comparison"] = comparison
         for variant in variants:
             variant["taste_status"] = taste_audit["status"]
             variant["taste_note"] = taste_audit["note"]
@@ -653,19 +657,24 @@ class DayPlanner:
                 elif plan["known_cost_min"] is not None and plan["known_cost_min"] > brief.budget_total:
                     continue
                 plans.append(plan)
-        plans.sort(
-            key=lambda row: (
+        def priority(row: dict[str, Any], *, with_taste: bool) -> tuple[Any, ...]:
+            return (
                 -row["preserved_preferred_count"],
                 0 if row["feasibility"] == "confirmed" else 1,
                 -row["interest_match_count"],
                 sum(taste_ranks.get(item["activity_id"], 999) for item in row["items"]
-                    if item["kind"] == "restaurant") if taste_ranks else 0,
+                    if item["kind"] == "restaurant") if with_taste and taste_ranks else 0,
                 row["total_idle_minutes"],
                 row["total_travel_minutes"],
                 row["known_cost_max"] if row["known_cost_max"] is not None else float("inf"),
                 row["id"],
             )
-        )
+
+        # This isolates Qloo's *ranking* effect on exactly the same generated
+        # feasible plans. No second planner run, extra API call, or cherry-picked
+        # venue pool. Route checks happen later and are separately reported.
+        baseline_top = min(plans, key=lambda row: priority(row, with_taste=False)) if plans and taste_ranks else None
+        plans.sort(key=lambda row: priority(row, with_taste=True))
         unique: list[dict[str, Any]] = []
         seen: set[tuple[str, ...]] = set()
         for plan in plans:
@@ -676,6 +685,23 @@ class DayPlanner:
             unique.append(plan)
             if len(unique) >= 3:
                 break
+        if unique and baseline_top is not None:
+            personalized_top = unique[0]
+
+            def restaurant_label(plan: dict[str, Any]) -> str | None:
+                return next((item["title"] for item in plan["items"] if item["kind"] == "restaurant"), None)
+
+            personalized_top["taste_comparison"] = {
+                "method": "same_feasible_plan_pool",
+                "scope": "Generated local options before detailed route checks; operational facts and constraints are identical.",
+                "candidate_plan_count": len(plans),
+                "baseline_top_plan_id": baseline_top["id"],
+                "baseline_restaurant": restaurant_label(baseline_top),
+                "with_qloo_top_plan_id": personalized_top["id"],
+                "with_qloo_restaurant": restaurant_label(personalized_top),
+                "top_plan_changed": baseline_top["id"] != personalized_top["id"],
+                "ranked_restaurant_count": len(taste_ranks),
+            }
         return unique
 
     def _schedule(self, ordered: list[dict[str, Any]], brief: PlannerBrief) -> list[dict[str, Any]] | None:
