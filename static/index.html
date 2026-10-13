@@ -69,7 +69,7 @@
         </button>
         <button class="summary-chip taste-chip summary-edit" type="button" data-edit-target="taste">
           <span class="icon-slot" data-icon="tag"></span>
-          <span><span class="chip-label">Taste profile · not live yet</span><strong id="summaryTaste">Amelie + Radiohead</strong></span>
+          <span><span class="chip-label">Optional taste profile</span><strong id="summaryTaste">No taste references</strong></span>
           <span class="chip-state icon-slot" data-icon="edit"></span>
         </button>
       </div>
@@ -100,7 +100,7 @@
         <div id="firstRun" class="first-run-card">
           <div class="first-run-kicker">Warsaw only beta · constraints first</div>
           <h1>Keep what matters. Change as little as possible.</h1>
-          <p>Set the conditions that actually affect the answer: where you start, time, budget, travel and stay length. Taste profile is not live yet; Qloo will rank feasible options once its API is connected.</p>
+          <p>Set the conditions that actually affect the answer: where you start, time, budget, travel and stay length. When Qloo can identify matching cultural signals and places, it ranks operationally feasible options; unknown coverage is disclosed.</p>
           <div class="first-run-actions">
             <button id="openFullEditor" class="secondary-button" type="button">Review conditions</button>
             <button id="runCurrentPlan" class="primary-button" type="button">Find the smallest rescue <span aria-hidden="true">→</span></button>
@@ -113,7 +113,7 @@
         <div id="searchingState" class="searching-state hidden">
           <div class="spinner" aria-hidden="true"></div>
           <strong>Checking the plan against current facts…</strong>
-          <span>Locked conditions stay locked. Taste profile is not live yet; live Qloo ranking activates after the Qloo API is connected.</span>
+          <span>Locked conditions stay locked. Taste preferences influence recommendations only when Qloo actually ranks matching places.</span>
         </div>
 
         <div id="resultContent" class="result-content hidden">
@@ -138,7 +138,7 @@
           <p>Choose a date, time window and one must-do if you have it. Unstuck checks opening windows, fixed event times, point-to-point travel and budget uncertainty before it proposes up to three day plans.</p>
         </div>
         <div class="planner-status-stack">
-          <span id="plannerTasteStatus" class="planner-status warning">Taste matching not live yet</span>
+          <span id="plannerTasteStatus" class="planner-status warning">Checking taste coverage…</span>
           <span id="plannerCoverageStatus" class="planner-status">Loading event coverage…</span>
         </div>
       </header>
@@ -247,15 +247,17 @@
             <label>Must-do <span class="field-hint">optional</span>
               <select id="plannerMustInclude"><option value="">None</option></select>
             </label>
-            <label>Taste references <span class="field-hint">Qloo pending</span>
+            <label>Taste references <span class="field-hint">Qloo · eligible restaurants only</span>
               <input id="plannerTasteRefs" placeholder="Radiohead, Amelie…">
-              <span class="field-hint">Stored in the plan brief, but not used for ranking until Qloo is connected.</span>
+              <span class="field-hint">When enough restaurant entities match, Qloo can rank them by taste. Concerts, museums and unmatched restaurants remain operationally ranked.</span>
             </label>
             <div id="plannerFormError" class="form-error hidden"></div>
             <div class="planner-form-actions">
               <button id="plannerDemo" class="secondary-button" type="button">Load demo day</button>
               <button class="primary-button" type="submit">Build day <span aria-hidden="true">→</span></button>
             </div>
+            <button id="plannerRescueDemo" class="secondary-button planner-rescue-demo" type="button">Try a full-evening rescue · 90 sec</button>
+            <span class="field-hint">Reproducible 17 Oct 2026 scenario: one dinner is reported unavailable; the concert stays locked. No real closure is claimed.</span>
           </form>
         </aside>
 
@@ -298,7 +300,7 @@
     <footer class="footer-meta rescue-only">
       <div id="footerSources"><strong>Sources:</strong> public listings</div>
       <span class="footer-divider">|</span>
-      <div id="footerMethod"><strong>Method:</strong> hard constraints first · live Qloo taste ranking pending API connection</div>
+      <div id="footerMethod"><strong>Method:</strong> feasibility first · Qloo coverage reported per result</div>
       <span class="footer-divider">|</span>
       <div><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></div>
       <span class="footer-divider">|</span>
@@ -411,7 +413,7 @@
       </section>
 
       <section class="editor-section" data-section="taste">
-        <div class="editor-section-title"><span>03</span><div><strong>Taste profile</strong><small>Not live yet · activates when the Qloo API is connected.</small></div></div>
+        <div class="editor-section-title"><span>03</span><div><strong>Taste profile</strong><small>Optional cultural references; recognized matches are shown after each search.</small></div></div>
         <label>Taste references
           <input name="taste_refs" placeholder="e.g. Amelie, Radiohead, Wes Anderson">
           <span class="taste-explainer">Your references don’t need to match the activity. They will become the live Qloo taste signal once the Qloo API is connected.</span>
@@ -487,7 +489,7 @@
     <div class="about-copy">
       <p>Unstuck keeps hard conditions first, then searches for the smallest allowed change. Unknown facts are never treated as confirmed passes.</p>
       <p><strong>Place facts:</strong> local Warsaw catalog and OpenStreetMap-derived data. <strong>Routes:</strong> scheduled Warsaw transit or OpenStreetMap street routing; not realtime traffic or live vehicle positions.</p>
-      <p><strong>Taste:</strong> live Qloo ranking is not connected yet. The current taste preview uses clearly labelled fixtures and is not evidence of Qloo performance.</p>
+      <p><strong>Taste:</strong> this installation can use Qloo for ranking, but only an individual result's evidence panel proves which references and venues were actually ranked. No-coverage cases remain operational suggestions.</p>
       <p><strong>Google Places:</strong> intentionally disabled until the agreed final testing window.</p>
       <p><strong>Scope:</strong> Warsaw only beta. Some price/opening facts remain incomplete and are shown as needing verification.</p>
       <p><a href="https://github.com/MeowRona/Unstuck" target="_blank" rel="noreferrer">View the public GitHub repository ↗</a></p>

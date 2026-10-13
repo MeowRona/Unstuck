@@ -618,8 +618,10 @@
         showNote('Repair kept ' + info.kept_ids.length + ' existing stop(s), replaced ' + info.removed + ' with ' + info.added_ids.join(', ') + '. ' + shifted.length + ' time shift(s).' + changes);
       }
       if (plans.length) await checkRoutes();
+      return result;
     } catch (err) {
       showNote(err.message);
+      return null;
     }
   }
 
@@ -740,7 +742,7 @@
   }
   $$('[data-planner-view]').forEach((button) => button.addEventListener('click', () => switchPlannerView(button.dataset.plannerView)));
 
-  $('#plannerDemo').addEventListener('click', async () => {
+  async function loadDemoDay() {
     await selectDate('2026-10-17');
     const central = origins.find((row) => row.id === 'warsaw:srodmiescie:warszawa-centralna') || origins[0];
     const demo = {
@@ -755,8 +757,66 @@
     excludedIds = new Set();
     fillForm(demo);
     $('#plannerMustInclude').value = 'event:simple-plan-2026-10-17';
-    showNote('Demo day · 17 Oct 2026 · verified source snapshot. Simple Plan is locked; actual event end and ticket availability remain unknown.');
+    showNote('Reproducible demo · 17 Oct 2026 source snapshot (not live event availability). Simple Plan concert stays locked; actual event end and tickets remain unknown.');
     await buildDay(demo);
+  }
+
+  $('#plannerDemo').addEventListener('click', loadDemoDay);
+  $('#plannerRescueDemo').addEventListener('click', async () => {
+    const button = $('#plannerRescueDemo');
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = 'Rescuing the evening…';
+    try {
+      await loadDemoDay();
+      const original = plans[selectedPlan];
+      if (!original?.items?.length) {
+        showNote('Demo could not build the original evening within its stated conditions. No rescue was fabricated.');
+        return;
+      }
+      const failed = original.items.find((item) => item.kind === 'restaurant');
+      if (!failed) {
+        showNote('Demo did not find a restaurant to replace; original evening was left unchanged.');
+        return;
+      }
+      const preservedNames = original.items.filter((item) => item.activity_id !== failed.activity_id)
+        .map((item) => item.title);
+      const originalNames = original.items.map((item) => item.title);
+      // This is explicitly a reported/simulated failure. The app does not know
+      // whether the restaurant is really closed or a table is unavailable.
+      const result = await repair(failed.activity_id);
+      if (!result?.plans?.length) {
+        showNote('SIMULATED FAILURE · ' + failed.title + ' was reported unavailable. ' +
+          'No alternative fits the existing locks and budget; the concert was not moved.');
+        return;
+      }
+      const repaired = plans[selectedPlan] || result.plans[0];
+      const info = result.plans[0].repair || {};
+      const actualNames = repaired.items.map((item) => item.title);
+      const lockedConcertRetained = repaired.items.some(
+        (item) => item.activity_id === 'event:simple-plan-2026-10-17');
+      const added = (info.added_ids || []).map(
+        (id) => repaired.items.find((item) => item.activity_id === id)?.title || id);
+      const timeShifts = (info.shifted || []).filter((item) => item.minutes !== 0);
+      const shiftDetail = timeShifts.length
+        ? timeShifts.map((item) => item.activity_id + ' ' + (item.minutes > 0 ? '+' : '') +
+            item.minutes + ' min').join(', ')
+        : 'none';
+      showNote('SIMULATED DINNER FAILURE · 17 Oct 2026 (historical scenario; no live closure detected). ' +
+        'BEFORE: ' + originalNames.join(' → ') + '. ' +
+        'REPORTED UNAVAILABLE: ' + failed.title + '. ' +
+        'AFTER: ' + actualNames.join(' → ') + '. ' +
+        'ADDED: ' + (added.join(', ') || 'none') + '. ' +
+        'KEPT: ' + preservedNames.filter((name) => actualNames.includes(name)).join(', ') + '. ' +
+        'TIME SHIFTS: ' + shiftDetail + '. ' +
+        (lockedConcertRetained ? 'Locked concert retained.' : 'Concert could not be retained — do not use this result.') +
+        ' Prices, ticket availability and unverified routes still require checking.');
+    } catch (err) {
+      showNote('Demo could not complete: ' + err.message + '. No success was assumed.');
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
   });
 
   async function ensureLoaded() {

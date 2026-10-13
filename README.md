@@ -56,6 +56,8 @@ Unknown data never becomes a confirmed PASS. A result with unknown price/hours o
 
 ## Plan a day
 
+**One-click whole-evening repair:** in Plan a day, choose **Try a full-evening rescue · 90 sec**. This runs the real generation/repair/routing flow against a clearly labeled 17 Oct 2026 sample and simulates a user reporting dinner unavailable. The Simple Plan concert remains locked. The UI shows before/after stops and time shifts, or a truthful no-solution state. See [JUDGE_DEMO_AND_VALIDATION.md](JUDGE_DEMO_AND_VALIDATION.md) for the walkthrough, limitations and not-yet-conducted human evaluation protocol.
+
 The City Compass now has two product modes:
 
 - **Rescue a plan** — the original single-plan recovery flow;

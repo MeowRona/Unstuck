@@ -195,6 +195,18 @@ def planner_flow():
         ids_after = [row.get_attribute("data-plan-item") for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
         if ids_after and self_event not in ids_after:
             raise AssertionError("repair changed the locked concert")
+
+        # Whole-evening demo explicitly simulates a dinner failure; no invented closure.
+        demo_button = wait.until(EC.element_to_be_clickable((By.ID, "plannerRescueDemo")))
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", demo_button)
+        demo_button.click()
+        wait.until(lambda d: "SIMULATED" in d.find_element(By.ID, "plannerRepairNote").text
+                   and not d.find_element(By.ID, "plannerRescueDemo").get_attribute("disabled"))
+        note = driver.find_element(By.ID, "plannerRepairNote").text
+        assert "no live closure detected" in note.lower(), note
+        assert "BEFORE:" in note and "AFTER:" in note, note
+        ids = [row.get_attribute("data-plan-item") for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
+        assert self_event in ids, f"simulated dinner failure moved locked concert: {ids}"
         assert_no_severe_console(driver)
     finally:
         driver.quit()

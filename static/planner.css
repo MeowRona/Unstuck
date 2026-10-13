@@ -200,6 +200,9 @@
 .planner-interest-fieldset label { display: flex; gap: 5px; align-items: center; color: var(--ink); font-size: 9px; }
 .planner-interest-fieldset input { width: 14px; min-height: 14px; }
 .planner-form-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; padding-top: 3px; }
+.planner-rescue-demo { width: 100%; min-height: 42px; margin-top: 8px; border-style: dashed; font-weight: 750; }
+.planner-rescue-demo:disabled { opacity: .65; cursor: wait; }
+
 
 .planner-results { min-height: 710px; }
 .planner-plan-actions { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
