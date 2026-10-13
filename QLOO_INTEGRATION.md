@@ -35,7 +35,7 @@ This keeps Qloo essential without asking it to impersonate a routing, pricing, o
 
 - Named taste references and candidate venues are resolved through Qloo entity search before the rank call unless a verified Qloo entity ID is already known.
 - For venue candidates with catalog coordinates, `GET /search` uses Qloo's documented `filter.location=lat,lon` with a 0.6-mile radius. If a search result independently includes coordinates, entities outside that radius are also rejected; Qloo 404 (no results) means missing coverage, not an overall application outage.
-- A candidate such as `Vegan Ramen Shop — Muranów` may be retried using only the unannotated base name **inside the same geographic filter**, never as an unscoped fuzzy match. This can use one additional lookup and remains under the existing per-job budget.
+- A candidate such as `Vegan Ramen Shop — Muranów` may be retried using only the unannotated base name **inside the same geographic filter**, never as an unscoped fuzzy match. This can use one additional lookup, but the entire ranking round permits at most **two** such annotated-name retries, reserving capacity for the final Insights call inside the existing 18-attempt per-job budget.
 - An exact normalized name can proceed when it resolves uniquely *inside the requested area*. If the geographic response has multiple distinct matching entity IDs, the candidate remains unresolved.
 - This is an improvement to branch identity matching, **not a guarantee that Qloo covers every Warsaw venue**. Actual `ranked` and `resolved` counts in the production smoke are the acceptance criteria; do not claim 10/10 without measured evidence.
 - Search ordering is never presented as taste affinity.

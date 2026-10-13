@@ -416,19 +416,20 @@ class RealQlooProvider:
     ) -> tuple[str, str]:
         return self._resolve(name, entity_type="urn:entity:place", location=location)
 
-    def resolve_candidate(self, place: Place) -> tuple[str, str]:
-        """Match the actual selected local branch, not a same-named worldwide place."""
+    def resolve_candidate(self, place: Place, *, retry_alias: bool = True) -> tuple[str, str]:
+        """Match a local branch; bounded optional retry for a location-annotated name."""
         location = (place.lat, place.lon)
         try:
             return self.resolve_place(place.name, location=location)
         except ValueError as original_error:
-            # Only strip clear location annotations used by local catalog names.
-            # Never widen an ambiguous result or accept a fuzzy, unscoped match.
-            for sep in (" — ", " – ", " - "):
-                if sep in place.name:
-                    base, _annotation = place.name.rsplit(sep, 1)
-                    if len(base.strip()) >= 4:
-                        return self.resolve_place(base.strip(), location=location)
+            if retry_alias:
+                # Retry only for a small, explicitly budgeted subset in
+                # rank_with_context; a suffix is not proof of identity.
+                for sep in (" — ", " – ", " - "):
+                    if sep in place.name:
+                        base, _annotation = place.name.rsplit(sep, 1)
+                        if len(base.strip()) >= 4:
+                            return self.resolve_place(base.strip(), location=location)
             raise original_error
 
     def rank(self, places: list[Place], taste_refs: Iterable[str]) -> TasteResults:
@@ -495,9 +496,21 @@ class RealQlooProvider:
 
         resolved_place_ids: dict[str, str] = {}
         unresolved_candidates: list[str] = []
+        alias_retry_reservations = 0
         for place in qloo_places:
+            # At most 2 optional suffix retries. Ordinary search = 10 candidates,
+            # plus cultural seeds, optional anchor and 1 Insights request. Reserve
+            # room inside the strict 18-attempt job limit for the meaningful rank.
+            allow_alias = (
+                alias_retry_reservations < 2
+                and any(sep in place.name for sep in (" — ", " – ", " - "))
+            )
+            if allow_alias:
+                alias_retry_reservations += 1
             try:
-                resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_candidate(place)[0]
+                resolved_place_ids[place.id] = place.qloo_entity_id or self.resolve_candidate(
+                    place, retry_alias=allow_alias
+                )[0]
             except ValueError:
                 # Warsaw OSM venues are not guaranteed to exist in Qloo's catalog.
                 # Do not silently associate a venue with a similarly named entity.
