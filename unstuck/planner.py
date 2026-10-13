@@ -515,7 +515,7 @@ class DayPlanner:
                         "note": "Qloo could not rank restaurants; operational planning remains available."}
         trace = dict(getattr(results, "trace", {}) or {})
         ranks = {f"restaurant:{row.place_id}": int(row.rank) for row in results if row.rank is not None}
-        verified = trace.get("status") == "live" and len(ranks) >= 2
+        verified = (trace.get("status") == "live" and len(ranks) >= 2 and len({row.rank for row in results if row.rank is not None}) >= 2)
         return (ranks if verified else {}), {
             "status": "live_restaurants" if verified else "insufficient_coverage",
             "note": ("Qloo ranked restaurant options only. Concerts and museums use explicit interests and "
@@ -524,6 +524,8 @@ class DayPlanner:
             "recognized_signals": trace.get("recognized_signals", []),
             "unresolved_signals": trace.get("unresolved_signals", []),
             "candidate_count": len(places),
+            "resolved_count": trace.get("candidate_entity_count", 0),
+            "unresolved_candidate_ids": trace.get("unresolved_candidate_ids", []),
             "ranked_count": len(ranks),
             "insights_called": bool(trace.get("insights_called")),
         }
