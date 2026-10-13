@@ -490,6 +490,77 @@ class QlooContractTests(unittest.TestCase):
         provider = RealQlooProvider(DuplicateTransport())
         self.assertEqual(provider.resolve_interest("Radiohead")[0], "artist:radiohead")
 
+    def test_local_venue_search_is_geographically_scoped_and_rejects_remote_same_name(self):
+        target = replace(load_fixture_engine().places[0], name="Local Bistro",
+                         lat=52.2319, lon=21.0067, qloo_entity_id=None)
+        class SearchTransport:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                return {"results": [
+                    {"entity_id": "place:remote", "name": "Local Bistro",
+                     "types": ["urn:entity:place"],
+                     "properties": {"geocode": {"latitude": 40.7128, "longitude": -74.0060}}},
+                    {"entity_id": "place:warsaw", "name": "Local Bistro",
+                     "types": ["urn:entity:place"],
+                     "properties": {"geocode": {"latitude": 52.2320, "longitude": 21.0068}}},
+                ]}
+        fake = SearchTransport()
+        resolved = RealQlooProvider(fake).resolve_candidate(target)
+        self.assertEqual(resolved[0], "place:warsaw")
+        self.assertEqual(fake.calls[0][0], "/search")
+        self.assertEqual(fake.calls[0][1]["filter.location"], "52.231900,21.006700")
+        self.assertEqual(fake.calls[0][1]["filter.radius"], 0.6)
+        self.assertEqual(fake.calls[0][1]["types"], "urn:entity:place")
+
+    def test_local_venue_search_does_not_accept_remote_only_exact_name(self):
+        target = replace(load_fixture_engine().places[0], name="Local Bistro",
+                         lat=52.2319, lon=21.0067, qloo_entity_id=None)
+        class SearchTransport:
+            def get_json(self, path, params=None):
+                return {"results": [
+                    {"entity_id": "place:remote", "name": "Local Bistro",
+                     "types": ["urn:entity:place"],
+                     "properties": {"geocode": {"latitude": 40.7128, "longitude": -74.0060}}},
+                ]}
+        with self.assertRaisesRegex(ValueError, "exact entity not found"):
+            RealQlooProvider(SearchTransport()).resolve_candidate(target)
+
+    def test_venue_suffix_fallback_keeps_local_geocode_filter(self):
+        target = replace(load_fixture_engine().places[0],
+                         name="Vegan Ramen Shop — Muranów",
+                         lat=52.2512, lon=20.9971, qloo_entity_id=None)
+        class SearchTransport:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                if params["query"] == target.name:
+                    return {"results": []}
+                return {"results": [{"entity_id": "place:vegan-ramen",
+                                    "name": "Vegan Ramen Shop",
+                                    "types": ["urn:entity:place"]}]}
+        fake = SearchTransport()
+        self.assertEqual(RealQlooProvider(fake).resolve_candidate(target)[0], "place:vegan-ramen")
+        self.assertEqual([params["query"] for _, params in fake.calls],
+                         ["Vegan Ramen Shop — Muranów", "Vegan Ramen Shop"])
+        self.assertEqual(fake.calls[0][1]["filter.location"], fake.calls[1][1]["filter.location"])
+
+    def test_documented_qloo_search_404_is_missing_coverage_not_server_crash(self):
+        class NoResultsTransport:
+            def get_json(self, path, params=None):
+                raise RuntimeError("QLOO_HTTP_404")
+        provider = RealQlooProvider(NoResultsTransport())
+        target = replace(load_fixture_engine().places[0], name="Unknown Venue", qloo_entity_id=None)
+        with self.assertRaisesRegex(ValueError, "not found"):
+            provider.resolve_candidate(target)
+        ranked = provider.rank_with_context([target], ["film: Amelie"], failed_place=None)
+        # Here the taste reference also has no Qloo match; no false insight call.
+        self.assertEqual(ranked.trace["status"], "no_coverage")
+        self.assertFalse(ranked.trace["insights_called"])
+        self.assertEqual(ranked.trace["unresolved_candidate_ids"], [target.id])
+
     def test_live_pool_excludes_closed_places_before_using_qloo_slots(self):
         from unstuck.providers import TasteResults
         base = load_fixture_engine().places[0]
