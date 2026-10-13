@@ -27,8 +27,10 @@ class UiContractTests(unittest.TestCase):
         self.assertIn("/api/undo-reject", self.js)
         self.assertIn("Undo last skip", self.js)
         self.assertIn("does not retrain Qloo", self.js)
-        self.assertIn("if (result && reason === 'too_far') openEditor('travel');", self.js)
-        self.assertIn("if (result && reason === 'not_my_vibe') openEditor('taste');", self.js)
+        self.assertIn('id="rejectionRefine"', self.html)
+        self.assertIn("isDistance ? 'Adjust travel' : 'Refine taste'", self.js)
+        self.assertIn("openEditor(isDistance ? 'travel' : 'taste')", self.js)
+        self.assertIn("action.classList.remove('hidden')", self.js)
         self.assertIn("will not silently change locked conditions", self.js)
 
     def test_choice_flow_has_route_copy_checks_and_timeline(self):
