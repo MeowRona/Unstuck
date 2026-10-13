@@ -26,7 +26,10 @@ class UiContractTests(unittest.TestCase):
             self.assertIn(f'data-reject-reason="{reason}"', self.html)
         self.assertIn("/api/undo-reject", self.js)
         self.assertIn("Undo last skip", self.js)
-        self.assertIn("does not retrain a model", self.js)
+        self.assertIn("does not retrain Qloo", self.js)
+        self.assertIn("if (result && reason === 'too_far') openEditor('travel');", self.js)
+        self.assertIn("if (result && reason === 'not_my_vibe') openEditor('taste');", self.js)
+        self.assertIn("will not silently change locked conditions", self.js)
 
     def test_choice_flow_has_route_copy_checks_and_timeline(self):
         self.assertIn('id="choiceConstraints"', self.html)
