@@ -89,14 +89,16 @@ def desktop_flow():
         # Automatic route validation can choose a candidate whose FIRST explicit
         # compromise is extra travel rather than shorter stay. Locking that one
         # must rerun the plan, but need not make all alternatives disappear.
-        wait.until(lambda d:
-            ("hidden" not in d.find_element(By.ID, "emptyState").get_attribute("class"))
-            or d.find_element(By.ID, "lockCompromiseButton").text != locked_label)
-        is_empty = "hidden" not in driver.find_element(By.ID, "emptyState").get_attribute("class")
         if "Keep stay at" in locked_label:
-            assert is_empty, "disabling the demo's necessary stay compromise must block the rescue"
+            wait.until(lambda d: d.find_element(By.ID, "summaryStayWrap").get_attribute("title") == "Locked at this minimum stay")
+        elif "Keep travel at" in locked_label:
+            wait.until(lambda d: d.find_element(By.ID, "summaryTravelWrap").get_attribute("title") == "Locked at this travel limit")
         else:
-            assert is_empty or driver.find_elements(By.CSS_SELECTOR, ".recommendation-card")
+            wait.until(lambda d: d.find_element(By.ID, "lockCompromiseButton").text != locked_label)
+        is_empty = "hidden" not in driver.find_element(By.ID, "emptyState").get_attribute("class")
+        # A different fully feasible venue may remain when a specific compromise
+        # is forbidden. Only assert that the lock was applied and UI stayed usable.
+        assert is_empty or driver.find_elements(By.CSS_SELECTOR, ".recommendation-card")
 
         driver.find_element(By.CSS_SELECTOR, '[data-menu-action="demo"]').click() if False else None
         # Reload the deterministic demo for the final-plan path.
