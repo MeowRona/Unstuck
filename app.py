@@ -532,6 +532,11 @@ def main() -> int:
     parser.add_argument("--mode", choices=("fixture", "baseline", "live"), default=os.environ.get("UNSTUCK_MODE", "fixture"))
     parser.add_argument("--catalog", choices=("real", "fixture"), default=os.environ.get("UNSTUCK_CATALOG", "real"))
     args = parser.parse_args()
+    # Render can retain an old --mode fixture start command even after render.yaml changes.
+    # An explicit deployment environment setting takes precedence over that legacy command.
+    configured_mode = os.environ.get("UNSTUCK_MODE", "").strip().lower()
+    if configured_mode in {"fixture", "baseline", "live"}:
+        args.mode = configured_mode
     try:
         engine = build_engine(args.mode, args.catalog)
     except RuntimeError as exc:
