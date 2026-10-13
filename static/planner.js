@@ -492,6 +492,11 @@
         '<div class="timeline-meta"><span class="timeline-chip">' + esc(back.status) + '</span>' +
         (back.scheduled ? '<span class="timeline-chip">scheduled · not realtime</span>' : '') + '</div></div></div>';
     }
+    if (plan.total_idle_minutes >= 60) {
+      html += '<div class="planner-repair-note"><strong>Large gap in this schedule:</strong> about ' +
+        esc(plan.total_idle_minutes) + ' min beyond the required event arrival buffer (based on estimated travel). ' +
+        'Consider a later start or fewer stops; this is free time, not a scheduled activity.</div>';
+    }
     if (plan.checks && plan.checks.length) {
       html += '<div class="planner-repair-note"><strong>Before you rely on this plan:</strong><br>' +
         plan.checks.map(esc).join('<br>') + '</div>';
@@ -607,7 +612,11 @@
       if (result.brief) currentBrief = result.brief;
       renderResult(result);
       const info = plans[0] && plans[0].repair;
-      if (info) showNote('Repair kept ' + info.kept_ids.length + ' existing stop(s), removed one, and added ' + info.added_ids.length + '. Locked stops stayed fixed.');
+      if (info) {
+        const shifted = (info.shifted || []).filter(x => x.minutes !== 0);
+        const changes = shifted.length ? ' Shifted: ' + shifted.map(x => x.activity_id + ' ' + (x.minutes > 0 ? '+' : '') + x.minutes + ' min').join(', ') + '.' : ' No kept stop changed start time.';
+        showNote('Repair kept ' + info.kept_ids.length + ' existing stop(s), replaced ' + info.removed + ' with ' + info.added_ids.join(', ') + '. ' + shifted.length + ' time shift(s).' + changes);
+      }
       if (plans.length) await checkRoutes();
     } catch (err) {
       showNote(err.message);
