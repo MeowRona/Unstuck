@@ -490,6 +490,37 @@ class QlooContractTests(unittest.TestCase):
         provider = RealQlooProvider(DuplicateTransport())
         self.assertEqual(provider.resolve_interest("Radiohead")[0], "artist:radiohead")
 
+    def test_live_pool_excludes_closed_places_before_using_qloo_slots(self):
+        from unstuck.providers import TasteResults
+        base = load_fixture_engine().places[0]
+        good = replace(
+            base, id="valid", name="Open Place",
+            hours_status="confirmed",
+            hours={str(d): (("11:00", "23:30"),) for d in range(7)},
+        )
+        bad = replace(
+            good, id="closed", name="Closed For Date",
+            hours={str(d): tuple() for d in range(7)},
+        )
+        class Recorder:
+            mode = "live"
+            def __init__(self):
+                self.received = []
+            def rank_with_context(self, places, refs, *, failed_place):
+                self.received.append([p.id for p in places])
+                return TasteResults(
+                    [TasteResult(p.id, None, None, (), "qloo") for p in places],
+                    trace={"status": "no_coverage", "insights_called": False},
+                )
+        recorder = Recorder()
+        engine = UnstuckEngine([bad, good], recorder)
+        engine.search(SearchState(brief(
+            failed_place="", budget_total=10000, taste_refs=[],
+            origin_lat=good.lat, origin_lon=good.lon,
+            max_one_way_minutes=120, min_stay_minutes=30,
+        )))
+        self.assertEqual(recorder.received, [["valid"]])
+
     def test_same_pool_ranking_uses_place_filter(self):
         class FakeTransport:
             def __init__(self):

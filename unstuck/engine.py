@@ -511,6 +511,58 @@ class UnstuckEngine:
         prefiltered.sort(key=lambda row: row[0])
         ordered_prefiltered = [place for _key, place in prefiltered]
 
+        if self.taste_provider.mode == "live":
+            # Qloo's ten-entity limit must apply AFTER operational screening.
+            # Do not spend ranking slots on restaurants already known to violate
+            # published hours, budget, locked return or the user's allowed changes.
+            # Keep the first viable strategy tier so stronger constraints are
+            # not displaced by candidates needing a larger compromise.
+            operationally_valid = []
+            permitted_strategies = [
+                (brief.max_one_way_minutes, brief.min_stay_minutes, False),
+            ]
+            if brief.negotiable_extra_travel_minutes:
+                permitted_strategies.append((
+                    brief.max_one_way_minutes + brief.negotiable_extra_travel_minutes,
+                    brief.min_stay_minutes, False,
+                ))
+            if brief.negotiable_stay_reduction_minutes:
+                permitted_strategies.append((
+                    brief.max_one_way_minutes + brief.negotiable_extra_travel_minutes,
+                    max(15, brief.min_stay_minutes - brief.negotiable_stay_reduction_minutes),
+                    False,
+                ))
+            if brief.allow_category_change:
+                permitted_strategies.append((
+                    brief.max_one_way_minutes + brief.negotiable_extra_travel_minutes,
+                    max(15, brief.min_stay_minutes - brief.negotiable_stay_reduction_minutes),
+                    True,
+                ))
+            for place in ordered_prefiltered:
+                for tier, (travel_limit, stay, category_relaxed) in enumerate(permitted_strategies):
+                    probe = evaluate_place(
+                        place, brief, None,
+                        allowed_travel_minutes=travel_limit,
+                        stay_minutes=stay,
+                        category_relaxed=category_relaxed,
+                        route_override=state.route_overrides.get(place.id),
+                    )
+                    if probe.viable:
+                        operationally_valid.append((
+                            tier, 0 if probe.confirmed else 1, place,
+                        ))
+                        break
+            original_count = len(ordered_prefiltered)
+            prefilter_key_by_id = {place.id: key for key, place in prefiltered}
+            operationally_valid.sort(key=lambda row: (
+                row[0], row[1], prefilter_key_by_id[row[2].id],
+            ))
+            ordered_prefiltered = [place for _tier, _confidence, place in operationally_valid]
+            log.append(
+                f"Operational precheck retained {len(ordered_prefiltered)}/{original_count} local candidates "
+                "before the 10-option Qloo ranking window; unverified facts remain provisional."
+            )
+
         # Keep ranking stable across reject rounds. In fixture/baseline mode we can
         # rank the whole feasible universe cheaply. In live mode, Qloo's canonical
         # rank workflow accepts up to 10 options, so keep a stable 10-place window
