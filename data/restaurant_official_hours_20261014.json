@@ -564,6 +564,15 @@
             "23:30"
           ]
         ]
+      },
+      "price": {
+        "min": 49,
+        "max": 49,
+        "currency": "PLN",
+        "status": "confirmed",
+        "source_url": "https://restauracjastarydom.pl/",
+        "basis": "per_person",
+        "item_note": "One portion of traditional minced-meat cutlets with potato puree, listed at 49 PLN in Stary Dom's own public daily restaurant menu; other dishes, drinks, tips and extras are excluded."
       }
     },
     {
