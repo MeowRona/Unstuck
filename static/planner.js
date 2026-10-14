@@ -491,7 +491,7 @@
         '</p><div class="timeline-meta"><span class="timeline-chip">' + esc(item.category.replaceAll('_',' ')) + '</span>' +
         '<span class="timeline-chip">' + esc(item.duration_minutes) + ' min' + (item.duration_status === 'estimate' ? ' planned' : '') + '</span>' +
         '<span class="timeline-chip' + (item.price && item.price.status === 'unknown' ? ' unknown' : '') + '">' +
-        esc(item.price && item.price.min != null ? Math.round(item.price.min) + '–' + Math.round(item.price.max) + ' ' + item.price.currency : 'price unknown') +
+        esc(formatTimelinePrice(item.price)) +
         '</span>' + (item.kind === 'restaurant' && Number.isInteger(item.taste_rank) ? '<span class="timeline-chip">Qloo #'+esc(item.taste_rank)+' (matched shortlist)</span>' : '') +
         (item.kind === 'event' && item.availability === 'unknown' ? '<span class="timeline-chip unknown">availability unknown</span>' : '') +
         (lockedIds.has(item.activity_id) ? '<span class="timeline-chip">locked</span>' : '') + '</div>' +
