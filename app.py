@@ -124,8 +124,9 @@ def load_places(path: Path) -> list[Place]:
                     raise RuntimeError(f"Restaurant-hour source identity mismatch: {entry['id']}")
                 hours = entry["hours"]
                 if (set(hours) != {str(day) for day in range(7)} or
-                        not all(isinstance(windows, list) and len(windows) == 1
-                                and len(windows[0]) == 2 for windows in hours.values())):
+                        not all(isinstance(windows, list) and (
+                            len(windows) == 0 or (len(windows) == 1 and len(windows[0]) == 2)
+                        ) for windows in hours.values())):
                     raise RuntimeError(f"Invalid weekly restaurant-hour coverage: {entry['id']}")
                 if not str(entry["source_url"]).startswith("https://"):
                     raise RuntimeError(f"Restaurant-hour source must be HTTPS: {entry['id']}")
