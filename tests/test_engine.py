@@ -321,6 +321,70 @@ class ConstraintTests(unittest.TestCase):
         self.assertEqual(second["round"], 2)
         self.assertIn("Quiet Table (demo)", {card["name"] for card in second["cards"]})
 
+    def test_rescue_search_does_not_prefilter_named_dish_when_quote_exceeds_budget(self):
+        base = load_fixture_engine().places[0]
+        only_dish = replace(
+            base, id="dish-price-only", name="Dish Price Only",
+            price=replace(
+                base.price, minimum=49, maximum=49, unit="PLN",
+                status="confirmed", basis="per_person_dish_only"
+            ),
+            hours_status="confirmed",
+            hours={str(day): (("10:00", "23:30"),) for day in range(7)}
+        )
+        real_meal_above_budget = replace(
+            only_dish, id="confirmed-meal-over-budget", name="Meal Above Budget",
+            price=replace(only_dish.price, basis="per_person")
+        )
+        sample = brief(
+            failed_place="", budget_total=80, people=2, taste_refs=[],
+            origin_lat=only_dish.lat, origin_lon=only_dish.lon,
+            max_one_way_minutes=120, return_by="23:30",
+            min_stay_minutes=45
+        )
+        engine = UnstuckEngine([only_dish, real_meal_above_budget], NoTasteProvider())
+        result = engine.search(SearchState(sample))
+        self.assertTrue(result["cards"], result.get("explanation"))
+        names = {card["name"] for card in result["cards"]}
+        self.assertIn("Dish Price Only", names)
+        self.assertNotIn("Meal Above Budget", names)
+        card = next(card for card in result["cards"] if card["name"] == "Dish Price Only")
+        self.assertEqual(card["feasibility_status"], "requires_checking")
+        self.assertIsNone(card["estimated_total_min"] if "estimated_total_min" in card else card["cost"]["min"])
+        self.assertTrue(any(
+            "not a verified minimum" in str(msg) for msg in card["needs_checking"]
+        ))
+
+    def test_live_shortlist_keeps_named_dish_as_budget_unknown(self):
+        base = load_fixture_engine().places[0]
+        only_dish = replace(
+            base, id="dish-only-live", name="Dish Only Live",
+            price=replace(base.price, minimum=49, maximum=49, unit="PLN",
+                          status="confirmed", basis="per_person_dish_only"),
+            hours_status="confirmed",
+            hours={str(day): (("10:00", "23:30"),) for day in range(7)}
+        )
+        class RecordingProvider:
+            mode = "live"
+            def __init__(self):
+                self.received = []
+            def rank_with_context(self, places, refs, *, failed_place):
+                self.received.append([place.id for place in places])
+                return TasteResults(
+                    [TasteResult(place.id, None, None, (), "qloo") for place in places],
+                    trace={"status": "no_coverage", "insights_called": False},
+                )
+        recorder = RecordingProvider()
+        engine = UnstuckEngine([only_dish], recorder)
+        result = engine.search(SearchState(brief(
+            failed_place="", budget_total=80, people=2, taste_refs=[],
+            origin_lat=only_dish.lat, origin_lon=only_dish.lon,
+            max_one_way_minutes=120, min_stay_minutes=45, return_by="23:30",
+        )))
+        self.assertEqual(recorder.received, [["dish-only-live"]])
+        self.assertTrue(result["cards"])
+        self.assertEqual(result["cards"][0]["feasibility_status"], "requires_checking")
+
     def test_named_menu_dish_never_confirms_whole_meal_budget(self):
         base = load_fixture_engine().places[0]
         dish = replace(base, price=replace(
