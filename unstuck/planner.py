@@ -636,30 +636,64 @@ class DayPlanner:
         brief: PlannerBrief,
         preferred_ids: tuple[str, ...] = (),
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """Honor chosen/locked stops without expanding enumeration or Qloo quota.
+        """Build the shared Qloo/scheduling shortlist from operational evidence.
 
-        The restaurant shortlist is shared by Qloo and scheduling. Required
-        stops come first, followed by preserved stops from a repair, then the
-        original stable city ordering. No venue is duplicated or invented.
+        Required stops always come first, followed by preserved stops from a
+        repair. Ordinary restaurants are then ordered without any Qloo signal:
+        source-confirmed hours first and shorter estimated travel from the
+        chosen origin next. This keeps the ten-option live-Qloo boundary from
+        being spent on arbitrary catalog order while preserving one identical
+        pool for taste ranking and schedule enumeration.
         """
         required = set(brief.must_include_ids) | set(brief.locked_ids)
         preferred = set(preferred_ids)
 
-        def keep(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
-            indexed = sorted(enumerate(rows), key=lambda pair: (
-                0 if pair[1]["id"] in required else
-                1 if pair[1]["id"] in preferred else 2,
-                pair[0],
-            ))
+        def pin_priority(row: dict[str, Any]) -> int:
+            if row["id"] in required:
+                return 0
+            if row["id"] in preferred:
+                return 1
+            return 2
+
+        def keep_stable(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+            indexed = sorted(
+                enumerate(rows),
+                key=lambda pair: (pin_priority(pair[1]), pair[0]),
+            )
             return [row for _index, row in indexed[:limit]]
 
-        nonrestaurants = keep(
+        def restaurant_priority(pair: tuple[int, dict[str, Any]]) -> tuple[Any, ...]:
+            index, row = pair
+            # Confirmed opening hours are operational evidence, not a taste
+            # proxy. Estimated/unknown schedules remain usable but should not
+            # displace equally eligible, source-checked choices merely because
+            # they happened to appear earlier in the catalog.
+            hours_status = str(row.get("hours_status") or "unknown")
+            hours_penalty = (
+                0 if hours_status in {"confirmed", "fixture"}
+                else 1 if hours_status == "estimated"
+                else 2
+            )
+            venue = row.get("venue") or {}
+            if venue.get("lat") is None or venue.get("lon") is None:
+                travel = 10**9
+            else:
+                travel = _minutes_between(
+                    (brief.origin_lat, brief.origin_lon),
+                    (float(venue["lat"]), float(venue["lon"])),
+                    brief.travel_mode,
+                )
+            return (pin_priority(row), hours_penalty, travel, index)
+
+        nonrestaurants = keep_stable(
             [row for row in eligible if row["kind"] != "restaurant"], 18
         )
-        restaurants = keep(
-            [row for row in eligible if row["kind"] == "restaurant"],
-            PLANNER_RESTAURANT_SHORTLIST,
-        )
+        restaurant_rows = [row for row in eligible if row["kind"] == "restaurant"]
+        restaurants = [
+            row for _index, row in sorted(
+                enumerate(restaurant_rows), key=restaurant_priority
+            )[:PLANNER_RESTAURANT_SHORTLIST]
+        ]
         return nonrestaurants, restaurants
 
     def _variants(

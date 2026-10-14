@@ -249,6 +249,68 @@ class DayPlannerTests(unittest.TestCase):
         self.assertEqual(ids[1], b)
         self.assertEqual(len(ids), 10)
 
+    def test_unpinned_restaurant_shortlist_prefers_verified_hours_then_proximity(self):
+        rows = [
+            {
+                "id": f"restaurant:synthetic:{index}",
+                "kind": "restaurant",
+                "hours_status": status,
+                "venue": {"lat": lat, "lon": lon},
+            }
+            for index, (status, lat, lon) in enumerate([
+                ("unknown", 52.2300, 21.0100),
+                ("confirmed", 52.3100, 21.0800),
+                ("confirmed", 52.2310, 21.0110),
+                ("estimated", 52.2305, 21.0105),
+            ])
+        ]
+        selected = brief(
+            activity_count=1,
+            origin_lat=52.2300,
+            origin_lon=21.0100,
+            return_lat=52.2300,
+            return_lon=21.0100,
+        )
+        _other, shortlist = self.planner._shortlisted_candidates(rows, selected)
+        ids = [row["id"] for row in shortlist]
+        # Both confirmed-hour rows beat a closer unknown/estimated row; among
+        # equally confirmed rows the nearer venue wins.
+        self.assertEqual(ids[:2], [
+            "restaurant:synthetic:2",
+            "restaurant:synthetic:1",
+        ])
+        self.assertEqual(ids[2:], [
+            "restaurant:synthetic:3",
+            "restaurant:synthetic:0",
+        ])
+
+    def test_pins_still_override_operational_shortlist_order(self):
+        rows = [
+            {
+                "id": "restaurant:verified-near",
+                "kind": "restaurant",
+                "hours_status": "confirmed",
+                "venue": {"lat": 52.2300, "lon": 21.0100},
+            },
+            {
+                "id": "restaurant:pinned-unknown-far",
+                "kind": "restaurant",
+                "hours_status": "unknown",
+                "venue": {"lat": 52.3500, "lon": 21.2000},
+            },
+        ]
+        selected = brief(
+            activity_count=1,
+            origin_lat=52.2300,
+            origin_lon=21.0100,
+            return_lat=52.2300,
+            return_lon=21.0100,
+            must_include_ids=["restaurant:pinned-unknown-far"],
+            locked_ids=["restaurant:pinned-unknown-far"],
+        )
+        _other, shortlist = self.planner._shortlisted_candidates(rows, selected)
+        self.assertEqual(shortlist[0]["id"], "restaurant:pinned-unknown-far")
+
     def test_tenth_restaurant_is_a_real_schedulable_choice_not_just_qloo_overhead(self):
         # Regression: Qloo ranked the first TEN eligible restaurants, but the
         # planner previously only scheduled the first EIGHT. Keep the same pool.
