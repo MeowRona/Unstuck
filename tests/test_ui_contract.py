@@ -44,6 +44,7 @@ class UiContractTests(unittest.TestCase):
     def test_evidence_and_about_expose_real_limits(self):
         self.assertIn("How this recommendation was made", self.html)
         self.assertIn("What did Qloo change?", self.js)
+        self.assertIn("row.name || row.place_id", self.js)
         self.assertIn("fixture preview and is not evidence of Qloo performance", self.js)
         self.assertIn("https://github.com/MeowRona/Unstuck", self.html)
         self.assertIn("scheduled Warsaw transit", self.html)

@@ -630,6 +630,58 @@ class QlooContractTests(unittest.TestCase):
         self.assertEqual([x[1] for x in provider.calls], [("A",), ("B",)])
         self.assertEqual([x[2] for x in provider.calls], [None, None])
 
+    def test_engine_enriches_good_for_both_positions_with_place_names(self):
+        class PairProvider:
+            mode = "live"
+            transport = None
+
+            def rank_pair_with_context(self, places, first_refs, second_refs, *, failed_place):
+                chosen = list(places[:2])
+                positions = [
+                    {"place_id": chosen[0].id, "person_a_rank": 1,
+                     "person_b_rank": 2, "compromise_rank": 1},
+                    {"place_id": chosen[1].id, "person_a_rank": 2,
+                     "person_b_rank": 1, "compromise_rank": 2},
+                ]
+                return TasteResults(
+                    [
+                        TasteResult(
+                            place.id, None,
+                            next((row["compromise_rank"] for row in positions
+                                  if row["place_id"] == place.id), None),
+                            (), "qloo",
+                        )
+                        for place in places
+                    ],
+                    trace={
+                        "status": "live",
+                        "pair_status": "verified",
+                        "pair_reason": "test",
+                        "profile_a_ranked_count": 2,
+                        "profile_b_ranked_count": 2,
+                        "candidate_entity_count": 2,
+                        "ranked_entity_count": 2,
+                        "insights_called": True,
+                        "pair_positions": positions,
+                    },
+                )
+
+        engine = load_fixture_engine()
+        engine.taste_provider = PairProvider()
+        result = engine.search(SearchState(brief(
+            taste_refs=["A"],
+            second_taste_refs=["B"],
+            budget_total=500,
+            max_one_way_minutes=60,
+        )))
+        positions = result["taste_audit"]["pair_positions"]
+        self.assertEqual(len(positions), 2)
+        by_id = {place.id: place.name for place in engine.places}
+        self.assertEqual(
+            [row["name"] for row in positions],
+            [by_id[row["place_id"]] for row in positions],
+        )
+
     def test_good_for_both_refuses_unverified_pair_and_skips_second_if_first_weak(self):
         class WeakProvider(RealQlooProvider):
             def __init__(self):
