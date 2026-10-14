@@ -509,7 +509,7 @@ class QlooContractTests(unittest.TestCase):
                 provider.suggest_taste_entities("Another", "artist")
             # A minute later the short window renews; later batches consume
             # the independent 72/h public-lookup ceiling.
-            for timepoint in range(5):
+            for _batch in range(4):
                 for _ in range(12):
                     provider.suggest_taste_entities("Different", "movie")
             with self.assertRaisesRegex(RuntimeError, "QLOO_PICKER_RATE_LIMITED"):
