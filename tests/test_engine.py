@@ -726,6 +726,35 @@ class QlooContractTests(unittest.TestCase):
         self.assertEqual(fake.calls[-1][1]["query"], "Radiohead")
         self.assertEqual(fake.calls[-1][1]["types"], "urn:entity:artist")
 
+    def test_place_resolution_sees_exact_sixth_result_without_extra_qloo_calls(self):
+        class PagedSearch:
+            def __init__(self):
+                self.calls = []
+            def get_json(self, path, params=None):
+                self.calls.append((path, dict(params or {})))
+                if params.get("types") == "urn:entity:place":
+                    rows = [
+                        {"entity_id": f"place:unrelated-{n}", "name": f"Similar {n}",
+                         "types": ["urn:entity:place"]}
+                        for n in range(5)
+                    ] + [
+                        {"entity_id": "place:target", "name": "Exact Warsaw Venue",
+                         "types": ["urn:entity:place"]}
+                    ]
+                else:
+                    rows = [{"entity_id": "artist:test", "name": "Radiohead",
+                             "types": ["urn:entity:artist"]}]
+                return {"results": rows[:params["take"]]}
+        fake = PagedSearch()
+        provider = RealQlooProvider(fake)
+        self.assertEqual(
+            provider.resolve_place("Exact Warsaw Venue")[0], "place:target"
+        )
+        self.assertEqual(provider.resolve_interest("artist: Radiohead")[0], "artist:test")
+        self.assertEqual(len(fake.calls), 2)
+        self.assertEqual(fake.calls[0][1]["take"], 10)
+        self.assertEqual(fake.calls[1][1]["take"], 5)
+
     def test_duplicate_search_rows_for_same_entity_are_not_ambiguous(self):
         class DuplicateTransport:
             def get_json(self, path, params=None):
