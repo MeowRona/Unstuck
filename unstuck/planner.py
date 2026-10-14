@@ -938,25 +938,24 @@ class DayPlanner:
                 continue
             row = step["activity"]
             price = _money(row.get("price"), brief.people)
-            if price["min"] is None or price["max"] is None:
+            if row["kind"] == "restaurant" and price["basis"] == "per_person_dish_only":
+                # Source-confirmed price for ONE optional dish: useful as a menu
+                # example, but not a lower bound on all restaurant bills.
+                # Never filter a whole plan out using this unchosen menu item.
+                unknown_cost += 1
+                quote = f"{price['min']:.0f} PLN for {brief.people} diner(s)" if price["min"] is not None else "price unknown"
+                checks.append(
+                    f"Example dish quote at {row['title']}: {quote}. {price['note']} "
+                    "The meal selection is not specified; cheaper or more expensive "
+                    "choices may exist, so total meal cost cannot be guaranteed."
+                )
+            elif price["min"] is None or price["max"] is None:
                 unknown_cost += 1
                 checks.append(f"Price for {row['title']} is unknown.")
             else:
                 has_known_cost = True
                 known_min += price["min"]
                 known_max += price["max"]
-                if row["kind"] == "restaurant" and price.get("note"):
-                    # An independently verified MENU ITEM is not a verified
-                    # whole-meal bill. Price can be used as a documented
-                    # minimum for the named item, never as a guaranteed total.
-                    # Mark the additional spend unknown so a user budget is
-                    # always explicitly provisional in this case.
-                    unknown_cost += 1
-                    checks.append(
-                        f"Price at {row['title']} is for a named dish only: {price['note']} "
-                        "Other menu selections, drinks and extras are unverified; "
-                        "total meal cost cannot be guaranteed."
-                    )
             if row.get("availability") == "unknown" and row["kind"] == "event":
                 checks.append(f"Ticket availability for {row['title']} is not confirmed.")
             if row.get("end_status") == "unknown" and row["kind"] == "event":
