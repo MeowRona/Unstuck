@@ -60,7 +60,7 @@ Last updated: 2026-10-14
 4. Recruit 6–10 voluntary testers and run the existing blinded Qloo-vs-operational preference study; results do not exist yet.
 5. Refresh/extend the selected event snapshot near judging if broader future-date coverage is needed; never imply complete Warsaw coverage.
 6. Confirm stable Render deployment and sufficient Qloo request budget for real jurors before final release.
-7. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
+7. Official Qloo/Devpost rules were re-checked on 2026-10-14: submission deadline is **30 October 2026, 23:45 EDT**; a functional external demo, public source repository, English text description and visible open-source license are required; a demo video is **not required**. Re-check once more immediately before the actual submission in case the published rules change.
 
 Live Rescue and limited Plan a Day Qloo have been verified. The two-stage simulated dinner failure and bounded route repair are implemented, but real venue availability, partial 5/10 Qloo coverage in the latest bounded planner sample, and the missing human preference results remain limitations. **No claim of fully validated competition readiness is made.**
 
