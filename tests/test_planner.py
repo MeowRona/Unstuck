@@ -58,6 +58,33 @@ class PlannerCatalogTests(unittest.TestCase):
         self.assertTrue(unknown, "additional restaurants must retain unverified metadata")
         self.assertTrue(any(r["hours_status"] in {"confirmed", "fixture"} for r in rows))
 
+    def test_documented_restaurant_dish_is_not_a_guaranteed_whole_meal_budget(self):
+        item_id = "restaurant:warsaw:osm:node:6848092585"
+        row = next(x for x in self.catalog.restaurant_rows if x["id"] == item_id)
+        self.assertEqual(row["price"]["min"], 49)
+        self.assertEqual(row["price"]["status"], "confirmed")
+        self.assertIn("Bigoli carbonara", row["price"]["note"])
+
+        result = DayPlanner(self.catalog).generate(
+            brief(
+                activity_count=1, include_meal=True, taste_refs=[],
+                must_include_ids=[item_id],
+                date="2026-10-17", start_time="12:00", end_time="19:00",
+                origin_lat=52.2250, origin_lon=21.0130,
+                return_lat=52.2250, return_lon=21.0130,
+                people=2, budget_total=150,
+            )
+        )
+        self.assertTrue(result["plans"], result.get("explanation"))
+        plan = result["plans"][0]
+        self.assertEqual(plan["known_cost_min"], 98.0)
+        self.assertGreaterEqual(plan["unknown_cost_components"], 1)
+        self.assertEqual(plan["feasibility"], "requires_checking")
+        self.assertTrue(any("total meal cost cannot be guaranteed" in x
+                            for x in plan["checks"]))
+        self.assertTrue(any("total budget cannot be guaranteed" in x
+                            for x in plan["checks"]))
+
     def test_verified_snapshot_has_resolvable_core_venues(self):
         for venue_id in ("venue:polin", "venue:kopernik", "venue:msn", "venue:muzeum-warszawy"):
             venue = self.catalog.venues[venue_id]

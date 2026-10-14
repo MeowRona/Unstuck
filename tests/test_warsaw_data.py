@@ -85,7 +85,7 @@ class WarsawPilotDataTests(unittest.TestCase):
         by_id = {place.id: place for place in engine.places}
         official = json.loads((ROOT / "data" / "restaurant_official_hours_20261014.json").read_text(encoding="utf-8"))
         self.assertEqual(official["checked_at"], "2026-10-14")
-        self.assertGreaterEqual(len(official["entries"]), 8)
+        self.assertGreaterEqual(len(official["entries"]), 12)
         for entry in official["entries"]:
             place = by_id[entry["id"]]
             self.assertEqual(place.name, entry["expected_name"])
@@ -94,9 +94,19 @@ class WarsawPilotDataTests(unittest.TestCase):
             self.assertEqual(place.hours_source_url, entry["source_url"])
             self.assertEqual(place.hours_checked_at, "2026-10-14")
             self.assertEqual(set(place.hours), {str(day) for day in range(7)})
-            self.assertEqual(place.price.status, "unknown")
-            self.assertIsNone(place.price.minimum)
-            self.assertIsNone(place.price.maximum)
+            if entry.get("price"):
+                self.assertEqual(place.price.status, "confirmed")
+                self.assertEqual(place.price.minimum, 49.0)
+                self.assertEqual(place.price.maximum, 49.0)
+                self.assertEqual(place.price.basis, "per_person")
+                self.assertIn("Bigoli carbonara", place.source_note)
+                self.assertIn("not an all-inclusive meal", place.source_note)
+                self.assertEqual(place.price.source_url, entry["price"]["source_url"])
+                self.assertEqual(place.price.checked_at, "2026-10-14")
+            else:
+                self.assertEqual(place.price.status, "unknown")
+                self.assertIsNone(place.price.minimum)
+                self.assertIsNone(place.price.maximum)
             self.assertIn("Holiday exceptions", place.source_note)
 
         # This restaurant's Monday opening was updated from 12:00 in OSM to
@@ -104,6 +114,10 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(by_id["warsaw:osm:node:2859884304"].hours["0"], (("13:00", "23:00"),))
         self.assertEqual(by_id["warsaw:osm:node:4730432126"].hours["6"], ())
         self.assertEqual(by_id["warsaw:osm:node:314590527"].hours["0"], (("09:00", "00:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:6848092585"].price.minimum, 49)
+        self.assertEqual(by_id["warsaw:osm:node:8663446811"].price.minimum, 49)
+        self.assertEqual(by_id["warsaw:osm:way:400071446"].hours["0"], (("12:00", "23:30"),))
+        self.assertEqual(by_id["warsaw:osm:node:338486362"].hours["6"], (("09:00", "00:00"),))
         from unstuck.planner import DayPlanner
         overnight = DayPlanner._windows(
             {"kind": "restaurant", "hours": {"0": [["09:00", "00:00"]]},

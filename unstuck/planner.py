@@ -319,7 +319,8 @@ class PlannerCatalog:
                         "min": place.price.minimum,
                         "max": place.price.maximum,
                         "basis": place.price.basis or "per_person",
-                        "note": "",
+                        "note": (place.source_note.split("Listed dish:", 1)[1].strip()
+                                 if "Listed dish:" in place.source_note else ""),
                     },
                     "availability": "unknown",
                     "source": {
@@ -906,6 +907,18 @@ class DayPlanner:
                 has_known_cost = True
                 known_min += price["min"]
                 known_max += price["max"]
+                if row["kind"] == "restaurant" and price.get("note"):
+                    # An independently verified MENU ITEM is not a verified
+                    # whole-meal bill. Price can be used as a documented
+                    # minimum for the named item, never as a guaranteed total.
+                    # Mark the additional spend unknown so a user budget is
+                    # always explicitly provisional in this case.
+                    unknown_cost += 1
+                    checks.append(
+                        f"Price at {row['title']} is for a named dish only: {price['note']} "
+                        "Other menu selections, drinks and extras are unverified; "
+                        "total meal cost cannot be guaranteed."
+                    )
             if row.get("availability") == "unknown" and row["kind"] == "event":
                 checks.append(f"Ticket availability for {row['title']} is not confirmed.")
             if row.get("end_status") == "unknown" and row["kind"] == "event":

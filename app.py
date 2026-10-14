@@ -141,6 +141,35 @@ def load_places(path: Path) -> list[Place]:
                         "meal prices remain unverified unless another field has its own source."
                     ),
                 )
+                price = entry.get("price")
+                if price is not None:
+                    original_price = row.get("price") or {}
+                    low, high = price.get("min"), price.get("max")
+                    if (original_price.get("status") != "unknown" or
+                            price.get("status") != "confirmed" or
+                            price.get("currency") != "PLN" or
+                            not isinstance(low, (int, float)) or
+                            not isinstance(high, (int, float)) or
+                            not 0 < low <= high <= 10000 or
+                            price.get("basis") != "per_person" or
+                            not isinstance(price.get("item_note"), str) or
+                            len(price["item_note"]) < 30 or
+                            not str(price.get("source_url", "")).startswith("https://")):
+                        raise RuntimeError(f"Invalid curated dish price evidence: {entry['id']}")
+                    row["price"] = {
+                        "min": low,
+                        "max": high,
+                        "currency": "PLN",
+                        "status": "confirmed",
+                        "source_url": price["source_url"],
+                        "checked_at": overlay["checked_at"],
+                        "basis": price["basis"],
+                    }
+                    row["source_note"] += (
+                        " Listed dish: " + price["item_note"] +
+                        " This establishes a per-person price for the named dish only,"
+                        " not an all-inclusive meal or a price for all menu choices."
+                    )
     return [Place.from_dict(row) for row in rows]
 
 

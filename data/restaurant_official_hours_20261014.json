@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "checked_at": "2026-10-14",
-  "scope": "Verified regular weekly opening times only; prices, special dates, ticket inventory and reservations are NOT verified. Source: venue's own publicly accessible page.",
+  "scope": "Verified regular weekly hours for recorded branches and a narrowly specified ORZO dish price from the restaurant's own live HTML menu. No general dining cost estimate, reservations, holiday exceptions or table availability is implied.",
   "entries": [
     {
       "id": "warsaw:osm:node:314590527",
@@ -396,6 +396,224 @@
           ]
         ],
         "6": []
+      }
+    },
+    {
+      "id": "warsaw:osm:node:6848092585",
+      "expected_name": "ORZO",
+      "expected_address": "Plac Konstytucji 5, Warsaw",
+      "source_url": "https://orzo.pl/pages/restauracje",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "00:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "00:00"
+          ]
+        ],
+        "5": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "6": [
+          [
+            "10:00",
+            "22:00"
+          ]
+        ]
+      },
+      "price": {
+        "min": 49,
+        "max": 49,
+        "currency": "PLN",
+        "status": "confirmed",
+        "source_url": "https://orzo.pl/pages/miasto/makarony-warszawa",
+        "basis": "per_person",
+        "item_note": "One Bigoli carbonara pasta from the published Warsaw-wide ORZO menu; other mains, drinks, tips and extra items are excluded."
+      }
+    },
+    {
+      "id": "warsaw:osm:node:8663446811",
+      "expected_name": "Orzo",
+      "expected_address": "Plac Konesera 5, Warsaw",
+      "source_url": "https://orzo.pl/pages/restauracje",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "00:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "00:00"
+          ]
+        ],
+        "5": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "6": [
+          [
+            "10:00",
+            "22:00"
+          ]
+        ]
+      },
+      "price": {
+        "min": 49,
+        "max": 49,
+        "currency": "PLN",
+        "status": "confirmed",
+        "source_url": "https://orzo.pl/pages/miasto/makarony-warszawa",
+        "basis": "per_person",
+        "item_note": "One Bigoli carbonara pasta from the published Warsaw-wide ORZO menu; other mains, drinks, tips and extra items are excluded."
+      }
+    },
+    {
+      "id": "warsaw:osm:way:400071446",
+      "expected_name": "Stary Dom",
+      "expected_address": "Puławska 104/106, Warsaw",
+      "source_url": "https://restauracjastarydom.pl/zamow-online/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "23:30"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:338486362",
+      "expected_name": "Hard Rock Cafe",
+      "expected_address": "Złota 59, Warsaw",
+      "source_url": "https://cafe.hardrock.com/warsaw/pl/",
+      "hours": {
+        "0": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "1": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "2": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "3": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "4": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "5": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "6": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ]
       }
     }
   ]
