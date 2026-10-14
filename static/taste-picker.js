@@ -37,6 +37,7 @@
     wrapper.append(controls, matches, selected, note);
     input.closest('label')?.after(wrapper);
 
+    let requestSerial = 0;
     const refs = () => input.value.split(',').map(x => x.trim()).filter(Boolean);
     function selectedItems() {
       return refs().filter(x => x.startsWith('qloo-id:')).map(x => {
@@ -63,7 +64,11 @@
         selected.append(chip);
       }
     }
-    input.addEventListener('input', renderSelected);
+    input.addEventListener('input', () => {
+      ++requestSerial; // A response for older text must never offer stale matches.
+      matches.replaceChildren();
+      renderSelected();
+    });
     input.addEventListener('focus', renderSelected);
     renderSelected();
 
@@ -81,6 +86,7 @@
         matches.textContent = 'Enter one name (2–70 characters) as the last taste reference before searching.';
         return;
       }
+      const thisRequest = ++requestSerial;
       find.disabled = true;
       find.textContent = 'Searching Qloo…';
       matches.textContent = 'Looking for exact cultural entities…';
@@ -90,6 +96,7 @@
           body:JSON.stringify({query, kind}),
         });
         const payload = await response.json();
+        if (thisRequest !== requestSerial) return;
         if (!response.ok) throw new Error(payload.error || 'Qloo lookup failed');
         if (!payload.available) {
           matches.textContent = payload.reason || 'Live Qloo entity search is not available in this mode.';
@@ -122,7 +129,9 @@
           matches.append(button);
         }
       } catch (err) {
-        matches.textContent = 'Qloo lookup unavailable: ' + err.message + '. You can still type a name manually.';
+        if (thisRequest === requestSerial) {
+          matches.textContent = 'Qloo lookup unavailable: ' + err.message + '. You can still type a name manually.';
+        }
       } finally {
         find.disabled = false;
         find.textContent = 'Find exact Qloo entity';
