@@ -184,6 +184,26 @@ def load_places(path: Path) -> list[Place]:
                         " not an all-inclusive meal or a price for all menu choices."
                     )
     if path.name == "places_warsaw.json":
+        qloo_ids_path = DATA / "qloo_verified_place_ids_20261014.json"
+        if qloo_ids_path.is_file():
+            qloo_ids = json.loads(qloo_ids_path.read_text(encoding="utf-8"))
+            if qloo_ids.get("schema_version") != 1 or qloo_ids.get("checked_at") != "2026-10-14":
+                raise RuntimeError("Unsupported Qloo place-ID evidence snapshot")
+            by_id = {row["id"]: row for row in rows}
+            seen_qloo_ids = set()
+            for entry in qloo_ids.get("entries", []):
+                row = by_id.get(entry.get("id"))
+                entity_id = str(entry.get("qloo_entity_id") or "")
+                if (row is None or row.get("name") != entry.get("expected_name")
+                        or row.get("address") != entry.get("expected_address")
+                        or row.get("category") != "restaurant"
+                        or len(entity_id) != 36
+                        or entity_id.count("-") != 4
+                        or entity_id in seen_qloo_ids):
+                    raise RuntimeError(f"Qloo place-ID evidence identity mismatch: {entry.get('id')}")
+                seen_qloo_ids.add(entity_id)
+                row["qloo_entity_id"] = entity_id
+    if path.name == "places_warsaw.json":
         closures_path = DATA / "restaurant_closures_20261014.json"
         if closures_path.is_file():
             closures = json.loads(closures_path.read_text(encoding="utf-8"))
