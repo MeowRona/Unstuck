@@ -97,7 +97,7 @@ A whole plan or one activity can be downloaded as `.ics`. Events use stable UIDs
 
 ### Planner data scope
 
-The bundled planner snapshot is checked **2026-10-06** and deliberately small: selected Warsaw Tourism Office event listings plus official institution schedules for selected museums/attractions, combined with the existing restaurant catalog.
+The bundled attraction/planner baseline was checked **2026-10-06**, with selected future Warsaw events manually refreshed **2026-10-14** (not an always-live feed). The restaurant overlay adds **21 operator-confirmed weekly-hour schedules**, two conservatively provisional schedules where operator pages conflict, and **four narrowly verified dish prices** (ORZO x2, Stary Dom, Akademia). Dish quotes are per-person *lower bounds*, never full dinner totals. Unknown ticket availability, extras and unpublished holiday hours remain unknown.
 
 It is **not** marketed as every Warsaw event. Source/coverage semantics and refresh rules are documented in [PLANNER_DATA.md](PLANNER_DATA.md).
 
@@ -275,7 +275,7 @@ Stable public demo: **https://unstuck-city-compass.onrender.com**. It runs on Re
 - Some restaurant/cafe prices or hours are deliberately unknown when a strong current source was not confirmed.
 - No user accounts, payments or social features. Planner saves are local to one browser profile.
 - Event coverage is a selected verified snapshot, not a complete live Warsaw events feed; the UI exposes the loaded date range.
-- Live Qloo quality is not considered validated until `live_smoke.py` passes against the real API and human comparison is run.
+- Live Qloo *integration* has passed production smoke in Rescue and in restaurant-only Plan a Day, including an observed changed top plan on a fixed feasible candidate pool. This is a technical ranking-impact result; **better human preference is NOT validated** until the voluntary blinded study is actually run.
 
 ## Hackathon
 

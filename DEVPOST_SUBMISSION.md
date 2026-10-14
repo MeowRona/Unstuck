@@ -1,6 +1,6 @@
 ﻿# Devpost submission draft — Unstuck
 
-> Status: stable public deployment is live; **do not final-submit until the live Qloo smoke test and final live-mode validation pass**.
+> Status (2026-10-14): stable public deployment uses live Qloo; production smoke verifies Rescue and limited restaurant-only Plan a Day, but **do not final-submit until final clean-browser/mobile checks, accurate coverage disclosure, latest deadline/rules verification and submission preflight are complete**. No human preference improvement has been shown.
 
 ## Project name
 
@@ -154,11 +154,11 @@ The current submission does not claim global operational coverage or proven sati
 
 Before final submission:
 
-1. set the official hackathon `QLOO_API_KEY` and run the live smoke test;
+1. verify the already configured Render-secret `QLOO_API_KEY` still works, run the live smoke test against the final public SHA and never print or commit the key;
 2. verify live Qloo entity resolution for the Warsaw candidate catalog;
 3. verify the exact live explainability structure;
 4. compare live Qloo against the no-taste baseline using identical briefs and candidate pools;
-5. deploy the live backend publicly with the API key stored server-side;
+5. recheck the already live public Render deployment at the exact final commit; API key remains server-side and Google Places remains disabled unless intentionally enabled and tested;
 6. test the public URL from a clean browser session;
 7. capture final live screenshots;
 8. re-run the complete submission preflight before Devpost submission.

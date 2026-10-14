@@ -2,14 +2,14 @@
 
 Canonical repository: https://github.com/MeowRona/Unstuck
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
 
 ## Working now
 
 - Python standard-library web app; no runtime package installation required.
 - Two product modes now share City Compass: **Rescue a plan** and **Plan a day**.
 - Plan a day adds a month calendar, Today/Tomorrow/This weekend shortcuts, per-date Explore, up to three day variants, 1–4 stop control, fixed-event arrival buffer, numbered map stops, point-to-point travel timeline, local saved plans, Repair this day and plan/activity `.ics` export.
-- Planner data is a deliberately limited verified Warsaw snapshot checked 2026-10-06: selected Warsaw Tourism Office event occurrences plus official schedules for POLIN, Copernicus Science Centre, Museum of Modern Art and Museum of Warsaw, combined with the existing restaurant catalog. Coverage is disclosed and is not described as all Warsaw events.
+- The Warsaw attraction/event snapshot was initially checked 2026-10-06; selected future event occurrences were manually refreshed 2026-10-14 through early November. This is NOT a live event feed, and unknown tickets/end times stay unknown. The restaurant overlay has 21 operator-confirmed weekly-hour schedules and 2 provisional schedules with conflicting official evidence. Four restaurant branches include source-specific named-dish quotes, never whole-meal guarantees.
 - Planner venue / attraction / event-occurrence objects are distinct. Separate days in a series remain separate occurrences; events with no captured session time remain discoverable but unschedulable; unknown prices/availability/event ends are not filled in.
 - Planner feasibility checks opening windows, last entry, explicit 0/10/15/30-minute fixed-event buffer, sequential travel, fixed event times, budget uncertainty and optional return. The selected plan is then route-checked segment-by-segment at the actual previous-stop departure time.
 - Saved planner state uses versioned browser localStorage (`unstuck-planner-saved-v1`) with no account sync. The last selected planner date also survives refresh. Copying settings to another date drops fixed event occurrences and re-runs feasibility.
@@ -32,9 +32,9 @@ Last updated: 2026-10-13
 - Unknown or estimated material facts cannot become a confirmed result. Cards distinguish confirmed kept conditions, explicit compromises, and conditions that still need verification.
 - Warsaw catalog: 1,993 places total, including 1,982 restaurants. The recorded 2026-10-04 OSM snapshot returned 1,979 restaurant features; 1,977 are imported records and 2 duplicates are replaced by stronger curated records. Five restaurant records remain curated; uncurated price/hour facts stay provisional when unknown.
 - Local start-location search includes 158 saved points, 6,049 Warsaw street names and 125,217 exact OpenStreetMap addresses; exact coordinates can come from the local address index, a rate-limited Nominatim fallback, or browser Current Location inside pilot bounds.
-- Deterministic taste fixtures that are clearly identified as a preview with Qloo pending; the jury-facing evidence panel never presents them as a live Qloo result.
-- Feasibility-only baseline provider for later Qloo comparison.
-- Live Qloo adapter using `/search` plus same-pool `/v2/insights` place ranking, with an evidence contract for recognized signals, optional unavailable-venue taste anchor, no-taste baseline order, and actual live ordering impact once a key is connected.
+- Deterministic taste fixtures remain only for offline tests and clearly labeled preview mode. **Hosted production uses live Qloo**, and the jury-facing evidence panel records the actual per-request ranking coverage or explicit missing-coverage status.
+- Feasibility-only baseline provider, actual same-generated-plan-pool Qloo-vs-operational comparisons, and a blinded test instrument. A measured ranking difference is NOT evidence of user preference.
+- Live Qloo adapter using `/search` plus same-pool `/v2/insights` place ranking, optional explicit movie/artist/book/show entity picker, evidence on recognized signals, and actual live-vs-operational ranking impact. A production run confirmed a changed top plan; observed ranking coverage was 2 out of 10 restaurants for one smoke scenario.
 - Qloo timeout/retry/429 handling, network-call budget, short-lived RAM-only cache, response size limit, and no secret logging.
 - Local HTTP end-to-end flow tested through search, round-trip route check, reject reason, undo, and update. The fixed **Try a rescue · 60 sec** scenario is also covered by engine, API and cloud browser smoke tests.
 
@@ -43,26 +43,26 @@ Last updated: 2026-10-13
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Python compile | PASS | `python -m compileall -q .` |
-| Logic/unit suite | PASS | 74/74 tests in GitHub Actions: `python -m unittest discover -s tests -q` |
+| Logic/unit suite | PASS | Current unit suite plus desktop and mobile browser checks run through [GitHub Actions](https://github.com/MeowRona/Unstuck/actions?query=branch%3Amain); do not freeze the outdated 74-test count |
 | HTTP end-to-end | PASS | rescue `search -> route-check -> reject(reason) -> undo -> update` plus planner `catalog -> generate -> route-check -> repair -> ICS` coverage |
 | Browser UI load | PASS | GitHub Actions headless Chrome verifies Rescue plus Plan a day demo, local save/refresh/load, repair with locked event preserved, and both rescue/planner mobile navigation at 390x844 |
-| Live Qloo | PASS on 2026-10-13 | Production smoke confirmed Rescue live Qloo ranking: https://github.com/MeowRona/Unstuck/actions/runs/38462819881 |
-| Human blind comparison | NOT RUN | protocol documented in README; no fabricated result |
-| Public deployment | PENDING THIS DEPLOY | Existing Render service is live at https://unstuck-city-compass.onrender.com; this branch will be merged only after CI passes, then the workflow waits for the exact commit and runs `tools/production_smoke.py` against the public service |
+| Live Qloo | PASS in Rescue + limited Plan a Day | Production smoke confirmed two ranked planner restaurants and an actual top-plan change on the same generated feasible pool; [evidence run](https://github.com/MeowRona/Unstuck/actions/runs/38479221621) |
+| Human blind comparison | NOT RUN | Anonymous blind-comparison instrument and protocol exist; **no volunteer responses collected** and no improvement claim |
+| Public deployment | PASS for previously merged commits | [Render public app](https://unstuck-city-compass.onrender.com/) is independent of the development PC. Each new main commit waits for an exact-sha Render deployment and runs `tools/production_smoke.py`; check the [most recent main run](https://github.com/MeowRona/Unstuck/actions?query=branch%3Amain) before claiming new code has been deployed |
 | Public open-source repository | PASS | https://github.com/MeowRona/Unstuck |
 | Devpost submission | NOT DONE | submission is a later action after live validation/deployment |
 
 ## Current blockers to claiming hackathon readiness
 
-1. Verify the new Astra-audit branch's full browser and production smoke after merge; live Qloo was connected on 2026-10-13.
-2. Inspect raw live Qloo results for entity resolution and same-pool ranking; fix any contract mismatch instead of adapting fixtures to hide it.
-3. Qloo planner ranking is intentionally limited to restaurants; only expand into music/attraction domains after validating a domain-specific API workflow.
-4. Run the documented live-Qloo vs no-taste comparison with real testers; record real results only.
+1. Reconfirm every final production deploy and run mobile/desktop browser smoke near submission. Live Qloo was connected on 2026-10-13.
+2. Improve Qloo venue coverage beyond the measured 2/10 ranked local restaurants without sacrificing the 18-attempt job budget or mismatching similarly named branches. A geo-scoped experiment was rolled back after it exhausted quota.
+3. The Qloo planner still ranks **restaurant choices only**. Music/attraction interests are matched with explicit tags/constraints; do not claim Qloo scored concerts or museums.
+4. Recruit 6–10 voluntary testers and run the existing blinded Qloo-vs-operational preference study; results do not exist yet.
 5. Refresh/extend the selected event snapshot near judging if broader future-date coverage is needed; never imply complete Warsaw coverage.
 6. Confirm stable Render deployment and sufficient Qloo request budget for real jurors before final release.
 7. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
 
-Rescue live Qloo has been verified, but coverage, complete-plan repair, and human preference testing are **not yet** fully proven. No claim of competition-ready product is made.
+Live Rescue and limited Plan a Day Qloo have been verified. The two-stage simulated dinner failure and bounded route repair are implemented, but real venue availability, 2/10 Qloo coverage, and the missing human preference results remain limitations. **No claim of fully validated competition readiness is made.**
 
 ## Resume point
 
