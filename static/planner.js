@@ -424,17 +424,21 @@
   }
 
   async function buildDay(explicit) {
+    const serial = ++routeSerial; // Invalidate any previous route or generation response.
     const error = $('#plannerFormError');
     error.classList.add('hidden');
     try {
       const brief = explicit || await formBrief();
+      if (serial !== routeSerial) return;
       currentBrief = brief;
       const result = await post('/api/planner/generate', brief);
+      if (serial !== routeSerial) return;
       plans = result.plans || [];
       selectedPlan = 0;
       renderResult(result);
       if (plans.length) await checkRoutes();
     } catch (err) {
+      if (serial !== routeSerial) return;
       error.textContent = err.message;
       error.classList.remove('hidden');
     }
@@ -766,6 +770,8 @@
 
   async function repair(id) {
     const plan = plans[selectedPlan];
+    if (!plan || !currentBrief) return null;
+    const serial = ++routeSerial; // A new repair supersedes every previous route check.
     try {
       const result = await post('/api/planner/repair', {
         // Keep exclusions from all prior repairs; the UI's manual exclusions
@@ -777,6 +783,7 @@
         plan: plan,
         removed_id: id,
       });
+      if (serial !== routeSerial) return null;
       plans = result.plans || [];
       selectedPlan = 0;
       if (result.brief) {
@@ -794,7 +801,7 @@
       if (plans.length) await checkRoutes();
       return result;
     } catch (err) {
-      showNote(err.message);
+      if (serial === routeSerial) showNote(err.message);
       return null;
     }
   }
@@ -805,29 +812,73 @@
   }
 
   async function checkRoutes() {
-    const plan = plans[selectedPlan];
-    if (!plan || !currentBrief || plan.route_status === 'checked') return;
+    if (!currentBrief || !plans[selectedPlan]) return;
     const serial = ++routeSerial;
-    $('#plannerResultsMeta').textContent = 'Checking each travel leg at the correct departure time…';
-    try {
-      const result = await post('/api/planner/route-check', {brief:currentBrief, plan:plan});
+    const startIndex = selectedPlan;
+    const lastIndex = Math.min(plans.length, startIndex + 3); // Hard cap on route tool calls.
+    const failures = [];
+    let lastChecked = startIndex;
+
+    for (let index = startIndex; index < lastIndex; index++) {
       if (serial !== routeSerial) return;
-      plans[selectedPlan] = result.plan;
-      renderSelected();
-      renderEvidence();
-      $('#plannerResultsMeta').textContent = result.plan.feasibility === 'conflict'
-        ? 'Checked route found a conflict'
-        : 'Travel checked segment by segment · scheduled transit is not realtime';
-    } catch (err) {
-      if (serial !== routeSerial) return;
-      $('#plannerResultsMeta').textContent = 'Detailed routing unavailable · keeping estimates';
-      showNote(err.message);
+      const candidate = plans[index];
+      if (!candidate) break;
+      $('#plannerResultsMeta').textContent = 'Checking travel for option ' +
+        (index + 1) + ' of ' + plans.length + ' (at most 3 options)…';
+      try {
+        let checked = candidate;
+        if (candidate.route_status !== 'checked') {
+          const result = await post('/api/planner/route-check', {brief:currentBrief, plan:candidate});
+          if (serial !== routeSerial) return;
+          checked = result.plan;
+          plans[index] = checked;
+        }
+        lastChecked = index;
+        if (checked.route_status === 'checked' && checked.feasibility !== 'conflict') {
+          selectedPlan = index;
+          renderSelected();
+          renderEvidence();
+          $('#plannerResultsMeta').textContent = (index > startIndex
+            ? 'Previous route conflicted · automatically validated option ' + (index + 1) + '. '
+            : '') + 'Travel checked segment by segment · scheduled transit is not realtime';
+          if (index > startIndex) showNote(
+            'The previous ' + (index - startIndex) + ' option(s) conflicted with checked travel. ' +
+            'Unstuck selected the next route-checked plan without changing your locked events or limits.'
+          );
+          return;
+        }
+        failures.push('Option ' + (index + 1) + ': ' +
+          ((checked.route_conflicts || []).join('; ') || 'route conflicts with the selected plan.'));
+      } catch (err) {
+        if (serial !== routeSerial) return;
+        // A failed route provider cannot establish that an alternative is feasible.
+        // Do not claim success, silently skip constraints or loop indefinitely.
+        selectedPlan = index;
+        renderSelected();
+        renderEvidence();
+        $('#plannerResultsMeta').textContent = 'Detailed routing unavailable · keeping estimates';
+        showNote('Travel verification stopped: ' + err.message + '. No route was confirmed.');
+        return;
+      }
     }
+
+    if (serial !== routeSerial) return;
+    selectedPlan = lastChecked;
+    renderSelected();
+    renderEvidence();
+    $('#plannerResultsMeta').textContent = 'No route-verified option in ' +
+      (lastChecked - startIndex + 1) + ' checked alternative(s)';
+    showNote('Route verification could not find a feasible option within the 3-attempt limit. ' +
+      failures.join(' ') + ' Edit your constraints or select another variant; no successful route is claimed.');
   }
 
   function savePlan() {
     const plan = plans[selectedPlan];
     if (!plan || !currentBrief) return;
+    if (plan.feasibility === 'conflict') {
+      showNote('This plan has a checked route conflict and cannot be saved as a workable itinerary.');
+      return;
+    }
     const store = readStore();
     const id = plan.id + ':' + plan.date;
     const row = {
@@ -849,6 +900,10 @@
   async function downloadIcs(activityId) {
     const plan = plans[selectedPlan];
     if (!plan) return;
+    if (plan.feasibility === 'conflict') {
+      showNote('This plan has a checked route conflict; fix it before exporting an itinerary.');
+      return;
+    }
     const response = await fetch('/api/planner/ics', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
