@@ -597,3 +597,120 @@ class RealQlooProvider:
                 "discovery_used": False,
             },
         )
+
+    def rank_pair_with_context(
+        self, places: list[Place], first_refs: Iterable[str], second_refs: Iterable[str],
+        *, failed_place: str | None,
+    ) -> TasteResults:
+        """Two independent insights rankings of the same operational pool.
+
+        This policy compares *positions*, never merges raw affinity scores from
+        different profiles. A pair recommendation is verified only when at least
+        two distinct venues appear in both rankings. The existing outer job
+        request scope and transport cache share venue lookups across profiles.
+        """
+        first_refs = tuple(ref for ref in first_refs if ref.strip())
+        second_refs = tuple(ref for ref in second_refs if ref.strip())
+        def no_pair(
+            reason: str, first: TasteResults | None = None,
+            second: TasteResults | None = None,
+        ) -> TasteResults:
+            a = dict(first.trace) if first is not None else {}
+            b = dict(second.trace) if second is not None else {}
+            return TasteResults(
+                [TasteResult(p.id, None, None, (), "qloo") for p in places],
+                trace={
+                    "status": "no_coverage",
+                    "pair_status": "insufficient_coverage",
+                    "pair_reason": reason,
+                    "input_references": list(first_refs),
+                    "second_input_references": list(second_refs),
+                    "recognized_signals": [
+                        {**row, "profile": "A"} for row in a.get("recognized_signals", [])
+                    ] + [
+                        {**row, "profile": "B"} for row in b.get("recognized_signals", [])
+                    ],
+                    "unresolved_signals": [
+                        {**row, "profile": "A"} for row in a.get("unresolved_signals", [])
+                    ] + [
+                        {**row, "profile": "B"} for row in b.get("unresolved_signals", [])
+                    ],
+                    "candidate_entity_count": max(a.get("candidate_entity_count", 0),
+                                                  b.get("candidate_entity_count", 0)),
+                    "ranked_entity_count": 0,
+                    "insights_called": bool(a.get("insights_called") or b.get("insights_called")),
+                    "profile_a_ranked_count": sum(x.rank is not None for x in first or []),
+                    "profile_b_ranked_count": sum(x.rank is not None for x in second or []),
+                    "discovery_used": False,
+                },
+            )
+
+        if not first_refs or not second_refs:
+            return no_pair("Two individual cultural profiles are required.")
+        if len(first_refs) > 2 or len(second_refs) > 2:
+            raise ValueError("Good for both supports up to two tastes per person.")
+        # A failed-venue anchor is a shared logistical clue, not an individual
+        # preference. Do not let it masquerade as either participant's tastes.
+        a = self.rank_with_context(places, first_refs, failed_place=None)
+        a_by_place = {x.place_id: x.rank for x in a if x.rank is not None}
+        if a.trace.get("status") != "live" or len(a_by_place) < 2:
+            return no_pair("Person A has fewer than two Qloo-ranked venues; no fair comparison was attempted.", a)
+        b = self.rank_with_context(places, second_refs, failed_place=None)
+        b_by_place = {x.place_id: x.rank for x in b if x.rank is not None}
+        if b.trace.get("status") != "live" or len(b_by_place) < 2:
+            return no_pair("Person B has fewer than two Qloo-ranked venues.", a, b)
+
+        common_ids = set(a_by_place) & set(b_by_place)
+        if len(common_ids) < 2:
+            return no_pair("Fewer than two venues received Qloo ranks in both profiles.", a, b)
+        ordered = sorted(
+            common_ids,
+            key=lambda p: (max(a_by_place[p], b_by_place[p]),
+                           a_by_place[p] + b_by_place[p],
+                           abs(a_by_place[p] - b_by_place[p]), p),
+        )
+        position = {place_id: rank for rank, place_id in enumerate(ordered, 1)}
+        def ranked(p: Place) -> TasteResult:
+            if p.id not in position:
+                return TasteResult(p.id, None, None, (), "qloo")
+            return TasteResult(
+                p.id, None, position[p.id],
+                (f"Person A Qloo position {a_by_place[p.id]}",
+                 f"Person B Qloo position {b_by_place[p.id]}"),
+                "qloo",
+            )
+        return TasteResults(
+            [ranked(p) for p in places],
+            trace={
+                "status": "live",
+                "pair_status": "verified",
+                "pair_reason": (
+                    "Fairness is an Unstuck minimax policy over two separate Qloo ranks, "
+                    "not a Qloo probability of joint preference."
+                ),
+                "input_references": list(first_refs),
+                "second_input_references": list(second_refs),
+                "recognized_signals": [
+                    {**row, "profile": "A"} for row in a.trace.get("recognized_signals", [])
+                ] + [
+                    {**row, "profile": "B"} for row in b.trace.get("recognized_signals", [])
+                ],
+                "unresolved_signals": [
+                    {**row, "profile": "A"} for row in a.trace.get("unresolved_signals", [])
+                ] + [
+                    {**row, "profile": "B"} for row in b.trace.get("unresolved_signals", [])
+                ],
+                "candidate_entity_count": min(a.trace.get("candidate_entity_count", 0),
+                                              b.trace.get("candidate_entity_count", 0)),
+                "ranked_entity_count": len(common_ids),
+                "insights_called": bool(a.trace.get("insights_called") and b.trace.get("insights_called")),
+                "profile_a_ranked_count": len(a_by_place),
+                "profile_b_ranked_count": len(b_by_place),
+                "pair_positions": [
+                    {"place_id": p, "person_a_rank": a_by_place[p],
+                     "person_b_rank": b_by_place[p], "compromise_rank": position[p]}
+                    for p in ordered[:QLOO_MAX_RANK_OPTIONS]
+                ],
+                "discovery_used": False,
+            },
+        )
