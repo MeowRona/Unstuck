@@ -64,6 +64,11 @@ class DishPriceEvidenceTests(unittest.TestCase):
         self.assertEqual(stary_dom["price"]["basis"], "per_person_dish_only")
         self.assertEqual(stary_dom["price"]["min"], 49)
         self.assertIn("minced-meat cutlets", stary_dom["price"]["note"])
+        akademia = next(row for row in catalog.restaurant_rows
+                        if row["id"] == "restaurant:warsaw:osm:node:4004769301")
+        self.assertEqual(akademia["price"]["basis"], "per_person_dish_only")
+        self.assertEqual(akademia["price"]["min"], 69)
+        self.assertIn("12.5-percent service", akademia["price"]["note"])
 
 
 class PlannerCatalogTests(unittest.TestCase):
