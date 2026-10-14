@@ -859,6 +859,16 @@ class UnstuckEngine:
         selected_confirmed = sum(1 for ev in selected if ev.confirmed)
         selected_incomplete = len(selected) - selected_confirmed
         all_selected_confirmed = bool(selected) and selected_incomplete == 0
+        rank_pool_names = {place.id: place.name for place in rank_pool}
+        pair_positions = []
+        for row in taste_trace.get("pair_positions", []):
+            if not isinstance(row, dict):
+                continue
+            place_id = str(row.get("place_id") or "")
+            pair_positions.append({
+                **row,
+                "name": rank_pool_names.get(place_id, place_id),
+            })
 
         return {
             "round": state.round_no,
@@ -891,7 +901,7 @@ class UnstuckEngine:
                 "pair_reason": taste_trace.get("pair_reason"),
                 "profile_a_ranked_count": int(taste_trace.get("profile_a_ranked_count", 0)),
                 "profile_b_ranked_count": int(taste_trace.get("profile_b_ranked_count", 0)),
-                "pair_positions": list(taste_trace.get("pair_positions", [])),
+                "pair_positions": pair_positions,
                 "failed_place_anchor": brief.failed_place or None,
                 "recognized_signals": list(taste_trace.get("recognized_signals", [])),
                 "unresolved_signals": list(taste_trace.get("unresolved_signals", [])),

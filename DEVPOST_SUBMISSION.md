@@ -49,7 +49,7 @@ Unstuck treats that as a **constrained plan-repair problem**, not just a generic
 7. Return no more than three non-dominated suggestions with **Keep / Change / Needs checking**, route details, provenance and a baseline-vs-Qloo explanation.
 8. Allow **Too far / Not my vibe / Been there / skip**, undo, precise preference changes and another search without losing the rejected-place state.
 
-Optional **Good for both** takes two separately supplied taste profiles, requests independent Qloo rankings of the same feasible shortlist, and uses a transparent minimax compromise in rank *positions*. If fewer than two venues are ranked in both lists, the feature honestly falls back to operational recommendations; it **does not claim** a verified compromise.
+Optional **Good for both** takes two separately supplied taste profiles, requests independent Qloo rankings of the same feasible shortlist, and uses a transparent minimax compromise in rank *positions*. If fewer than two venues are ranked in both lists, the feature honestly falls back to operational recommendations. In the bounded production probe on **14 October 2026**, the Radiohead / Coldplay test returned a **verified shared ranking over 4 common venues** (Person A: 4 ranked, Person B: 4 ranked). That verifies the comparison path and coverage for one request; it is not a claim that two real users preferred the result.
 
 ### Plan a Day
 
@@ -68,7 +68,7 @@ The actual integration is:
 
 Qloo ranks a **fixed operational candidate pool**; it never overrides a locked budget, closed hours or a route conflict. The interface displays recognized/unrecognized signals, how many of ten candidates resolved, how many actually received ranks, and whether the **same-pool no-taste baseline** chose another top restaurant/itinerary.
 
-The latest bounded production acceptance run verified live Qloo in Rescue and Plan a Day, **5 ranked restaurants out of 10 candidates** in the sampled planner scenario, and a changed top plan when Qloo was used. The five exact catalog identities resolved in that request were **HOŻA Steakhouse, Akademia, Vegan Ramen Shop — Muranów, Kieliszki na Próżnej, and Mąka i woda**. Those are identity matches used for ranking, not proof that Qloo predicts preference for every venue. This is **one sample**, not evidence of statistically significant user satisfaction or 100% catalog coverage. A two-profile production probe returned **insufficient shared coverage**, so the app rightly did not claim a verified Good for both compromise.
+The latest bounded production acceptance run verified live Qloo in Rescue and Plan a Day, **5 ranked restaurants out of 10 candidates** in the sampled planner scenario, and a changed top plan when Qloo was used. The five exact catalog identities resolved in that request were **HOŻA Steakhouse, Akademia, Vegan Ramen Shop — Muranów, Kieliszki na Próżnej, and Mąka i woda**. A separate bounded two-profile production probe then verified **4 common ranked venues** for the Radiohead / Coldplay test (A=4, B=4) using the same-feasible-pool minimax policy. These are technical ranking/coverage results, not evidence of statistically significant user satisfaction or universal catalog coverage.
 
 **Why this is agentic:** Unstuck retains state; enforces immutable constraints; iteratively tests strict, relaxed and rejected candidate sets; calls external ranking and routing tools; checks tool results; retries bounded alternative routes; and stops transparently when no feasible action exists. The agent has visible actions and testable outputs, not fabricated reasoning.
 
@@ -111,7 +111,7 @@ Qloo requests use a server-side API key, explicit request limits, short-lived in
 ## What is NOT proven
 
 - No broad claim that Qloo recognizes all Warsaw restaurants; the latest bounded production sample ranked **5/10** eligible restaurant candidates and changed the top plan. Treat that as request-specific evidence, not universal coverage.
-- No validated two-person Qloo preference compromise in the sampled live case; the Good for both option returned insufficient shared coverage.
+- The two-profile production probe verified a technical shared ranking for one Radiohead / Coldplay request (4 common venues; A=4, B=4), but **no human preference improvement is validated**. The minimax result is a transparent ranking policy, not a probability that two people will like the same restaurant.
 - No survey outcome or statistically validated human preference improvement. The app has an optional anonymous, client-local A/B study interface and CSV export, but **no 6–10 actual volunteer results** have been collected.
 - No realtime opening, queue, restaurant table, ticket inventory, live GTFS delay, or complete concert/museum Qloo personalization.
 - No guarantee of restaurant-specific price and exact date hours beyond documented sources.
