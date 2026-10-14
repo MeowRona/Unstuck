@@ -85,7 +85,8 @@ class WarsawPilotDataTests(unittest.TestCase):
         by_id = {place.id: place for place in engine.places}
         official = json.loads((ROOT / "data" / "restaurant_official_hours_20261014.json").read_text(encoding="utf-8"))
         self.assertEqual(official["checked_at"], "2026-10-14")
-        self.assertGreaterEqual(len(official["entries"]), 23)
+        self.assertEqual(len(official["entries"]), 32)
+        self.assertEqual(len({item["id"] for item in official["entries"]}), 32)
         for entry in official["entries"]:
             place = by_id[entry["id"]]
             self.assertEqual(place.name, entry["expected_name"])
@@ -134,13 +135,35 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(by_id["warsaw:osm:node:4741653125"].hours["6"], (("12:00", "00:00"),))
         self.assertEqual(by_id["warsaw:osm:node:7705273908"].hours["4"], (("11:00", "00:00"),))
         self.assertEqual(sum(by_id[entry["id"]].hours_status == "confirmed"
-                             for entry in official["entries"]), 21)
+                             for entry in official["entries"]), 30)
         self.assertEqual(sum(by_id[entry["id"]].hours_status == "estimated"
                              for entry in official["entries"]), 2)
         self.assertIn("conflicting operator", by_id["warsaw:osm:node:3621635056"].source_note)
         self.assertIn("conflicting operator", by_id["warsaw:osm:node:6421840214"].source_note)
         self.assertEqual(by_id["warsaw:osm:node:5073937636"].hours["4"], (("12:00", "23:00"),))
         self.assertEqual(by_id["warsaw:osm:node:4834770520"].hours["6"], (("13:00", "21:15"),))
+        # Nine additional exact branches verified against the operator's own
+        # weekly schedule; a same-name branch without evidence stays untouched.
+        expected_hours = {
+            "warsaw:osm:node:1285589018": ("4", (("12:00", "23:00"),)),
+            "warsaw:osm:node:5062561421": ("5", (("10:00", "00:00"),)),
+            "warsaw:osm:node:4369986677": ("0", (("12:00", "22:00"),)),
+            "warsaw:osm:node:11035383264": ("6", (("12:00", "22:00"),)),
+            "warsaw:osm:node:9773126020": ("6", (("09:00", "23:00"),)),
+            "warsaw:osm:node:4408894491": ("4", (("11:30", "23:00"),)),
+            "warsaw:osm:node:9327944759": ("0", ()),
+            "warsaw:osm:node:327614538": ("2", (("10:00", "00:00"),)),
+            "warsaw:osm:node:3582751797": ("5", (("09:00", "23:00"),)),
+        }
+        for restaurant_id, (weekday, expected) in expected_hours.items():
+            item = by_id[restaurant_id]
+            self.assertEqual(item.hours_status, "confirmed", restaurant_id)
+            self.assertEqual(item.hours[weekday], expected, restaurant_id)
+            self.assertTrue(item.hours_source_url.startswith("https://"), restaurant_id)
+            self.assertEqual(item.price.status, "unknown", restaurant_id)
+        self.assertNotEqual(by_id["warsaw:osm:node:6898019913"].hours_status, "confirmed")
+        self.assertNotEqual(by_id["warsaw:osm:node:4799316222"].hours_status, "confirmed")
+
         from unstuck.planner import DayPlanner
         overnight = DayPlanner._windows(
             {"kind": "restaurant", "hours": {"0": [["09:00", "00:00"]]},
