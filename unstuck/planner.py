@@ -278,10 +278,23 @@ class PlannerCatalog:
             and isinstance(p.lat, (int, float)) and isinstance(p.lon, (int, float))
             and p.name.strip() and p.address.strip()
         ]
+        def verified_fact_count(place: Place) -> int:
+            # A confirmed quote for one named dish is useful evidence, but it is
+            # not a verified whole-meal budget for arbitrary choices. Keep that
+            # distinction consistent with the feasibility engine when ordering
+            # the bounded restaurant catalog used by the planner and Qloo.
+            has_meal_price = (
+                place.price.status in {"confirmed", "fixture"}
+                and place.price.basis != "per_person_dish_only"
+            )
+            return int(has_meal_price) + int(place.hours_status in {"confirmed", "fixture"})
+
         candidates.sort(key=lambda p: (
-            -(int(p.price.status in {"confirmed", "fixture"}) +
-              int(p.hours_status in {"confirmed", "fixture"})),
+            -verified_fact_count(p),
             0 if p.google_place_id or p.qloo_entity_id else 1,
+            # A named-dish quote still counts as useful source evidence for
+            # catalog retention, just not as proof of a whole-meal budget.
+            0 if p.price.status in {"confirmed", "fixture"} else 1,
             p.name.casefold(), p.id,
         ))
         seen_names: set[tuple[str, str]] = set()

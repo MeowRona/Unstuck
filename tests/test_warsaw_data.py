@@ -9,6 +9,7 @@ from app import build_engine
 from unstuck.geocoding import address_index, geocoder, street_index
 from unstuck.models import SearchBrief, SearchState
 from unstuck.providers import TasteResult
+from unstuck.planner import PlannerCatalog
 from unstuck.transit import get_transit_index
 
 
@@ -79,6 +80,30 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(int(meta["curated_restaurant_count"]), 5)
         self.assertEqual(meta["osm_restaurant_snapshot"], "2026-10-04")
         self.assertTrue(all((row.get("price") or {}).get("status") == "unknown" for row in imported))
+
+    def test_verified_qloo_place_overlay_is_exact_and_shortlisted(self):
+        engine = build_engine("baseline", "real")
+        by_id = {place.id: place for place in engine.places}
+        snapshot = json.loads(
+            (ROOT / "data" / "qloo_place_entities_20261014.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(snapshot["schema_version"], 1)
+        self.assertEqual(snapshot["checked_at"], "2026-10-14")
+        self.assertEqual(len(snapshot["entries"]), 4)
+        self.assertEqual(len({entry["id"] for entry in snapshot["entries"]}), 4)
+        for entry in snapshot["entries"]:
+            place = by_id[entry["id"]]
+            self.assertEqual(place.name, entry["expected_name"])
+            self.assertEqual(place.address, entry["expected_address"])
+            self.assertEqual(place.qloo_entity_id, entry["qloo_entity_id"])
+
+        shortlist = {
+            row["id"] for row in PlannerCatalog(engine.places).restaurant_rows[:10]
+        }
+        expected = {
+            f"restaurant:{entry['id']}" for entry in snapshot["entries"]
+        }
+        self.assertTrue(expected.issubset(shortlist), (expected, shortlist))
 
     def test_official_regular_hours_overlay_never_invents_meal_prices(self):
         engine = build_engine("baseline", "real")
