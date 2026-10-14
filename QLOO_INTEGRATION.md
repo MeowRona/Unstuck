@@ -110,3 +110,11 @@ The optional unavailable venue has two concrete product effects:
 2. in live mode only, Unstuck best-effort resolves that place through Qloo and uses the resolved entity as an additional shared ranking signal.
 
 Failure to resolve the venue as a Qloo entity never re-admits it and never blocks the rescue search. The evidence panel records whether the anchor was actually used.
+
+## Optional Good for both (two separate Qloo profiles)
+
+In **Rescue a plan**, the editor can opt into **Good for both**, with one or two cultural references for **Person A** and for **Person B**. There are no accounts, invites, group syncing, or votes. The *same* already-screened shortlist (at most ten places) is queried with Qloo separately for each profile, reusing process-memory entity-search cache under the existing 18-attempt per-job quota. The failed venue is excluded operationally but is deliberately **not** passed as either person's taste preference.
+
+Unstuck's own deterministic compromise policy sorts venues by the **worse of their two rank positions** (minimax), followed by sum of positions and difference as tie-breakers. It **does not combine Qloo affinity scores**, cannot infer a probability that both people will like a restaurant, and does not modify budgets, opening times, or route constraints. The evidence panel names each profile's actual Qloo positions when present.
+
+A joint recommendation is only labelled Qloo-verified if **at least two distinct venue IDs have Qloo ranks in both profiles**. If either person lacks two Qloo matches, their ranked pools do not intersect in at least two places, or the bounded API requests fail, the mode returns transparent **operational suggestions only**—never fictional consensus. The fallback may still find a viable dinner, but it has **no demonstrated joint-taste advantage**.
