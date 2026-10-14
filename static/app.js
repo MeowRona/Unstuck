@@ -465,6 +465,8 @@ function updateMarkerSelection() {
 
 function formatMoney(card) {
   const cost = card.cost || {};
+  if (cost.basis === 'per_person_dish_only' && cost.min != null)
+    return `From ${Number(cost.min).toFixed(0)} ${cost.currency} · named dish only`;
   if (cost.min == null || cost.max == null) return 'Unknown';
   const min = Number(cost.min);
   const max = Number(cost.max);
