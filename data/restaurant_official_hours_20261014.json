@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-14",
+  "scope": "Verified regular weekly opening times only; prices, special dates, ticket inventory and reservations are NOT verified. Source: venue's own publicly accessible page.",
+  "entries": [
+    {
+      "id": "warsaw:osm:node:314590527",
+      "expected_name": "Aioli",
+      "expected_address": "Świętokrzyska 18, Warsaw",
+      "source_url": "https://aioli.com.pl/",
+      "hours": {
+        "0": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "1": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "2": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "3": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "4": [
+          [
+            "09:00",
+            "01:00"
+          ]
+        ],
+        "5": [
+          [
+            "09:00",
+            "01:00"
+          ]
+        ],
+        "6": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:3406838435",
+      "expected_name": "Aioli",
+      "expected_address": "Chmielna 26, Warsaw",
+      "source_url": "https://aioli.com.pl/",
+      "hours": {
+        "0": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "1": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "2": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "3": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ],
+        "4": [
+          [
+            "09:00",
+            "01:00"
+          ]
+        ],
+        "5": [
+          [
+            "09:00",
+            "01:00"
+          ]
+        ],
+        "6": [
+          [
+            "09:00",
+            "24:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:way:1005658204",
+      "expected_name": "Mąka i woda",
+      "expected_address": "Duchnicka 3, Warsaw",
+      "source_url": "https://makaiwoda.pl/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "21:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "21:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "21:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "21:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "20:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:2025189688",
+      "expected_name": "Mąka i Woda 2.0",
+      "expected_address": "Chmielna 13A, Warsaw",
+      "source_url": "https://makaiwoda.pl/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "23:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "23:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "20:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:316886479",
+      "expected_name": "U Szwejka",
+      "expected_address": "Plac Konstytucji 1, Warsaw",
+      "source_url": "https://www.uszwejka.pl/",
+      "hours": {
+        "0": [
+          [
+            "10:00",
+            "24:00"
+          ]
+        ],
+        "1": [
+          [
+            "10:00",
+            "24:00"
+          ]
+        ],
+        "2": [
+          [
+            "10:00",
+            "24:00"
+          ]
+        ],
+        "3": [
+          [
+            "10:00",
+            "24:00"
+          ]
+        ],
+        "4": [
+          [
+            "10:00",
+            "24:00"
+          ]
+        ],
+        "5": [
+          [
+            "10:00",
+            "24:00"
+          ]
+        ],
+        "6": [
+          [
+            "10:00",
+            "23:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:2859884304",
+      "expected_name": "Banjaluka",
+      "expected_address": "Szkolna 2/4, Warsaw",
+      "source_url": "https://www.banjaluka.pl/",
+      "hours": {
+        "0": [
+          [
+            "13:00",
+            "23:00"
+          ]
+        ],
+        "1": [
+          [
+            "13:00",
+            "24:00"
+          ]
+        ],
+        "2": [
+          [
+            "13:00",
+            "24:00"
+          ]
+        ],
+        "3": [
+          [
+            "13:00",
+            "24:00"
+          ]
+        ],
+        "4": [
+          [
+            "13:00",
+            "01:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "01:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ]
+      }
+    }
+  ]
+}
