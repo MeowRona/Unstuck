@@ -122,7 +122,7 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(by_id["warsaw:osm:node:4004769301"].price.minimum, 69)
         self.assertIn("kopytka", by_id["warsaw:osm:node:4004769301"].source_note)
         self.assertIn("12.5-percent service", by_id["warsaw:osm:node:4004769301"].source_note)
-        self.assertEqual(sum(bool(entry.get("price")) for entry in official["entries"]), 4)
+        self.assertEqual(sum(bool(entry.get("price")) for entry in official["entries"]), 6)
         self.assertEqual(by_id["warsaw:osm:way:400071446"].hours["0"], (("12:00", "23:30"),))
         self.assertEqual(by_id["warsaw:osm:node:338486362"].hours["6"], (("09:00", "00:00"),))
         self.assertEqual(by_id["warsaw:osm:node:3621635056"].hours["0"], (("12:30", "21:30"),))
@@ -142,6 +142,12 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertIn("conflicting operator", by_id["warsaw:osm:node:6421840214"].source_note)
         self.assertEqual(by_id["warsaw:osm:node:5073937636"].hours["4"], (("12:00", "23:00"),))
         self.assertEqual(by_id["warsaw:osm:node:4834770520"].hours["6"], (("13:00", "21:15"),))
+        self.assertEqual(by_id["warsaw:osm:node:5062561421"].price.minimum, 42)
+        self.assertIn("Falafel & hummus", by_id["warsaw:osm:node:5062561421"].source_note)
+        self.assertIn("in-restaurant price may differ", by_id["warsaw:osm:node:5062561421"].source_note)
+        self.assertEqual(by_id["warsaw:osm:node:1285589018"].price.minimum, 42)
+        self.assertIn("vegetarian futomaki", by_id["warsaw:osm:node:1285589018"].source_note)
+
         # Nine additional exact branches verified against the operator's own
         # weekly schedule; a same-name branch without evidence stays untouched.
         expected_hours = {
