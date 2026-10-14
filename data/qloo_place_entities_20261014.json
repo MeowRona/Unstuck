@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "checked_at": "2026-10-14",
-  "scope": "Exact Warsaw restaurant -> Qloo place entity mappings observed through the normal live planner/Qloo provider during the bounded production coverage scan. These IDs are identity evidence only, not affinity scores or guarantees of future ranking.",
-  "source_url": "https://github.com/MeowRona/Unstuck/actions/runs/38581547350",
+  "scope": "Exact Warsaw restaurant -> Qloo place entity mappings observed through the normal live planner/Qloo provider during the bounded production coverage scan and a later production smoke. These IDs are identity evidence only, not affinity scores or guarantees of future ranking.",
+  "source_url": "https://github.com/MeowRona/Unstuck/actions/runs/38591026392",
   "probe": "tools/qloo_catalog_coverage_scan.py",
   "entries": [
     {
@@ -28,6 +28,12 @@
       "expected_name": "Mąka i woda",
       "expected_address": "Duchnicka 3, Warsaw",
       "qloo_entity_id": "AE5A272A-7F40-47F9-907F-D8B7230399FA"
+    },
+    {
+      "id": "warsaw:vegan-ramen-muranow",
+      "expected_name": "Vegan Ramen Shop — Muranów",
+      "expected_address": "al. Jana Pawła II 52/54, Warsaw",
+      "qloo_entity_id": "4BDE31EB-583E-437D-82B8-23050DECE777"
     }
   ]
 }

@@ -28,7 +28,7 @@ Sources:
 | Google Maps photo/rating | Medium for **Design** | Near submission, enable Places and inspect restaurant thumbnail + rating | Integration ready but deliberately disabled to preserve free quota for judging |
 | Dark mode | Low/medium for **Design polish** | Toggle moon/sun in header or menu and reload | Implemented; persisted in localStorage |
 | Stable external hosting | **Submission-critical** | Open https://unstuck-city-compass.onrender.com from a clean browser/network | PASS — Render deployment is independent of the development PC; root/health and public search→reject flow were tested |
-| Live Qloo | **Stage-one critical** | Run Rescue + Plan a Day and open the per-request Qloo evidence panel; compare the same candidate pool with and without taste | Live in both modes for eligible restaurants; sampled planner scenario ranked 2 of 10 candidates and changed the top plan. No broader coverage or preference gain is claimed |
+| Live Qloo | **Stage-one critical** | Run Rescue + Plan a Day and open the per-request Qloo evidence panel; compare the same candidate pool with and without taste | Live in both modes for eligible restaurants; latest bounded production planner scenario ranked 5 of 10 candidates and changed the top plan. No broader coverage or preference gain is claimed |
 
 ## Warsaw-only decision
 

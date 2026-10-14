@@ -55,14 +55,14 @@ Last updated: 2026-10-14
 ## Current blockers to claiming hackathon readiness
 
 1. Reconfirm every final production deploy and run mobile/desktop browser smoke near submission. Live Qloo was connected on 2026-10-13.
-2. Improve Qloo venue coverage beyond the measured 2/10 ranked local restaurants without sacrificing the 18-attempt job budget or mismatching similarly named branches. A geo-scoped experiment was rolled back after it exhausted quota.
+2. Continue improving Qloo venue coverage beyond the measured 5/10 ranked local restaurants without increasing per-plan request cost or mismatching similarly named branches. Four identities came from the bounded coverage probe and a fifth was confirmed by the production smoke; the earlier geo-scoped experiment remains rolled back.
 3. The Qloo planner still ranks **restaurant choices only**. Music/attraction interests are matched with explicit tags/constraints; do not claim Qloo scored concerts or museums.
 4. Recruit 6–10 voluntary testers and run the existing blinded Qloo-vs-operational preference study; results do not exist yet.
 5. Refresh/extend the selected event snapshot near judging if broader future-date coverage is needed; never imply complete Warsaw coverage.
 6. Confirm stable Render deployment and sufficient Qloo request budget for real jurors before final release.
 7. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
 
-Live Rescue and limited Plan a Day Qloo have been verified. The two-stage simulated dinner failure and bounded route repair are implemented, but real venue availability, 2/10 Qloo coverage, and the missing human preference results remain limitations. **No claim of fully validated competition readiness is made.**
+Live Rescue and limited Plan a Day Qloo have been verified. The two-stage simulated dinner failure and bounded route repair are implemented, but real venue availability, partial 5/10 Qloo coverage in the latest bounded planner sample, and the missing human preference results remain limitations. **No claim of fully validated competition readiness is made.**
 
 ## Resume point
 
