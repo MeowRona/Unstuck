@@ -106,7 +106,42 @@ def google_place_media(place_id: str, allowed_ids: set[str]) -> dict:
 
 def load_places(path: Path) -> list[Place]:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    return [Place.from_dict(row) for row in payload["places"]]
+    rows = payload["places"]
+    # A small, independently reviewed overlay avoids rewriting ~2k OSM entries
+    # and prevents unknown meal prices from accidentally becoming "confirmed".
+    if path.name == "places_warsaw.json":
+        overlay_path = DATA / "restaurant_official_hours_20261014.json"
+        if overlay_path.is_file():
+            overlay = json.loads(overlay_path.read_text(encoding="utf-8"))
+            by_id = {row["id"]: row for row in rows}
+            if overlay.get("schema_version") != 1:
+                raise RuntimeError("Unsupported restaurant-hours fact snapshot")
+            for entry in overlay["entries"]:
+                row = by_id.get(entry["id"])
+                if (row is None or row["name"] != entry["expected_name"]
+                        or row["address"] != entry["expected_address"]
+                        or row.get("category") != "restaurant"):
+                    raise RuntimeError(f"Restaurant-hour source identity mismatch: {entry['id']}")
+                hours = entry["hours"]
+                if (set(hours) != {str(day) for day in range(7)} or
+                        not all(isinstance(windows, list) and (
+                            len(windows) == 0 or (len(windows) == 1 and len(windows[0]) == 2)
+                        ) for windows in hours.values())):
+                    raise RuntimeError(f"Invalid weekly restaurant-hour coverage: {entry['id']}")
+                if not str(entry["source_url"]).startswith("https://"):
+                    raise RuntimeError(f"Restaurant-hour source must be HTTPS: {entry['id']}")
+                row.update(
+                    hours=hours,
+                    hours_status="confirmed",
+                    hours_source_url=entry["source_url"],
+                    hours_checked_at=overlay["checked_at"],
+                    source_note=(
+                        "Regular opening hours verified against the venue's official site "
+                        f"on {overlay['checked_at']}. Holiday exceptions, reservations and "
+                        "meal prices remain unverified unless another field has its own source."
+                    ),
+                )
+    return [Place.from_dict(row) for row in rows]
 
 
 def build_engine(mode: str, catalog: str = "real") -> UnstuckEngine:

@@ -80,6 +80,40 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(meta["osm_restaurant_snapshot"], "2026-10-04")
         self.assertTrue(all((row.get("price") or {}).get("status") == "unknown" for row in imported))
 
+    def test_official_regular_hours_overlay_never_invents_meal_prices(self):
+        engine = build_engine("baseline", "real")
+        by_id = {place.id: place for place in engine.places}
+        official = json.loads((ROOT / "data" / "restaurant_official_hours_20261014.json").read_text(encoding="utf-8"))
+        self.assertEqual(official["checked_at"], "2026-10-14")
+        self.assertGreaterEqual(len(official["entries"]), 8)
+        for entry in official["entries"]:
+            place = by_id[entry["id"]]
+            self.assertEqual(place.name, entry["expected_name"])
+            self.assertEqual(place.address, entry["expected_address"])
+            self.assertEqual(place.hours_status, "confirmed")
+            self.assertEqual(place.hours_source_url, entry["source_url"])
+            self.assertEqual(place.hours_checked_at, "2026-10-14")
+            self.assertEqual(set(place.hours), {str(day) for day in range(7)})
+            self.assertEqual(place.price.status, "unknown")
+            self.assertIsNone(place.price.minimum)
+            self.assertIsNone(place.price.maximum)
+            self.assertIn("Holiday exceptions", place.source_note)
+
+        # This restaurant's Monday opening was updated from 12:00 in OSM to
+        # 13:00 on the official autumn 2026 venue schedule.
+        self.assertEqual(by_id["warsaw:osm:node:2859884304"].hours["0"], (("13:00", "23:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:4730432126"].hours["6"], ())
+        self.assertEqual(by_id["warsaw:osm:node:314590527"].hours["0"], (("09:00", "00:00"),))
+        from unstuck.planner import DayPlanner
+        overnight = DayPlanner._windows(
+            {"kind": "restaurant", "hours": {"0": [["09:00", "00:00"]]},
+             "date_exceptions": {}, "hours_status": "confirmed"},
+            date(2026, 10, 12),
+        )
+        self.assertEqual(overnight[0][1].date(), date(2026, 10, 13))
+        # A curated venue with independently verified food prices keeps them.
+        self.assertEqual(by_id["warsaw:hoza-steakhouse"].price.status, "confirmed")
+
     def test_exact_origin_coordinates_bypass_saved_origin_lookup(self):
         brief = SearchBrief.from_payload(
             payload(origin="Marszałkowska 10, Warszawa", origin_lat=52.225, origin_lon=21.015)

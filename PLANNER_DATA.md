@@ -15,6 +15,23 @@ The bundled event snapshot declares its own coverage window in `data/planner_war
 
 The current snapshot is manual/verified. It does **not** scrape sources on page load and does not pretend its verification date advances automatically.
 
+## Restaurant facts: official regular-hours verification (14 October 2026)
+
+The primary Warsaw restaurant catalog contains about 1,982 restaurant records, mostly OSM-discovered. It is **not** a catalog of independently verified prices and opening hours. Source confidence is stored per field.
+
+`data/restaurant_official_hours_20261014.json` supplies an audited overlay for eight existing, branch-specific Warsaw restaurants. It updates **only regular weekly hours**, with an exact ID/name/address guard. It leaves every unknown meal price unchanged, does not infer holiday exceptions or live table availability, and does not activate Google Places.
+
+Official opening-hour sources (reviewed 2026-10-14):
+
+- [Aioli](https://aioli.com.pl/) — Świętokrzyska 18 and Chmielna 26 (two separate branches).
+- [Mąka i Woda](https://makaiwoda.pl/) — Chmielna 13A and Duchnicka 3 (two distinct venues with different closing times).
+- [U Szwejka](https://www.uszwejka.pl/) — Plac Konstytucji 1.
+- [Banjaluka](https://www.banjaluka.pl/) — Szkolna 2/4 (Monday opening updated from unverified OSM 12:00 to venue-published 13:00).
+- [Der Elefant](https://derelefant.com/pl/kontakt) — Plac Bankowy 1.
+- [Kieliszki na Próżnej](https://kieliszkinaproznej.eatbu.com/?lang=pl) — Próżna 12; restaurant-operated hours list Sunday as closed.
+
+The sources establish normal *hours*, not a meal price. Some venues offer conditional lunch promotions or charge extra for drinks. A promotional menu amount is **not** converted into a guaranteed per-person total. Verified weekly hours can still be overridden by holidays and changes after the recorded check date. A published closing time of 24:00 is stored internally as 00:00 on the following calendar day (not as an invalid 24:00 clock), and an explicitly closed Sunday has no opening window.
+
 ## Selected event source
 
 ### Go To Warsaw / Warsaw Tourism Office
