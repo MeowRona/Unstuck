@@ -184,6 +184,37 @@ def load_places(path: Path) -> list[Place]:
                         " not an all-inclusive meal or a price for all menu choices."
                     )
     if path.name == "places_warsaw.json":
+        qloo_overlay_path = DATA / "qloo_place_entities_20261014.json"
+        if qloo_overlay_path.is_file():
+            qloo_overlay = json.loads(qloo_overlay_path.read_text(encoding="utf-8"))
+            if qloo_overlay.get("schema_version") != 1:
+                raise RuntimeError("Unsupported Qloo place-identity snapshot")
+            if not str(qloo_overlay.get("source_url", "")).startswith("https://"):
+                raise RuntimeError("Qloo place-identity snapshot must cite its production evidence")
+            by_id = {row["id"]: row for row in rows}
+            seen_qloo_place_ids: set[str] = set()
+            for entry in qloo_overlay.get("entries", []):
+                place_id = str(entry.get("id") or "")
+                entity_id = str(entry.get("qloo_entity_id") or "").strip().upper()
+                row = by_id.get(place_id)
+                if (row is None or row.get("name") != entry.get("expected_name")
+                        or row.get("address") != entry.get("expected_address")
+                        or row.get("category") != "restaurant"
+                        or place_id in seen_qloo_place_ids):
+                    raise RuntimeError(f"Qloo place identity mismatch: {place_id}")
+                try:
+                    parsed_entity_id = str(uuid.UUID(entity_id)).upper()
+                except (ValueError, AttributeError) as exc:
+                    raise RuntimeError(f"Invalid Qloo place entity ID: {place_id}") from exc
+                if parsed_entity_id != entity_id:
+                    raise RuntimeError(f"Non-canonical Qloo place entity ID: {place_id}")
+                existing = str(row.get("qloo_entity_id") or "").strip().upper()
+                if existing and existing != entity_id:
+                    raise RuntimeError(f"Conflicting Qloo place entity ID: {place_id}")
+                row["qloo_entity_id"] = entity_id
+                seen_qloo_place_ids.add(place_id)
+
+    if path.name == "places_warsaw.json":
         closures_path = DATA / "restaurant_closures_20261014.json"
         if closures_path.is_file():
             closures = json.loads(closures_path.read_text(encoding="utf-8"))

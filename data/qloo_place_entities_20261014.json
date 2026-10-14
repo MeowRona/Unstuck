@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-14",
+  "scope": "Exact Warsaw restaurant -> Qloo place entity mappings observed through the normal live planner/Qloo provider during the bounded production coverage scan. These IDs are identity evidence only, not affinity scores or guarantees of future ranking.",
+  "source_url": "https://github.com/MeowRona/Unstuck/actions/runs/38581547350",
+  "probe": "tools/qloo_catalog_coverage_scan.py",
+  "entries": [
+    {
+      "id": "warsaw:hoza-steakhouse",
+      "expected_name": "HOŻA Steakhouse",
+      "expected_address": "Hoża 25A, Warsaw",
+      "qloo_entity_id": "98BF0DC8-D8CD-4B09-B42E-26E17BDAEB80"
+    },
+    {
+      "id": "warsaw:osm:node:4004769301",
+      "expected_name": "Akademia",
+      "expected_address": "Różana 2, Warsaw",
+      "qloo_entity_id": "380A2A0B-734B-4EB4-A34F-EDBFB3E3A2D6"
+    },
+    {
+      "id": "warsaw:osm:node:4730432126",
+      "expected_name": "Kieliszki na Próżnej",
+      "expected_address": "Próżna 12, Warsaw",
+      "qloo_entity_id": "160E56C3-13E4-47B7-BB40-9C843FCD10E9"
+    },
+    {
+      "id": "warsaw:osm:way:1005658204",
+      "expected_name": "Mąka i woda",
+      "expected_address": "Duchnicka 3, Warsaw",
+      "qloo_entity_id": "AE5A272A-7F40-47F9-907F-D8B7230399FA"
+    }
+  ]
+}
