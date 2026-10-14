@@ -85,7 +85,7 @@ class WarsawPilotDataTests(unittest.TestCase):
         by_id = {place.id: place for place in engine.places}
         official = json.loads((ROOT / "data" / "restaurant_official_hours_20261014.json").read_text(encoding="utf-8"))
         self.assertEqual(official["checked_at"], "2026-10-14")
-        self.assertGreaterEqual(len(official["entries"]), 12)
+        self.assertGreaterEqual(len(official["entries"]), 21)
         for entry in official["entries"]:
             place = by_id[entry["id"]]
             self.assertEqual(place.name, entry["expected_name"])
@@ -118,6 +118,17 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertEqual(by_id["warsaw:osm:node:8663446811"].price.minimum, 49)
         self.assertEqual(by_id["warsaw:osm:way:400071446"].hours["0"], (("12:00", "23:30"),))
         self.assertEqual(by_id["warsaw:osm:node:338486362"].hours["6"], (("09:00", "00:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:3621635056"].hours["0"], (("12:00", "22:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:6421840214"].hours["6"], (("12:30", "22:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:4004769301"].hours["6"], (("12:00", "20:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:447986173"].hours["0"], (("11:00", "23:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:6023094185"].hours["5"], (("12:00", "22:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:2640176381"].hours["0"], (("12:00", "20:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:416560107"].hours["6"], (("12:00", "22:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:4741653125"].hours["6"], (("12:00", "00:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:7705273908"].hours["4"], (("11:00", "00:00"),))
+        self.assertTrue(all(by_id[entry["id"]].hours_status == "confirmed"
+                            for entry in official["entries"]))
         from unstuck.planner import DayPlanner
         overnight = DayPlanner._windows(
             {"kind": "restaurant", "hours": {"0": [["09:00", "00:00"]]},

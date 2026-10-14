@@ -21,7 +21,7 @@ The primary Warsaw restaurant catalog contains about 1,982 restaurant records, m
 
 **Confirmed closure exclusion:** the operator of [AleGloria](https://www.alegloria.pl/) at Plac Trzech Krzyży 3 announces that the restaurant is closing after the end of its lease. Although the unchanged OSM discovery snapshot still contains this venue, `data/restaurant_closures_20261014.json` excludes its exact ID/name/address from runtime recommendations (checked 2026-10-14). We do not infer closure of other venues from outdated or missing opening hours. The precise closure date is not asserted.
 
-`data/restaurant_official_hours_20261014.json` supplies an audited overlay for twelve existing, branch-specific Warsaw restaurants. It updates **regular weekly hours**, with an exact ID/name/address guard. **Two ORZO branches** additionally include an independently checked single-dish price (Bigoli carbonara at 49 PLN) from the [published, city-wide identical ORZO menu](https://orzo.pl/pages/miasto/makarony-warszawa). Every other unknown meal price stays unknown. This is not a total cost or restaurant-wide estimate. No holiday exceptions or live table availability are inferred, and Google Places remains disabled.
+`data/restaurant_official_hours_20261014.json` supplies an audited overlay for **21 existing, branch-specific Warsaw restaurants**. It updates **regular weekly hours**, with an exact ID/name/address guard. **Two ORZO branches** additionally include an independently checked single-dish price (Bigoli carbonara at 49 PLN) from the [published, city-wide identical ORZO menu](https://orzo.pl/pages/miasto/makarony-warszawa). Every other unknown meal price stays unknown. This is not a total cost or restaurant-wide estimate. No holiday exceptions or live table availability are inferred, and Google Places remains disabled.
 
 Official opening-hour sources (reviewed 2026-10-14):
 
@@ -34,6 +34,14 @@ Official opening-hour sources (reviewed 2026-10-14):
 - [ORZO](https://orzo.pl/pages/restauracje) — Plac Konstytucji 5 and Plac Konesera 5 (two branches; same published menu prices).
 - [Stary Dom](https://restauracjastarydom.pl/zamow-online/) — Puławska 104/106.
 - [Hard Rock Cafe Warsaw](https://cafe.hardrock.com/warsaw/pl/) — Złota 59.
+- [360° Pizza](https://360pizza.pl/) — Chłodna 2/18 and Franciszka Klimczaka 5; separate daily start times.
+- [Akademia](https://restauracjaakademia.pl/kontakt/) — Różana 2; earlier Sunday closing.
+- [Bazyliszek](https://bazyliszek.waw.pl/kontakt) — Rynek Starego Miasta 1/3.
+- [Bella Napoli](https://bellanapoli.com.pl/centrum.html) — Kolejowa 47; later opening on weekends.
+- [Byk Bar](https://bykbar.pl/kontakt/) — Rozbrat 8; earlier Monday closing.
+- [Polka](https://warszawa.restauracjapolka.pl/) — Świętojańska 2.
+- [Beef N' Pepper](https://beefandpepper.pl/menu/) — Nowogrodzka 47A; ends at midnight.
+- [Capriccio](https://capriccio.makro.bar/?lang=pl) — Nowy Świat 36; later weekend closing.
 
 The sources establish normal *hours*, not a meal price. Some venues offer conditional lunch promotions or charge extra for drinks. A promotional menu amount is **not** converted into a guaranteed per-person total. Verified weekly hours can still be overridden by holidays and changes after the recorded check date. A published closing time of 24:00 is stored internally as 00:00 on the following calendar day (not as an invalid 24:00 clock), and an explicitly closed Sunday has no opening window.
 
