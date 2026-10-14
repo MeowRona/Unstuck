@@ -366,8 +366,9 @@ def good_for_both_ui_flow():
         assert second.get_attribute("data-qloo-picker-mounted") == "true"
         editor.find_element(By.CSS_SELECTOR, 'button[type="submit"]').click()
         wait.until(lambda d: "hidden" in d.find_element(By.ID, "editorModal").get_attribute("class"))
-        wait.until(lambda d: "Good for both" in d.find_element(By.ID, "decisionEvidenceBody").text)
-        text = driver.find_element(By.ID, "decisionEvidenceBody").text
+        wait.until(lambda d: "Good for both" in
+                   d.find_element(By.ID, "decisionEvidenceBody").get_attribute("textContent"))
+        text = driver.find_element(By.ID, "decisionEvidenceBody").get_attribute("textContent")
         assert "not verified" in text.lower(), text
         assert "operational recommendations only" in text.lower(), text
 
