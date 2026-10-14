@@ -116,6 +116,12 @@ class UiContractTests(unittest.TestCase):
         self.assertIn("planner_route_conflict_retry_flow", browser)
         self.assertIn("simulated late arrival", browser)
 
+    def test_dish_only_price_is_not_rendered_as_whole_meal_total(self):
+        app_js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("cost.basis === 'per_person_dish_only'", app_js)
+        self.assertIn("named dish only", app_js)
+
+
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("@media (max-width: 760px)", css)
