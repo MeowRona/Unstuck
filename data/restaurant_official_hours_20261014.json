@@ -777,6 +777,15 @@
             "20:00"
           ]
         ]
+      },
+      "price": {
+        "min": 69,
+        "max": 69,
+        "currency": "PLN",
+        "status": "confirmed",
+        "source_url": "https://restauracjaakademia.pl/menu/",
+        "basis": "per_person",
+        "item_note": "One listed main course of homemade potato dumplings (kopytka) with porcini mushrooms, spinach, cream and Bursztyn cheese; menu price 69 PLN per portion. Drinks, desserts, extras and possible 12.5-percent service charge for groups of five or more are excluded."
       }
     },
     {
