@@ -605,8 +605,28 @@ class UnstuckEngine:
         scope = transport.request_scope() if transport is not None and hasattr(transport, "request_scope") else nullcontext()
         try:
             with scope:
-                if callable(rank_with_context):
-                    taste_results = rank_with_context(rank_pool, brief.taste_refs, failed_place=brief.failed_place or None)
+                pair_ranker = getattr(self.taste_provider, "rank_pair_with_context", None)
+                if brief.second_taste_refs and callable(pair_ranker) and self.taste_provider.mode == "live":
+                    taste_results = pair_ranker(
+                        rank_pool, brief.taste_refs, brief.second_taste_refs,
+                        failed_place=brief.failed_place or None,
+                    )
+                elif brief.second_taste_refs:
+                    taste_results = [
+                        TasteResult(p.id, None, None, (), "baseline")
+                        for p in rank_pool
+                    ]
+                    taste_results = TasteResults(taste_results, trace={
+                        "status": "no_coverage",
+                        "pair_status": "not_live",
+                        "pair_reason": "The two-profile Qloo feature is not available in this mode.",
+                        "insights_called": False,
+                        "ranked_entity_count": 0,
+                    })
+                elif callable(rank_with_context):
+                    taste_results = rank_with_context(
+                        rank_pool, brief.taste_refs, failed_place=brief.failed_place or None
+                    )
                 else:
                     taste_results = self.taste_provider.rank(rank_pool, brief.taste_refs)
             taste_trace = dict(getattr(taste_results, "trace", {}) or {})
@@ -619,6 +639,9 @@ class UnstuckEngine:
                 "status": "unavailable",
                 "error_code": str(exc),
                 "input_references": list(brief.taste_refs),
+                "second_input_references": list(brief.second_taste_refs),
+                "pair_status": "unavailable" if brief.second_taste_refs else None,
+                "pair_reason": "Qloo could not compare both profiles within the permitted budget." if brief.second_taste_refs else None,
                 "insights_called": False,
                 "ranked_entity_count": 0,
             }
@@ -796,6 +819,8 @@ class UnstuckEngine:
         provider_mode = self.taste_provider.mode
         if provider_mode == "live":
             taste_status = str(taste_trace.get("status") or "unavailable")
+        elif brief.second_taste_refs:
+            taste_status = "no_coverage"
         elif provider_mode == "fixture":
             taste_status = "fixture_preview"
         else:
@@ -837,6 +862,12 @@ class UnstuckEngine:
             "taste_audit": {
                 "status": taste_status,
                 "input_references": list(brief.taste_refs),
+                "second_input_references": list(brief.second_taste_refs),
+                "pair_status": taste_trace.get("pair_status"),
+                "pair_reason": taste_trace.get("pair_reason"),
+                "profile_a_ranked_count": int(taste_trace.get("profile_a_ranked_count", 0)),
+                "profile_b_ranked_count": int(taste_trace.get("profile_b_ranked_count", 0)),
+                "pair_positions": list(taste_trace.get("pair_positions", [])),
                 "failed_place_anchor": brief.failed_place or None,
                 "recognized_signals": list(taste_trace.get("recognized_signals", [])),
                 "unresolved_signals": list(taste_trace.get("unresolved_signals", [])),
