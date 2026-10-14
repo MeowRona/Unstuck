@@ -265,8 +265,19 @@
     if (!price || price.min == null || price.max == null) return 'Price unknown';
     const people = Number($('#plannerPeople').value || 2);
     let min = Number(price.min), max = Number(price.max);
+    if (price.basis === 'per_person_dish_only') {
+      return 'Example item ' + min.toFixed(2) + ' ' + (price.currency || 'PLN') + ' each · meal unknown';
+    }
     if (price.basis === 'per_person') { min *= people; max *= people; }
     return Math.round(min) + (min === max ? '' : '–' + Math.round(max)) + ' ' + (price.currency || 'PLN');
+  }
+
+  function formatTimelinePrice(price) {
+    if (price?.basis === 'per_person_dish_only' && price.quoted_dish_total != null)
+      return 'Example item ' + Number(price.quoted_dish_total).toFixed(2) + ' ' + price.currency +
+             ' if one each · meal unknown';
+    if (!price || price.min == null || price.max == null) return 'Price unknown';
+    return Math.round(price.min) + '–' + Math.round(price.max) + ' ' + price.currency;
   }
 
   function renderExplore() {
