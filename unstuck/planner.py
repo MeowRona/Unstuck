@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "planner_warsaw.json"
 WARSAW_TZ = ZoneInfo("Europe/Warsaw")
 DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+PLANNER_RESTAURANT_SHORTLIST = 10  # Same operational pool used for Qloo and schedules.
 
 
 def _clock(text: str) -> tuple[int, int]:
@@ -523,7 +524,7 @@ class DayPlanner:
         if not self.taste_provider or self.taste_provider.mode != "live":
             return {}, {"status": "not_live", "note": "Qloo was not called for this planner session."}
         restaurants = [r for r in eligible if r["kind"] == "restaurant" and r["id"].startswith("restaurant:")]
-        places = [self._places_by_id[r["id"].split(":", 1)[1]] for r in restaurants[:10]
+        places = [self._places_by_id[r["id"].split(":", 1)[1]] for r in restaurants[:PLANNER_RESTAURANT_SHORTLIST]
                   if r["id"].split(":", 1)[1] in self._places_by_id]
         if len(places) < 2:
             return {}, {"status": "insufficient_coverage",
@@ -638,7 +639,7 @@ class DayPlanner:
             return []
         restaurants = [x for x in items if x["kind"] == "restaurant"]
         nonrestaurants = [x for x in items if x["kind"] != "restaurant"]
-        candidate_pool = nonrestaurants[:18] + restaurants[:8]
+        candidate_pool = nonrestaurants[:18] + restaurants[:PLANNER_RESTAURANT_SHORTLIST]
         plans: list[dict[str, Any]] = []
         for combo in itertools.combinations(candidate_pool, count):
             ids = {row["id"] for row in combo}
