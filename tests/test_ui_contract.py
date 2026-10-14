@@ -103,6 +103,19 @@ class UiContractTests(unittest.TestCase):
         self.assertIn(".qloo-picker-find", (ROOT / "static" / "styles.css").read_text(encoding="utf-8"))
         self.assertNotIn("once the Qloo API is connected", self.html)
 
+    def test_planner_route_conflict_checks_next_variant_and_stops_after_three(self):
+        planner_js = (ROOT / "static" / "planner.js").read_text(encoding="utf-8")
+        browser = (ROOT / "tools" / "browser_smoke.py").read_text(encoding="utf-8")
+        self.assertIn("Math.min(plans.length, startIndex + 3)", planner_js)
+        self.assertIn("for (let index = startIndex; index < lastIndex; index++)", planner_js)
+        self.assertIn("const serial = ++routeSerial", planner_js)
+        self.assertIn("if (serial !== routeSerial) return", planner_js)
+        self.assertIn("route_conflicts", planner_js)
+        self.assertIn("No route-verified option", planner_js)
+        self.assertIn("plan.feasibility === 'conflict'", planner_js)
+        self.assertIn("planner_route_conflict_retry_flow", browser)
+        self.assertIn("simulated late arrival", browser)
+
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("@media (max-width: 760px)", css)
