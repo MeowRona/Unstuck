@@ -19,6 +19,8 @@ The current snapshot is manual/verified. It does **not** scrape sources on page 
 
 The primary Warsaw restaurant catalog contains about 1,982 restaurant records, mostly OSM-discovered. It is **not** a catalog of independently verified prices and opening hours. Source confidence is stored per field.
 
+**Confirmed closure exclusion:** the operator of [AleGloria](https://www.alegloria.pl/) at Plac Trzech Krzyży 3 announces that the restaurant is closing after the end of its lease. Although the unchanged OSM discovery snapshot still contains this venue, `data/restaurant_closures_20261014.json` excludes its exact ID/name/address from runtime recommendations (checked 2026-10-14). We do not infer closure of other venues from outdated or missing opening hours. The precise closure date is not asserted.
+
 `data/restaurant_official_hours_20261014.json` supplies an audited overlay for twelve existing, branch-specific Warsaw restaurants. It updates **regular weekly hours**, with an exact ID/name/address guard. **Two ORZO branches** additionally include an independently checked single-dish price (Bigoli carbonara at 49 PLN) from the [published, city-wide identical ORZO menu](https://orzo.pl/pages/miasto/makarony-warszawa). Every other unknown meal price stays unknown. This is not a total cost or restaurant-wide estimate. No holiday exceptions or live table availability are inferred, and Google Places remains disabled.
 
 Official opening-hour sources (reviewed 2026-10-14):
