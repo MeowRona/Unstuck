@@ -310,6 +310,7 @@ async function fetchJson(url, options = {}) {
 function showSearching() {
   // A previous route-check response must never replace a newer user edit or search.
   ++routeRequestSerial;
+  $('#rejectionRefine')?.classList.add('hidden');
   firstRun.classList.add('hidden');
   resultContent.classList.add('hidden');
   searchingState.classList.remove('hidden');
@@ -1458,8 +1459,8 @@ async function copySelectedPlan() {
 
 function rejectReasonCopy(reason) {
   const messages = {
-    too_far: 'This removes only this venue from the current session. Your travel limit stays exactly as you set it.',
-    not_my_vibe: 'This removes only this venue. It does not retrain a model or change distance limits; live Qloo taste is still pending connection.',
+    too_far: 'This venue is excluded. You can now tighten the travel limit yourself; Unstuck will not silently change locked conditions.',
+    not_my_vibe: 'This venue is excluded. Review or refine your optional Qloo cultural references; rejecting it does not retrain Qloo.',
     been_there: 'This removes only this venue so the next round can surface another option.',
     skip: 'This removes only this venue from the current session. All conditions stay unchanged.',
   };
@@ -1492,7 +1493,28 @@ async function submitReject(reason) {
   const placeId = pendingRejectPlaceId;
   $('#rejectExplain').textContent = rejectReasonCopy(reason);
   closeReject();
-  await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
+  const result = await runLatest('/api/reject', {session_id: sessionId, place_id: placeId, reason});
+  // Offer an optional refinement while keeping the new results and Undo usable.
+  // Never change locked limits or personal tastes without a user's click.
+  if (result && (reason === 'too_far' || reason === 'not_my_vibe')) {
+    const action = $('#rejectionRefine');
+    const isDistance = reason === 'too_far';
+    action.replaceChildren();
+    const message = document.createElement('span');
+    message.textContent = isDistance
+      ? 'Too far? You can tighten the travel limit for future recommendations.'
+      : 'Not your vibe? You can choose an exact cultural reference in Qloo.';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary-button';
+    button.textContent = isDistance ? 'Adjust travel' : 'Refine taste';
+    button.addEventListener('click', () => {
+      action.classList.add('hidden');
+      openEditor(isDistance ? 'travel' : 'taste');
+    });
+    action.append(message, button);
+    action.classList.remove('hidden');
+  }
 }
 
 function openAbout() {
