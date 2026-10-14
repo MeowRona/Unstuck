@@ -9,7 +9,7 @@ from typing import Any
 
 from .models import Place, SearchBrief, SearchState
 from .origins import resolve_origin
-from .providers import TasteResult
+from .providers import TasteResult, TasteResults
 
 
 def _last_sunday(year: int, month: int) -> date:
