@@ -151,8 +151,9 @@ def load_places(path: Path) -> list[Place]:
                             not isinstance(low, (int, float)) or
                             not isinstance(high, (int, float)) or
                             not 0 < low <= high <= 10000 or
-                            not isinstance(price.get("basis"), str) or
-                            len(price["basis"]) < 30 or
+                            price.get("basis") != "per_person" or
+                            not isinstance(price.get("item_note"), str) or
+                            len(price["item_note"]) < 30 or
                             not str(price.get("source_url", "")).startswith("https://")):
                         raise RuntimeError(f"Invalid curated dish price evidence: {entry['id']}")
                     row["price"] = {
@@ -165,8 +166,9 @@ def load_places(path: Path) -> list[Place]:
                         "basis": price["basis"],
                     }
                     row["source_note"] += (
-                        " One specific menu dish is price-verified; this does not establish "
-                        "the total cost of an arbitrary meal."
+                        " Listed dish: " + price["item_note"] +
+                        " This establishes a per-person price for the named dish only,"
+                        " not an all-inclusive meal or a price for all menu choices."
                     )
     return [Place.from_dict(row) for row in rows]
 
