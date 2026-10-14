@@ -85,7 +85,7 @@ class WarsawPilotDataTests(unittest.TestCase):
         by_id = {place.id: place for place in engine.places}
         official = json.loads((ROOT / "data" / "restaurant_official_hours_20261014.json").read_text(encoding="utf-8"))
         self.assertEqual(official["checked_at"], "2026-10-14")
-        self.assertGreaterEqual(len(official["entries"]), 6)
+        self.assertGreaterEqual(len(official["entries"]), 8)
         for entry in official["entries"]:
             place = by_id[entry["id"]]
             self.assertEqual(place.name, entry["expected_name"])
@@ -102,6 +102,7 @@ class WarsawPilotDataTests(unittest.TestCase):
         # This restaurant's Monday opening was updated from 12:00 in OSM to
         # 13:00 on the official autumn 2026 venue schedule.
         self.assertEqual(by_id["warsaw:osm:node:2859884304"].hours["0"], (("13:00", "23:00"),))
+        self.assertEqual(by_id["warsaw:osm:node:4730432126"].hours["6"], ())
         # A curated venue with independently verified food prices keeps them.
         self.assertEqual(by_id["warsaw:hoza-steakhouse"].price.status, "confirmed")
 
