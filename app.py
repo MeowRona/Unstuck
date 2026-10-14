@@ -170,6 +170,25 @@ def load_places(path: Path) -> list[Place]:
                         " This establishes a per-person price for the named dish only,"
                         " not an all-inclusive meal or a price for all menu choices."
                     )
+    if path.name == "places_warsaw.json":
+        closures_path = DATA / "restaurant_closures_20261014.json"
+        if closures_path.is_file():
+            closures = json.loads(closures_path.read_text(encoding="utf-8"))
+            if closures.get("schema_version") != 1:
+                raise RuntimeError("Unsupported restaurant-closure fact snapshot")
+            by_id = {row["id"]: row for row in rows}
+            excluded_ids = set()
+            for entry in closures.get("entries", []):
+                row = by_id.get(entry["id"])
+                if (row is None or row.get("name") != entry.get("expected_name")
+                        or row.get("address") != entry.get("expected_address")
+                        or row.get("category") != "restaurant"
+                        or entry.get("status") != "operator_reports_closed"
+                        or not str(entry.get("source_url", "")).startswith("https://")
+                        or entry["id"] in excluded_ids):
+                    raise RuntimeError(f"Restaurant-closure identity mismatch: {entry['id']}")
+                excluded_ids.add(entry["id"])
+            rows = [row for row in rows if row["id"] not in excluded_ids]
     return [Place.from_dict(row) for row in rows]
 
 
