@@ -34,6 +34,7 @@ This keeps Qloo essential without asking it to impersonate a routing, pricing, o
 ## Resolution and ambiguity policy
 
 - Named taste references and candidate venues are resolved through Qloo entity search before the rank call unless a verified Qloo entity ID is already known.
+- Candidate **places** now request at most ten Qloo search results in the existing **one** lookup rather than only five; taste-name searches still request five. This may improve recall when several unrelated results precede the exact restaurant. No extra API calls, fuzzy name acceptance or guessed branch matches are introduced. Production counts, not assumptions, determine whether coverage improves.
 - An exact normalized name can proceed when it resolves uniquely.
 - Ambiguous names fail visibly instead of silently accepting the first search result.
 - Search ordering is never presented as taste affinity.
