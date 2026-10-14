@@ -11,7 +11,7 @@ from unittest.mock import patch
 from unstuck.engine import Evaluation, UnstuckEngine, _constraint_checks, estimate_travel_minutes, evaluate_place, pareto_front
 from unstuck.models import Place, SearchBrief, SearchState
 from unstuck.origins import LEGACY_ORIGINS, public_origin_payload, resolve_origin
-from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTransport, RealQlooProvider, TasteResult
+from unstuck.providers import FixtureTasteProvider, NoTasteProvider, QlooTransport, RealQlooProvider, TasteResult, TasteResults
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -515,6 +515,75 @@ class QlooContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "QLOO_PICKER_RATE_LIMITED"):
                 provider.suggest_taste_entities("Beyond hourly cap", "movie")
             self.assertEqual(provider.suggest_taste_entities("After the window", "book"), [])
+
+    def test_good_for_both_uses_independent_same_pool_ranks_and_minimax(self):
+        class FakeTransport:
+            pass
+        class TwoProfileProvider(RealQlooProvider):
+            def __init__(self):
+                super().__init__(FakeTransport())
+                self.calls = []
+            def rank_with_context(self, places, taste_refs, *, failed_place):
+                self.calls.append((tuple(p.id for p in places), tuple(taste_refs), failed_place))
+                ranks = ([1, 3, 2] if list(taste_refs) == ["A"] else [3, 1, 2])
+                return TasteResults(
+                    [TasteResult(p.id, None, ranks[i], (), "qloo") for i, p in enumerate(places)],
+                    trace={
+                        "status": "live", "insights_called": True,
+                        "candidate_entity_count": len(places),
+                        "recognized_signals": [{"input": taste_refs[0], "name": taste_refs[0],
+                                                 "entity_id": taste_refs[0], "kind": "taste_reference"}],
+                    },
+                )
+        original = load_fixture_engine().places[0]
+        places = [replace(original, id=code) for code in ["alpha", "beta", "gamma"]]
+        provider = TwoProfileProvider()
+        both = provider.rank_pair_with_context(places, ["A"], ["B"], failed_place="Closed")
+        self.assertEqual(both.trace["status"], "live")
+        self.assertEqual(both.trace["pair_status"], "verified")
+        self.assertEqual(both.trace["ranked_entity_count"], 3)
+        self.assertEqual(both.trace["pair_positions"][0],
+                         {"place_id": "gamma", "person_a_rank": 2,
+                          "person_b_rank": 2, "compromise_rank": 1})
+        self.assertEqual(next(x.rank for x in both if x.place_id == "gamma"), 1)
+        self.assertTrue(all(x.affinity is None for x in both))
+        self.assertEqual(provider.calls[0][0], provider.calls[1][0])
+        self.assertEqual([x[1] for x in provider.calls], [("A",), ("B",)])
+        self.assertEqual([x[2] for x in provider.calls], [None, None])
+
+    def test_good_for_both_refuses_unverified_pair_and_skips_second_if_first_weak(self):
+        class WeakProvider(RealQlooProvider):
+            def __init__(self):
+                super().__init__(object())
+                self.calls = []
+            def rank_with_context(self, places, taste_refs, *, failed_place):
+                self.calls.append(tuple(taste_refs))
+                return TasteResults(
+                    [TasteResult(p.id, None, 1 if i == 0 else None, (), "qloo")
+                     for i, p in enumerate(places)],
+                    trace={"status": "live", "insights_called": True,
+                           "candidate_entity_count": len(places)},
+                )
+        places = load_fixture_engine().places[:3]
+        provider = WeakProvider()
+        result = provider.rank_pair_with_context(places, ["A"], ["B"], failed_place=None)
+        self.assertEqual(result.trace["status"], "no_coverage")
+        self.assertEqual(result.trace["pair_status"], "insufficient_coverage")
+        self.assertEqual(provider.calls, [("A",)])
+        self.assertTrue(all(x.rank is None for x in result))
+
+    def test_two_person_profile_validates_bounds_and_round_trips(self):
+        good = brief(taste_refs=["artist: A", "movie: B"],
+                     second_taste_refs=["artist: C", "movie: D"])
+        self.assertEqual(good.second_taste_refs, ("artist: C", "movie: D"))
+        self.assertEqual(SearchBrief.from_payload(good.to_dict()), good)
+        for first, second in [
+            (["A", "B", "C"], ["D"]),
+            (["A"], ["B", "C", "D"]),
+            ([], ["B"]),
+        ]:
+            with self.assertRaisesRegex(ValueError, "Good for both"):
+                brief(taste_refs=first, second_taste_refs=second)
 
     def test_taste_picker_uses_one_typed_api_search_with_no_autoselection(self):
         class SearchTransport:
