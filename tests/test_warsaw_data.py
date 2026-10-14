@@ -292,6 +292,48 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertTrue(second["cards"])
         self.assertLessEqual(max(provider.pool_sizes), 10)
 
+    def test_live_qloo_window_uses_verified_place_identities_after_fact_quality(self):
+        class CapturingLiveProvider:
+            mode = "live"
+
+            def __init__(self):
+                self.pools = []
+
+            def rank(self, places, taste_refs):
+                self.pools.append(list(places))
+                return [
+                    TasteResult(place.id, 1.0 - index * 0.01, index + 1, (), "qloo")
+                    for index, place in enumerate(places)
+                ]
+
+        engine = build_engine("baseline", "real")
+        provider = CapturingLiveProvider()
+        engine.taste_provider = provider
+        brief = SearchBrief.from_payload(
+            payload(
+                failed_place="Praga 38",
+                date="2026-10-17",
+                start_time="18:30",
+                return_by="23:30",
+                min_stay_minutes=90,
+                budget_total=500,
+                max_one_way_minutes=60,
+                negotiable_extra_travel_minutes=0,
+                negotiable_stay_reduction_minutes=0,
+                taste_refs=["artist: Radiohead"],
+            )
+        )
+        engine.search(SearchState(brief))
+        self.assertTrue(provider.pools)
+        pool = provider.pools[0]
+        self.assertLessEqual(len(pool), 10)
+        cached = {place.id for place in pool if place.qloo_entity_id}
+        self.assertGreaterEqual(len(cached), 4)
+        self.assertIn("warsaw:hoza-steakhouse", cached)
+        self.assertIn("warsaw:osm:node:4730432126", cached)
+        self.assertIn("warsaw:osm:node:4004769301", cached)
+        self.assertIn("warsaw:osm:way:1005658204", cached)
+
     def test_transit_index_returns_real_scheduled_legs_and_geometry(self):
         router = get_transit_index()
         route = router.route(

@@ -578,7 +578,18 @@ class UnstuckEngine:
             original_count = len(ordered_prefiltered)
             prefilter_key_by_id = {place.id: key for key, place in prefiltered}
             operationally_valid.sort(key=lambda row: (
-                row[0], row[1], prefilter_key_by_id[row[2].id],
+                row[0],
+                row[1],
+                # Category and operational fact quality still come first. Once
+                # candidates are equally viable/provisional, prefer exact Qloo
+                # place identities already verified in the local catalog so the
+                # bounded ten-slot window can actually be personalized without
+                # spending extra /search calls.
+                prefilter_key_by_id[row[2].id][0],
+                prefilter_key_by_id[row[2].id][1],
+                0 if row[2].qloo_entity_id else 1,
+                prefilter_key_by_id[row[2].id][2],
+                prefilter_key_by_id[row[2].id][3],
             ))
             ordered_prefiltered = [place for _tier, _confidence, place in operationally_valid]
             log.append(
