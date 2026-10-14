@@ -810,7 +810,19 @@ function renderDecisionEvidence(result) {
   const rejected = Array.isArray(result.rejection_history) ? result.rejection_history : [];
   const refs = (audit.input_references || []).map(item => `<span class="evidence-pill">${escapeHtml(item)}</span>`).join('');
   let qlooSection = '';
-  if (audit.status === 'live') {
+  if (audit.second_input_references?.length) {
+    const pairSignals = (audit.recognized_signals || []).map(signal =>
+      `<li>Person ${escapeHtml(signal.profile || '?')}: ${escapeHtml(signal.input)} → ${escapeHtml(signal.name)}</li>`
+    ).join('');
+    const pairPositions = (audit.pair_positions || []).slice(0, 3).map(row =>
+      `<li>Place ID ${escapeHtml(row.place_id)}: Person A #${escapeHtml(row.person_a_rank)}, Person B #${escapeHtml(row.person_b_rank)} · compromise order #${escapeHtml(row.compromise_rank)}</li>`
+    ).join('');
+    if (audit.pair_status === 'verified' && audit.status === 'live') {
+      qlooSection = `<section><h4>Good for both · two independent Qloo profiles</h4><p><strong>Verified shared ranking:</strong> ${escapeHtml(audit.ranked_entity_count)} venues ranked for both people from the same ${escapeHtml(audit.candidate_entity_count)} locally resolved options.</p><p>Unstuck chooses the least bad rank across the two Qloo orderings (minimax), after hard logistics. These ranks are <strong>not</strong> preference probabilities or guarantees you will both enjoy the venue.</p><ul>${pairSignals}${pairPositions}</ul><div><strong>Without taste:</strong> ${(audit.baseline_order || []).map(escapeHtml).join(' → ') || 'No baseline result'}</div><div><strong>Pair profile:</strong> ${(audit.ranked_order || []).map(escapeHtml).join(' → ') || 'No ranked result'}</div><div><strong>Top result changed:</strong> ${audit.changed_top_choice ? 'yes' : 'no'}</div></section>`;
+    } else {
+      qlooSection = `<section><h4>Good for both · not verified</h4><p><strong>Operational recommendations only.</strong> Qloo did not return at least two common ranked venues for both people. No fair compromise can be claimed.</p><p>${escapeHtml(audit.pair_reason || 'Insufficient taste coverage for at least one profile.')}</p><div>Person A ranked venues: ${escapeHtml(audit.profile_a_ranked_count || 0)} · Person B: ${escapeHtml(audit.profile_b_ranked_count || 0)}</div><ul>${pairSignals || '<li>No cultural entities were confirmed for both profiles.</li>'}</ul></section>`;
+    }
+  } else if (audit.status === 'live') {
     const signals = (audit.recognized_signals || []).map(signal =>
       `<li><strong>${escapeHtml(signal.input)}</strong> → ${escapeHtml(signal.name)} <code>${escapeHtml(signal.entity_id)}</code>${signal.kind === 'failed_place_anchor' ? ' · failed-venue anchor' : ''}</li>`
     ).join('');
@@ -829,7 +841,7 @@ function renderDecisionEvidence(result) {
     qlooSection = '<section><h4>What did Qloo change?</h4><p>Taste ranking is disabled in this baseline. No Qloo result affected the recommendation.</p></section>';
   }
   const failed = result.brief?.failed_place
-    ? `<div><strong>Unavailable venue:</strong> ${escapeHtml(result.brief.failed_place)} · excluded from recommendations${audit.status === 'live' ? (audit.anchor_used ? ' · also used as a resolved Qloo taste anchor' : ' · Qloo anchor was not resolved') : ' · Qloo anchor available after connection'}</div>`
+    ? `<div><strong>Unavailable venue:</strong> ${escapeHtml(result.brief.failed_place)} · excluded from recommendations${audit.status === 'live' ? (audit.anchor_used ? ' · also used as a resolved Qloo taste anchor' : ' · Qloo anchor was not resolved') : ' · no Qloo anchor used in this ranking'}</div>`
     : '';
   const rejectionRows = rejected.length
     ? `<div><strong>Session skips:</strong> ${rejected.map(item => `${escapeHtml(item.reason.replaceAll('_',' '))}: ${escapeHtml(item.place_id)}`).join(' · ')}</div>`
