@@ -628,7 +628,13 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(400, {"error": str(exc)})
         except RuntimeError as exc:
-            self._json(503, {"error": str(exc)})
+            if str(exc) == "QLOO_PICKER_RATE_LIMITED":
+                self._json(429, {
+                    "error": "Qloo cultural search is temporarily rate limited. "
+                             "Please wait before trying again."
+                })
+            else:
+                self._json(503, {"error": str(exc)})
         except Exception as exc:
             self._json(500, {"error": f"Internal error: {type(exc).__name__}"})
 
