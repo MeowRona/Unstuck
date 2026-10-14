@@ -45,7 +45,7 @@ This keeps Qloo essential without asking it to impersonate a routing, pricing, o
 The Hackathon Kit says to use the smallest request that answers the product question and to keep retries/cache bounded. Unstuck follows that policy:
 
 - hard/geographic prefilter before Qloo;
-- in Plan a day, locked/preserved restaurants are protected first; remaining shortlist slots prefer source-confirmed opening hours and shorter estimated travel from the selected origin before any Qloo signal is considered;
+- in Plan a day, locked/preserved restaurants are protected first; remaining shortlist slots keep the catalog's existing fact-confidence ordering before any Qloo signal is considered;
 - at most 10 live ranking options;
 - one shared insights ranking request, not separate per-option affinity calls;
 - short-lived process-memory cache only;
