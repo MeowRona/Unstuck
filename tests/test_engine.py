@@ -321,6 +321,35 @@ class ConstraintTests(unittest.TestCase):
         self.assertEqual(second["round"], 2)
         self.assertIn("Quiet Table (demo)", {card["name"] for card in second["cards"]})
 
+    def test_named_menu_dish_never_confirms_whole_meal_budget(self):
+        base = load_fixture_engine().places[0]
+        dish = replace(base, price=replace(
+            base.price, minimum=49, maximum=49, status="confirmed",
+            basis="per_person_dish_only",
+        ))
+        sample = brief(failed_place="", budget_total=120, people=2,
+                       origin_lat=dish.lat, origin_lon=dish.lon,
+                       return_by="23:30", taste_refs=[])
+        ev = evaluate_place(dish, sample, None, allowed_travel_minutes=120,
+                            stay_minutes=75, category_relaxed=False)
+        self.assertTrue(ev.viable)
+        self.assertFalse(ev.confirmed)
+        self.assertEqual(ev.estimated_total_min, 98)
+        self.assertIsNone(ev.estimated_total_max)
+        self.assertNotIn("Budget", ev.preserved)
+        self.assertTrue(any("named menu item" in reason for reason in ev.needs_checking))
+        budget = next(x for x in _constraint_checks(ev, sample) if x["field"] == "budget")
+        self.assertEqual(budget["status"], "unknown")
+
+        over_budget = evaluate_place(
+            dish, brief(failed_place="", budget_total=90, people=2,
+                        origin_lat=dish.lat, origin_lon=dish.lon,
+                        return_by="23:30", taste_refs=[]),
+            None, allowed_travel_minutes=120, stay_minutes=75, category_relaxed=False,
+        )
+        self.assertFalse(over_budget.viable)
+        self.assertTrue(any("named dish alone" in reason for reason in over_budget.hard_failures))
+
     def test_estimated_hours_are_not_confirmed(self):
         engine = load_fixture_engine()
         row = json.loads((ROOT / "data" / "places_fixture.json").read_text(encoding="utf-8"))["places"][0]
