@@ -30,7 +30,7 @@ Official opening-hour sources (reviewed 2026-10-14):
 - [Der Elefant](https://derelefant.com/pl/kontakt) — Plac Bankowy 1.
 - [Kieliszki na Próżnej](https://kieliszkinaproznej.eatbu.com/?lang=pl) — Próżna 12; restaurant-operated hours list Sunday as closed.
 
-The sources establish normal *hours*, not a meal price. Some venues offer conditional lunch promotions or charge extra for drinks. A promotional menu amount is **not** converted into a guaranteed per-person total. Verified weekly hours can still be overridden by holidays and changes after the recorded check date.
+The sources establish normal *hours*, not a meal price. Some venues offer conditional lunch promotions or charge extra for drinks. A promotional menu amount is **not** converted into a guaranteed per-person total. Verified weekly hours can still be overridden by holidays and changes after the recorded check date. A published closing time of 24:00 is stored internally as 00:00 on the following calendar day (not as an invalid 24:00 clock), and an explicitly closed Sunday has no opening window.
 
 ## Selected event source
 
