@@ -114,3 +114,13 @@ jobs:
         env:
           UNSTUCK_PUBLIC_URL: https://unstuck-city-compass.onrender.com
         run: python tools/two_profile_live_smoke.py
+
+      # Bounded diagnostic only: two groups of ten exact, already-curated
+      # Warsaw restaurants. Reset the service rolling window after normal smoke.
+      - name: One-off curated Qloo venue coverage scan
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[coverage-scan]')
+        env:
+          UNSTUCK_PUBLIC_URL: https://unstuck-city-compass.onrender.com
+        run: |
+          sleep 65
+          python tools/qloo_catalog_coverage_scan.py
