@@ -100,6 +100,33 @@ class HttpFlowTests(unittest.TestCase):
         finally:
             Handler.app_state.engine.taste_provider = old
 
+    def test_public_picker_throttle_returns_clear_429_without_api_call(self):
+        from urllib.error import HTTPError
+        from unstuck.providers import RealQlooProvider
+        class NoNetworkTransport:
+            def request_scope(self, max_calls=18):
+                raise AssertionError("should throttle before touching Qloo")
+        old = Handler.app_state.engine.taste_provider
+        provider = RealQlooProvider(NoNetworkTransport())
+        Handler.app_state.engine.taste_provider = provider
+        try:
+            with patch.object(provider, "_reserve_picker_lookup",
+                              side_effect=RuntimeError("QLOO_PICKER_RATE_LIMITED")):
+                request = Request(
+                    self.base + "/api/taste-entities",
+                    data=json.dumps({"query": "Radiohead", "kind": "artist"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(HTTPError) as err:
+                    urlopen(request, timeout=3)
+                self.assertEqual(err.exception.code, 429)
+                data = json.loads(err.exception.read().decode("utf-8"))
+                self.assertIn("temporarily rate limited", data["error"])
+                self.assertNotIn("API", data["error"])
+        finally:
+            Handler.app_state.engine.taste_provider = old
+
     def test_search_reject_update_end_to_end(self):
         version = self.get_json("/api/version")
         self.assertEqual(version["git_repo"], os.environ.get("RENDER_GIT_REPO_SLUG", "MeowRona/Unstuck"))
