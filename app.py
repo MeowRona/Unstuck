@@ -130,16 +130,26 @@ def load_places(path: Path) -> list[Place]:
                     raise RuntimeError(f"Invalid weekly restaurant-hour coverage: {entry['id']}")
                 if not str(entry["source_url"]).startswith("https://"):
                     raise RuntimeError(f"Restaurant-hour source must be HTTPS: {entry['id']}")
+                confidence = entry.get("hours_status", "confirmed")
+                conflict_note = str(entry.get("conflict_note") or "")
+                if (confidence not in {"confirmed", "estimated"} or
+                        (confidence == "estimated" and len(conflict_note) < 80)):
+                    raise RuntimeError(f"Invalid restaurant-hours evidence status: {entry['id']}")
+                note = (
+                    ("Conservative opening window inferred from conflicting operator pages. "
+                     if confidence == "estimated" else
+                     "Regular opening hours verified against the venue's official site ")
+                    + f"on {overlay['checked_at']}. Holiday exceptions, reservations and "
+                    + "meal prices remain unverified unless another field has its own source."
+                )
+                if conflict_note:
+                    note += " Conflict evidence: " + conflict_note
                 row.update(
                     hours=hours,
-                    hours_status="confirmed",
+                    hours_status=confidence,
                     hours_source_url=entry["source_url"],
                     hours_checked_at=overlay["checked_at"],
-                    source_note=(
-                        "Regular opening hours verified against the venue's official site "
-                        f"on {overlay['checked_at']}. Holiday exceptions, reservations and "
-                        "meal prices remain unverified unless another field has its own source."
-                    ),
+                    source_note=note,
                 )
                 price = entry.get("price")
                 if price is not None:
