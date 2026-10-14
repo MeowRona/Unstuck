@@ -159,6 +159,24 @@ def main() -> int:
         evidence = planner_result.get("taste_audit") or {}
         if not evidence.get("insights_called") or evidence.get("ranked_count", 0) < 2:
             raise RuntimeError("planner claimed live Qloo without ranking at least two restaurants")
+        resolved_count = int(evidence.get("resolved_count", 0))
+        resolved_candidates = evidence.get("resolved_candidates") or []
+        if resolved_count != len(resolved_candidates):
+            raise RuntimeError(
+                "planner Qloo resolved-count evidence does not match its exact venue list: "
+                f"resolved_count={resolved_count}, listed={len(resolved_candidates)}"
+            )
+        if any(
+            not isinstance(row, dict)
+            or not str(row.get("place_id") or "").strip()
+            or not str(row.get("entity_id") or "").strip()
+            or not str(row.get("name") or "").strip()
+            or str(row.get("name") or "").strip() == str(row.get("place_id") or "").strip()
+            for row in resolved_candidates
+        ):
+            raise RuntimeError("planner Qloo venue evidence must expose exact IDs and readable local names")
+        if len({str(row["place_id"]) for row in resolved_candidates}) != len(resolved_candidates):
+            raise RuntimeError("planner Qloo venue evidence contains duplicate catalog place IDs")
         comparison = evidence.get("same_pool_comparison") or {}
         if comparison.get("method") != "same_feasible_plan_pool":
             raise RuntimeError("planner did not expose a same-candidate-pool no-taste baseline")
