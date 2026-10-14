@@ -215,6 +215,56 @@ def planner_flow():
         driver.quit()
 
 
+
+def planner_route_conflict_retry_flow():
+    """Mock only route-check response to exercise the browser's bounded tool retry."""
+    driver = driver_for(1440, 900)
+    try:
+        driver.get(BASE)
+        wait = WebDriverWait(driver, 45)
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerModeButton"))).click()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerSurface")))
+        wait.until(lambda d: "Loading" not in d.find_element(By.ID, "plannerCoverageStatus").text)
+        driver.execute_script("""
+            const nativeFetch = window.fetch.bind(window);
+            window.__routeRetryProbe = {count:0, ids:[]};
+            window.fetch = function(path, options) {
+              if (String(path).includes('/api/planner/route-check')) {
+                const request = JSON.parse(options.body);
+                const probe = window.__routeRetryProbe;
+                probe.ids.push(request.plan.id);
+                const first = ++probe.count === 1;
+                const plan = Object.assign({}, request.plan, {
+                  route_status:'checked',
+                  feasibility:first ? 'conflict' : 'confirmed',
+                  route_conflicts:first ? ['Test fixture: simulated late arrival'] : []
+                });
+                return Promise.resolve(new Response(JSON.stringify({plan:plan, brief:request.brief}), {
+                  status:200, headers:{'Content-Type':'application/json'}
+                }));
+              }
+              return nativeFetch(path, options);
+            };
+        """)
+        driver.find_element(By.ID, "plannerDemo").click()
+        wait.until(lambda d: d.execute_script("return window.__routeRetryProbe.count") >= 2)
+        wait.until(lambda d: "automatically validated option 2" in
+                   d.find_element(By.ID, "plannerResultsMeta").text.lower())
+        ids = driver.execute_script("return window.__routeRetryProbe.ids")
+        if len(ids) != 2 or ids[0] == ids[1]:
+            raise AssertionError(f"route conflict did not trigger next distinct variant: {ids}")
+        selected = driver.find_elements(By.CSS_SELECTOR, "#plannerVariantTabs button.active")
+        if not selected or "Option 2" not in selected[0].text:
+            raise AssertionError("route-verified second option was not selected")
+        activities = [x.get_attribute("data-plan-item")
+                      for x in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")]
+        if "event:simple-plan-2026-10-17" not in activities:
+            raise AssertionError("bounded route retry lost the locked concert")
+        assert_no_severe_console(driver)
+    finally:
+        driver.quit()
+
+
 def planner_mobile_flow():
     driver = driver_for(390, 844)
     try:
@@ -242,6 +292,7 @@ def main():
     desktop_flow()
     mobile_flow()
     planner_flow()
+    planner_route_conflict_retry_flow()
     planner_mobile_flow()
     print("browser smoke: rescue + planner desktop and 390x844 mobile flows PASS")
 
