@@ -166,7 +166,15 @@ class WarsawPilotDataTests(unittest.TestCase):
             self.assertEqual(item.hours_status, "confirmed", restaurant_id)
             self.assertEqual(item.hours[weekday], expected, restaurant_id)
             self.assertTrue(item.hours_source_url.startswith("https://"), restaurant_id)
-            self.assertEqual(item.price.status, "unknown", restaurant_id)
+            if restaurant_id in {
+                "warsaw:osm:node:1285589018",
+                "warsaw:osm:node:5062561421",
+            }:
+                self.assertEqual(item.price.status, "confirmed", restaurant_id)
+                self.assertEqual(item.price.minimum, 42.0, restaurant_id)
+                self.assertEqual(item.price.basis, "per_person_dish_only", restaurant_id)
+            else:
+                self.assertEqual(item.price.status, "unknown", restaurant_id)
         self.assertNotEqual(by_id["warsaw:osm:node:6898019913"].hours_status, "confirmed")
         self.assertNotEqual(by_id["warsaw:osm:node:4799316222"].hours_status, "confirmed")
 
