@@ -327,6 +327,21 @@ class RealQlooProvider:
 
     def __init__(self, transport: QlooTransport | None = None):
         self.transport = transport or QlooTransport()
+        # Public, unauthenticated entity search should not consume the entire
+        # hackathon quota. These process-local counters are deliberately separate
+        # from the actual planning/Insights quota and store no IPs or user queries.
+        self._picker_lock = RLock()
+        self._picker_attempts = deque()
+
+    def _reserve_picker_lookup(self) -> None:
+        with self._picker_lock:
+            now = time.monotonic()
+            while self._picker_attempts and self._picker_attempts[0] <= now - 3600:
+                self._picker_attempts.popleft()
+            recent_minute = sum(value > now - 60 for value in self._picker_attempts)
+            if recent_minute >= 12 or len(self._picker_attempts) >= 72:
+                raise RuntimeError("QLOO_PICKER_RATE_LIMITED")
+            self._picker_attempts.append(now)
 
     def _resolve(self, name: str, *, entity_type: str | None = None) -> tuple[str, str]:
         params: dict[str, str | int] = {"query": name, "take": 5}
@@ -373,6 +388,7 @@ class RealQlooProvider:
             raise ValueError("taste search must contain 2–70 characters")
         if any(ord(char) < 32 for char in name):
             raise ValueError("taste search contains invalid characters")
+        self._reserve_picker_lookup()
         with self.transport.request_scope(max_calls=1):
             try:
                 payload = self.transport.get_json(
