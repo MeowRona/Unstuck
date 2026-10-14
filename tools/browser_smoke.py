@@ -352,6 +352,15 @@ def good_for_both_ui_flow():
         driver.execute_script("document.getElementById('openFullEditor').click()")
         wait.until(EC.visibility_of_element_located((By.ID, "editorModal")))
         editor = driver.find_element(By.ID, "editorForm")
+        # Keep this scenario independent of the runner clock. The test is about
+        # two-profile evidence rendering, not whether a rolling default return
+        # time still leaves enough room for dinner when CI happens to execute.
+        driver.execute_script("""
+            const form = document.getElementById('editorForm');
+            form.elements.date.value = '2026-10-17';
+            form.elements.start_time.value = '18:30';
+            form.elements.return_by.value = '22:00';
+        """)
         first = editor.find_element(By.CSS_SELECTOR, '[name="taste_refs"]')
         first.clear()
         first.send_keys("film: Amelie")
