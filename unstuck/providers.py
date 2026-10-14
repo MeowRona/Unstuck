@@ -344,7 +344,14 @@ class RealQlooProvider:
             self._picker_attempts.append(now)
 
     def _resolve(self, name: str, *, entity_type: str | None = None) -> tuple[str, str]:
-        params: dict[str, str | int] = {"query": name, "take": 5}
+        # A short Qloo /search page can miss an exact venue name behind
+        # similarly named businesses. Ask for ten rather than five *in the
+        # same single request* for places. Taste entities keep their smaller
+        # five-result search. Do not retry aliases or spend extra network calls.
+        params: dict[str, str | int] = {
+            "query": name,
+            "take": 10 if entity_type == "urn:entity:place" else 5,
+        }
         if entity_type:
             params["types"] = entity_type
         try:
