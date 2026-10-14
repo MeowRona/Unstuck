@@ -122,6 +122,23 @@ class UiContractTests(unittest.TestCase):
         self.assertIn("named dish only", app_js)
 
 
+    def test_good_for_both_explains_uncertainty_and_preserves_optional_editor_state(self):
+        app_js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        picker_js = (ROOT / "static" / "taste-picker.js").read_text(encoding="utf-8")
+        providers = (ROOT / "unstuck" / "providers.py").read_text(encoding="utf-8")
+        self.assertIn('name="good_for_both"', self.html)
+        self.assertIn('name="second_taste_refs"', self.html)
+        self.assertIn('id="secondTasteWrap"', self.html)
+        self.assertIn("editorForm.elements.good_for_both.checked", app_js)
+        self.assertIn("brief.second_taste_refs", app_js)
+        self.assertIn("Good for both · not verified", app_js)
+        self.assertIn("operational recommendations only", app_js.lower())
+        self.assertIn("Person A Qloo position", providers)
+        self.assertIn("Person B Qloo position", providers)
+        self.assertIn("second_taste_refs", picker_js)
+        self.assertIn("good_for_both_ui_flow", (
+            ROOT / "tools" / "browser_smoke.py").read_text(encoding="utf-8"))
+
     def test_new_surfaces_have_narrow_screen_rules(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("@media (max-width: 760px)", css)
