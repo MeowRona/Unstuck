@@ -424,10 +424,19 @@
 
       <section class="editor-section" data-section="taste">
         <div class="editor-section-title"><span>03</span><div><strong>Taste profile</strong><small>Optional cultural references; recognized matches are shown after each search.</small></div></div>
-        <label>Taste references
+        <label>Person A — taste references
           <input name="taste_refs" placeholder="e.g. film: Amelie, artist: Radiohead">
-          <span class="taste-explainer">Optional. Pick an exact Qloo movie or artist below, or type references manually. This never overrides budget or travel constraints.</span>
+          <span class="taste-explainer">Optional. Choose up to two tastes if planning for two people. Select an exact Qloo entity or type a name manually.</span>
         </label>
+        <label class="pair-mode-toggle"><input type="checkbox" name="good_for_both">
+          Good for both · compare two separate taste profiles (experimental)
+        </label>
+        <div id="secondTasteWrap" class="hidden">
+          <label>Person B — up to two taste references
+            <input name="second_taste_refs" placeholder="e.g. artist: Radiohead, film: Interstellar">
+            <span class="taste-explainer">Both profiles use the same feasible places. Qloo ranks them independently; if fewer than two places are ranked for both, Unstuck shows only operational options. No accounts, invites or percentages.</span>
+          </label>
+        </div>
       </section>
 
       <section class="editor-section" data-section="travel">

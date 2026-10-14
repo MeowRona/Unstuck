@@ -343,6 +343,44 @@ def taste_picker_flow():
         driver.quit()
 
 
+def good_for_both_ui_flow():
+    """The optional second profile persists, but fixture mode never fakes fairness."""
+    driver = driver_for(1440, 900)
+    try:
+        driver.get(BASE + "/?demo=1")
+        wait = wait_cards(driver)
+        driver.execute_script("document.getElementById('openFullEditor').click()")
+        wait.until(EC.visibility_of_element_located((By.ID, "editorModal")))
+        editor = driver.find_element(By.ID, "editorForm")
+        first = editor.find_element(By.CSS_SELECTOR, '[name="taste_refs"]')
+        first.clear()
+        first.send_keys("film: Amelie")
+        pair = editor.find_element(By.CSS_SELECTOR, '[name="good_for_both"]')
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", pair)
+        if not pair.is_selected():
+            pair.click()
+        second = editor.find_element(By.CSS_SELECTOR, '[name="second_taste_refs"]')
+        wait.until(lambda _d: second.is_displayed())
+        second.send_keys("artist: Radiohead")
+        assert second.get_attribute("value") == "artist: Radiohead"
+        assert second.get_attribute("data-qloo-picker-mounted") == "true"
+        editor.find_element(By.CSS_SELECTOR, 'button[type="submit"]').click()
+        wait.until(lambda d: "hidden" in d.find_element(By.ID, "editorModal").get_attribute("class"))
+        wait.until(lambda d: "Good for both" in
+                   d.find_element(By.ID, "decisionEvidenceBody").get_attribute("textContent"))
+        text = driver.find_element(By.ID, "decisionEvidenceBody").get_attribute("textContent")
+        assert "not verified" in text.lower(), text
+        assert "operational recommendations only" in text.lower(), text
+
+        driver.execute_script("document.getElementById('openFullEditor').click()")
+        wait.until(EC.visibility_of_element_located((By.ID, "editorModal")))
+        assert editor.find_element(By.CSS_SELECTOR, '[name="good_for_both"]').is_selected()
+        assert editor.find_element(By.CSS_SELECTOR, '[name="second_taste_refs"]').get_attribute("value") == "artist: Radiohead"
+        assert_no_severe_console(driver)
+    finally:
+        driver.quit()
+
+
 def planner_mobile_flow():
     driver = driver_for(390, 844)
     try:
@@ -372,6 +410,7 @@ def main():
     planner_flow()
     planner_route_conflict_retry_flow()
     taste_picker_flow()
+    good_for_both_ui_flow()
     planner_mobile_flow()
     print("browser smoke: rescue + planner desktop and 390x844 mobile flows PASS")
 

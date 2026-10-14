@@ -140,4 +140,5 @@
   }
   mount(document.querySelector('#plannerTasteRefs'));
   mount(document.querySelector('#editorForm [name="taste_refs"]'));
+  mount(document.querySelector('#editorForm [name="second_taste_refs"]'));
 })();

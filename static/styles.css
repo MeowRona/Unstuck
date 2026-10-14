@@ -1051,3 +1051,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border-radius: 10px; font-size: 12px; color: var(--ink);
 }
 .rejection-refine button { min-height: 32px; }
+
+/* Optional two-profile mode: plain input, no sign-in or collaborative state. */
+.pair-mode-toggle {
+  display: flex; gap: 9px; align-items: flex-start;
+  margin: 11px 0 8px; line-height: 1.4;
+  font-size: 12px; font-weight: 650; cursor: pointer;
+}
+.pair-mode-toggle input { flex: 0 0 auto; margin-top: 2px; }
+#secondTasteWrap:not(.hidden) {
+  border-inline-start: 3px solid var(--blue);
+  padding: 10px 0 3px 12px; margin: 5px 0 8px;
+}
+#secondTasteWrap .taste-explainer { font-size: 11px; line-height: 1.5; }

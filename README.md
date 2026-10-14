@@ -284,3 +284,7 @@ Qloo Agentic Hackathon 2026: https://qloo.devpost.com/
 Rules: https://qloo.devpost.com/rules
 
 The published deadline should be re-checked immediately before submission.
+
+### For two people: Good for both (optional)
+
+Rescue's taste editor supports two individual profiles (one or two cultural references each). In live Qloo mode it tries two independent rankings of the **same feasible local options**, then shows an Unstuck-defined **minimax compromise in rank positions**, not fabricated preference percentages. If Qloo cannot compare at least two venues for both people, it visibly falls back to logistics-only choices. See [QLOO_INTEGRATION.md](QLOO_INTEGRATION.md). This mode needs no accounts and does not imply ticket or table availability.
