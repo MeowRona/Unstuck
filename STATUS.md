@@ -46,7 +46,7 @@ Last updated: 2026-10-14
 | Logic/unit suite | PASS | Current unit suite plus desktop and mobile browser checks run through [GitHub Actions](https://github.com/MeowRona/Unstuck/actions?query=branch%3Amain); do not freeze the outdated 74-test count |
 | HTTP end-to-end | PASS | rescue `search -> route-check -> reject(reason) -> undo -> update` plus planner `catalog -> generate -> route-check -> repair -> ICS` coverage |
 | Browser UI load | PASS | GitHub Actions headless Chrome verifies Rescue plus Plan a day demo, local save/refresh/load, repair with locked event preserved, and both rescue/planner mobile navigation at 390x844 |
-| Live Qloo | PASS in Rescue + limited Plan a Day | Production smoke confirmed two ranked planner restaurants and an actual top-plan change on the same generated feasible pool; [evidence run](https://github.com/MeowRona/Unstuck/actions/runs/38479221621) |
+| Live Qloo | PASS in Rescue + limited Plan a Day | Latest production smoke confirmed 5/10 resolved + ranked planner restaurants, exact named venue matches, and an actual top-plan change on the same generated feasible pool; [evidence run](https://github.com/MeowRona/Unstuck/actions/runs/38595095012) |
 | Human blind comparison | NOT RUN | Anonymous blind-comparison instrument and protocol exist; **no volunteer responses collected** and no improvement claim |
 | Public deployment | PASS for previously merged commits | [Render public app](https://unstuck-city-compass.onrender.com/) is independent of the development PC. Each new main commit waits for an exact-sha Render deployment and runs `tools/production_smoke.py`; check the [most recent main run](https://github.com/MeowRona/Unstuck/actions?query=branch%3Amain) before claiming new code has been deployed |
 | Public open-source repository | PASS | https://github.com/MeowRona/Unstuck |
@@ -60,7 +60,7 @@ Last updated: 2026-10-14
 4. Recruit 6–10 voluntary testers and run the existing blinded Qloo-vs-operational preference study; results do not exist yet.
 5. Refresh/extend the selected event snapshot near judging if broader future-date coverage is needed; never imply complete Warsaw coverage.
 6. Confirm stable Render deployment and sufficient Qloo request budget for real jurors before final release.
-7. Re-check Qloo/Devpost rules and the exact deadline immediately before submission.
+7. Official Qloo/Devpost rules were re-checked on 2026-10-14: submission deadline is **30 October 2026, 23:45 EDT**; a functional external demo, public source repository, English text description and visible open-source license are required; a demo video is **not required**. Re-check once more immediately before the actual submission in case the published rules change.
 
 Live Rescue and limited Plan a Day Qloo have been verified. The two-stage simulated dinner failure and bounded route repair are implemented, but real venue availability, partial 5/10 Qloo coverage in the latest bounded planner sample, and the missing human preference results remain limitations. **No claim of fully validated competition readiness is made.**
 
