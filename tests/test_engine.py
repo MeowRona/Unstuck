@@ -350,7 +350,8 @@ class ConstraintTests(unittest.TestCase):
         self.assertNotIn("Meal Above Budget", names)
         card = next(card for card in result["cards"] if card["name"] == "Dish Price Only")
         self.assertEqual(card["feasibility_status"], "requires_checking")
-        self.assertIsNone(card["estimated_total_min"] if "estimated_total_min" in card else card["cost"]["min"])
+        self.assertIsNone(card["cost"]["min"])
+        self.assertIsNone(card["cost"]["max"])
         self.assertTrue(any(
             "not a verified minimum" in str(msg) for msg in card["needs_checking"]
         ))
