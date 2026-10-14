@@ -173,7 +173,10 @@ def load_places(path: Path) -> list[Place]:
                         "status": "confirmed",
                         "source_url": price["source_url"],
                         "checked_at": overlay["checked_at"],
-                        "basis": price["basis"],
+                        # This is a verified *dish price*, not an upper bound
+                        # for an entire restaurant visit. Keep the qualifier
+                        # through the cost/feasibility engine.
+                        "basis": "per_person_dish_only",
                     }
                     row["source_note"] += (
                         " Listed dish: " + price["item_note"] +
