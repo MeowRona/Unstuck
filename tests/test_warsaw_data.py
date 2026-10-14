@@ -128,6 +128,23 @@ class WarsawPilotDataTests(unittest.TestCase):
         # A curated venue with independently verified food prices keeps them.
         self.assertEqual(by_id["warsaw:hoza-steakhouse"].price.status, "confirmed")
 
+    def test_operator_announced_closed_restaurant_is_not_recommended(self):
+        source = json.loads((ROOT / "data" / "restaurant_closures_20261014.json").read_text(encoding="utf-8"))
+        self.assertEqual(source["checked_at"], "2026-10-14")
+        entry = source["entries"][0]
+        self.assertEqual(entry["status"], "operator_reports_closed")
+        self.assertEqual(entry["source_url"], "https://www.alegloria.pl/")
+        raw = json.loads((ROOT / "data" / "places_warsaw.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(row["id"] == entry["id"] for row in raw["places"]),
+                        "the source OSM catalog still contains the outdated venue")
+        engine = build_engine("baseline", "real")
+        self.assertFalse(any(p.id == entry["id"] for p in engine.places))
+        from unstuck.planner import PlannerCatalog
+        catalog = PlannerCatalog(engine.places)
+        self.assertNotIn("restaurant:" + entry["id"], {
+            row["id"] for row in catalog.restaurant_rows
+        })
+
     def test_exact_origin_coordinates_bypass_saved_origin_lookup(self):
         brief = SearchBrief.from_payload(
             payload(origin="Marszałkowska 10, Warszawa", origin_lat=52.225, origin_lon=21.015)
