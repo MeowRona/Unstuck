@@ -106,13 +106,31 @@ class PlannerCatalogTests(unittest.TestCase):
         )
         self.assertTrue(result["plans"], result.get("explanation"))
         plan = result["plans"][0]
-        self.assertEqual(plan["known_cost_min"], 98.0)
+        self.assertIsNone(plan["known_cost_min"])
+        self.assertIsNone(plan["known_cost_max"])
         self.assertGreaterEqual(plan["unknown_cost_components"], 1)
         self.assertEqual(plan["feasibility"], "requires_checking")
         self.assertTrue(any("total meal cost cannot be guaranteed" in x
                             for x in plan["checks"]))
         self.assertTrue(any("total budget cannot be guaranteed" in x
                             for x in plan["checks"]))
+        # 2 x the displayed optional carbonara costs 98 PLN, but someone
+        # ordering different dishes MAY fit 90 PLN. We must not reject ORZO.
+        under_quote = DayPlanner(self.catalog).generate(
+            brief(
+                activity_count=1, include_meal=True, taste_refs=[],
+                must_include_ids=[item_id],
+                date="2026-10-17", start_time="12:00", end_time="19:00",
+                origin_lat=52.2250, origin_lon=21.0130,
+                return_lat=52.2250, return_lon=21.0130,
+                people=2, budget_total=90,
+            )
+        )
+        self.assertTrue(under_quote["plans"],
+                        "example dish quote is not a hard lower bound on every order")
+        self.assertEqual(under_quote["plans"][0]["feasibility"], "requires_checking")
+        self.assertIsNone(under_quote["plans"][0]["known_cost_min"])
+
 
     def test_verified_snapshot_has_resolvable_core_venues(self):
         for venue_id in ("venue:polin", "venue:kopernik", "venue:msn", "venue:muzeum-warszawy"):

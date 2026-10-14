@@ -239,24 +239,22 @@ def evaluate_place(
 
     cost_min = cost_max = None
     if place.price.minimum is not None and place.price.maximum is not None and place.price.unit == brief.currency:
-        cost_min = place.price.minimum * brief.people
         if place.price.basis == "per_person_dish_only":
-            # Operator-confirmed menu item is a valid lower bound only, NOT a
-            # restaurant-wide maximum or guarantee of the total dinner bill.
-            # We can rule out a known-over-budget dish but must not certify
-            # whole-meal affordability from this narrower evidence.
-            cost_max = None
-            if cost_min > brief.budget_total:
-                hard.append(
-                    f"Published named dish alone costs {cost_min:.0f} {brief.currency} for {brief.people}, "
-                    f"above the locked {brief.budget_total:.0f} {brief.currency} budget"
-                )
-            else:
-                needs.append(
-                    "Only a named menu item is priced; total dinner spending, drinks and extras "
-                    "are unverified, so the locked budget cannot be guaranteed"
-                )
+            # A known price for a PARTICULAR dish does not prove the cheapest
+            # meal in the restaurant costs that much. The user has not chosen
+            # that dish. Never exclude the venue merely because N copies of it
+            # exceed the locked budget, and never describe the dish quote as
+            # a verified restaurant-wide spending lower bound.
+            quoted_total = place.price.minimum * brief.people
+            needs.append(
+                f"Published example: {quoted_total:.0f} {brief.currency} for {brief.people} "
+                "ordering this named dish, not a verified minimum restaurant bill. "
+                "Other menu choices, drinks and extras are unverified; "
+                "the locked budget cannot be guaranteed"
+            )
+            cost_min = cost_max = None
         else:
+            cost_min = place.price.minimum * brief.people
             cost_max = place.price.maximum * brief.people
             if cost_max > brief.budget_total:
                 hard.append(
