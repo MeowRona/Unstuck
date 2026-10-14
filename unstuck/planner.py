@@ -924,7 +924,16 @@ class DayPlanner:
             if row.get("end_status") == "unknown" and row["kind"] == "event":
                 checks.append(f"End time for {row['title']} is unknown; the timeline uses a planning estimate.")
             if row["kind"] == "restaurant" and row.get("hours_status") not in {"confirmed", "fixture"}:
-                checks.append(f"Opening hours for {row['title']} are unverified; the 11:00–23:00 planning window is a placeholder, not a claim that it is open.")
+                if row.get("hours_status") == "estimated" and row.get("hours"):
+                    checks.append(
+                        f"Opening hours for {row['title']} are provisional: published sources conflict "
+                        "or the listing is not independently confirmed. Verify the selected date and time."
+                    )
+                else:
+                    checks.append(
+                        f"Opening hours for {row['title']} are unknown; the 11:00–23:00 "
+                        "planning window is a placeholder, not a claim that it is open."
+                    )
             tags = {str(x).casefold() for x in row.get("tags", [])}
             tags.add(str(row.get("category") or "").casefold())
             matches = [interest for interest in brief.interests if interest.casefold() in tags]
