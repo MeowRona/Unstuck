@@ -54,7 +54,7 @@ def _money(raw: dict[str, Any] | None, people: int) -> dict[str, Any]:
         minimum = float(minimum)
     if maximum is not None:
         maximum = float(maximum)
-    if basis == "per_person":
+    if basis in {"per_person", "per_person_dish_only"}:
         minimum = minimum * people if minimum is not None else None
         maximum = maximum * people if maximum is not None else None
     return {

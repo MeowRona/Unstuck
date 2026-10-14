@@ -42,6 +42,25 @@ def brief(**patch):
     return PlannerBrief.from_payload(payload)
 
 
+class DishPriceEvidenceTests(unittest.TestCase):
+    def test_orzo_quote_multiplies_by_people_but_is_not_a_full_meal_bill(self):
+        from unstuck.planner import _money
+        sample = _money({
+            "min": 49, "max": 49, "currency": "PLN",
+            "status": "confirmed", "basis": "per_person_dish_only",
+            "note": "Published carbonara dish; drinks and extras are not included.",
+        }, 2)
+        self.assertEqual(sample["min"], 98)
+        self.assertEqual(sample["max"], 98)
+        self.assertEqual(sample["basis"], "per_person_dish_only")
+        engine = build_engine("baseline", "real")
+        catalog = PlannerCatalog(engine.places)
+        item = next(row for row in catalog.restaurant_rows
+                    if row["id"] == "restaurant:warsaw:osm:node:6848092585")
+        self.assertEqual(item["price"]["basis"], "per_person_dish_only")
+        self.assertIn("Bigoli carbonara", item["price"]["note"])
+
+
 class PlannerCatalogTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
