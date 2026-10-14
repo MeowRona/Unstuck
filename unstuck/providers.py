@@ -556,6 +556,10 @@ class RealQlooProvider:
                     "anchor_error": anchor_error,
                     "unresolved_signals": unresolved_signals,
                     "unresolved_candidate_ids": unresolved_candidates,
+                    "resolved_candidates": [
+                        {"place_id": place_id, "entity_id": entity_id}
+                        for place_id, entity_id in resolved_place_ids.items()
+                    ],
                     "candidate_entity_count": len(candidate_ids),
                     "discovery_used": False,
                 },
@@ -600,6 +604,10 @@ class RealQlooProvider:
                 "anchor_error": anchor_error,
                 "unresolved_signals": unresolved_signals,
                 "unresolved_candidate_ids": unresolved_candidates,
+                "resolved_candidates": [
+                    {"place_id": place_id, "entity_id": entity_id}
+                    for place_id, entity_id in resolved_place_ids.items()
+                ],
                 "candidate_entity_count": len(candidate_ids),
                 "discovery_used": False,
             },
