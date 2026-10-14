@@ -50,8 +50,9 @@ class DishPriceEvidenceTests(unittest.TestCase):
             "status": "confirmed", "basis": "per_person_dish_only",
             "note": "Published carbonara dish; drinks and extras are not included.",
         }, 2)
-        self.assertEqual(sample["min"], 98)
-        self.assertEqual(sample["max"], 98)
+        self.assertIsNone(sample["min"])
+        self.assertIsNone(sample["max"])
+        self.assertEqual(sample["quoted_dish_total"], 98)
         self.assertEqual(sample["basis"], "per_person_dish_only")
         engine = build_engine("baseline", "real")
         catalog = PlannerCatalog(engine.places)
@@ -106,11 +107,11 @@ class PlannerCatalogTests(unittest.TestCase):
         )
         self.assertTrue(result["plans"], result.get("explanation"))
         plan = result["plans"][0]
-        self.assertEqual(plan["known_cost_min"], 98.0)
+        self.assertIsNone(plan["known_cost_min"])
+        self.assertIsNone(plan["known_cost_max"])
         self.assertGreaterEqual(plan["unknown_cost_components"], 1)
         self.assertEqual(plan["feasibility"], "requires_checking")
-        self.assertTrue(any("total meal cost cannot be guaranteed" in x
-                            for x in plan["checks"]))
+        self.assertTrue(any("whole-meal total" in x for x in plan["checks"]))
         self.assertTrue(any("total budget cannot be guaranteed" in x
                             for x in plan["checks"]))
 
