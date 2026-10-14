@@ -110,7 +110,7 @@ Qloo requests use a server-side API key, explicit request limits, short-lived in
 
 ## What is NOT proven
 
-- No broad claim that Qloo recognizes all Warsaw restaurants; one sample ranked only **2/10**.
+- No broad claim that Qloo recognizes all Warsaw restaurants; the latest bounded production sample ranked **5/10** eligible restaurant candidates and changed the top plan. Treat that as request-specific evidence, not universal coverage.
 - No validated two-person Qloo preference compromise in the sampled live case; the Good for both option returned insufficient shared coverage.
 - No survey outcome or statistically validated human preference improvement. The app has an optional anonymous, client-local A/B study interface and CSV export, but **no 6–10 actual volunteer results** have been collected.
 - No realtime opening, queue, restaurant table, ticket inventory, live GTFS delay, or complete concert/museum Qloo personalization.

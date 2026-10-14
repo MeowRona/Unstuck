@@ -89,8 +89,8 @@ class WarsawPilotDataTests(unittest.TestCase):
         )
         self.assertEqual(snapshot["schema_version"], 1)
         self.assertEqual(snapshot["checked_at"], "2026-10-14")
-        self.assertEqual(len(snapshot["entries"]), 4)
-        self.assertEqual(len({entry["id"] for entry in snapshot["entries"]}), 4)
+        self.assertEqual(len(snapshot["entries"]), 5)
+        self.assertEqual(len({entry["id"] for entry in snapshot["entries"]}), 5)
         for entry in snapshot["entries"]:
             place = by_id[entry["id"]]
             self.assertEqual(place.name, entry["expected_name"])
