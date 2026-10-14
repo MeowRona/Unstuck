@@ -908,8 +908,16 @@ class DayPlanner:
                 known_min += price["min"]
                 known_max += price["max"]
                 if row["kind"] == "restaurant" and price.get("note"):
+                    # An independently verified MENU ITEM is not a verified
+                    # whole-meal bill. Price can be used as a documented
+                    # minimum for the named item, never as a guaranteed total.
+                    # Mark the additional spend unknown so a user budget is
+                    # always explicitly provisional in this case.
+                    unknown_cost += 1
                     checks.append(
-                        f"Price at {row['title']} is for a named dish only: {price['note']}"
+                        f"Price at {row['title']} is for a named dish only: {price['note']} "
+                        "Other menu selections, drinks and extras are unverified; "
+                        "total meal cost cannot be guaranteed."
                     )
             if row.get("availability") == "unknown" and row["kind"] == "event":
                 checks.append(f"Ticket availability for {row['title']} is not confirmed.")
