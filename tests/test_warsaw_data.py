@@ -103,6 +103,14 @@ class WarsawPilotDataTests(unittest.TestCase):
         # 13:00 on the official autumn 2026 venue schedule.
         self.assertEqual(by_id["warsaw:osm:node:2859884304"].hours["0"], (("13:00", "23:00"),))
         self.assertEqual(by_id["warsaw:osm:node:4730432126"].hours["6"], ())
+        self.assertEqual(by_id["warsaw:osm:node:314590527"].hours["0"], (("09:00", "00:00"),))
+        from unstuck.planner import DayPlanner
+        overnight = DayPlanner._windows(
+            {"kind": "restaurant", "hours": {"0": [["09:00", "00:00"]]},
+             "date_exceptions": {}, "hours_status": "confirmed"},
+            date(2026, 10, 12),
+        )
+        self.assertEqual(overnight[0][1].date(), date(2026, 10, 13))
         # A curated venue with independently verified food prices keeps them.
         self.assertEqual(by_id["warsaw:hoza-steakhouse"].price.status, "confirmed")
 
