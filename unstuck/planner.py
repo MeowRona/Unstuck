@@ -465,7 +465,9 @@ class DayPlanner:
         day = date.fromisoformat(brief.date)
         items = self.catalog.activities_for_date(day)
         eligible, blockers = self._eligible(items, brief)
-        taste_ranks, taste_audit = self._restaurant_taste(eligible, brief)
+        taste_ranks, taste_audit = self._restaurant_taste(
+            eligible, brief, preferred_ids=preferred_ids
+        )
         requested = brief.activity_count
         variants: list[dict[str, Any]] = []
         used_count = requested
@@ -518,14 +520,17 @@ class DayPlanner:
             "coverage": self.catalog.payload.get("coverage"),
         }
 
-    def _restaurant_taste(self, eligible: list[dict[str, Any]], brief: PlannerBrief) -> tuple[dict[str, int], dict[str, Any]]:
+    def _restaurant_taste(
+        self, eligible: list[dict[str, Any]], brief: PlannerBrief,
+        *, preferred_ids: tuple[str, ...] = (),
+    ) -> tuple[dict[str, int], dict[str, Any]]:
         """Only rank eligible restaurant options; no inferred event or museum affinity."""
         if not brief.taste_refs:
             return {}, {"status": "not_requested", "note": "No taste profile requested."}
         if not self.taste_provider or self.taste_provider.mode != "live":
             return {}, {"status": "not_live", "note": "Qloo was not called for this planner session."}
-        restaurants = [r for r in eligible if r["kind"] == "restaurant" and r["id"].startswith("restaurant:")]
-        places = [self._places_by_id[r["id"].split(":", 1)[1]] for r in restaurants[:PLANNER_RESTAURANT_SHORTLIST]
+        _other, restaurants = self._shortlisted_candidates(eligible, brief, preferred_ids)
+        places = [self._places_by_id[r["id"].split(":", 1)[1]] for r in restaurants
                   if r["id"].split(":", 1)[1] in self._places_by_id]
         if len(places) < 2:
             return {}, {"status": "insufficient_coverage",
@@ -625,6 +630,38 @@ class DayPlanner:
             out.append(row)
         return out, blockers
 
+    @staticmethod
+    def _shortlisted_candidates(
+        eligible: list[dict[str, Any]],
+        brief: PlannerBrief,
+        preferred_ids: tuple[str, ...] = (),
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Honor chosen/locked stops without expanding enumeration or Qloo quota.
+
+        The restaurant shortlist is shared by Qloo and scheduling. Required
+        stops come first, followed by preserved stops from a repair, then the
+        original stable city ordering. No venue is duplicated or invented.
+        """
+        required = set(brief.must_include_ids) | set(brief.locked_ids)
+        preferred = set(preferred_ids)
+
+        def keep(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+            indexed = sorted(enumerate(rows), key=lambda pair: (
+                0 if pair[1]["id"] in required else
+                1 if pair[1]["id"] in preferred else 2,
+                pair[0],
+            ))
+            return [row for _index, row in indexed[:limit]]
+
+        nonrestaurants = keep(
+            [row for row in eligible if row["kind"] != "restaurant"], 18
+        )
+        restaurants = keep(
+            [row for row in eligible if row["kind"] == "restaurant"],
+            PLANNER_RESTAURANT_SHORTLIST,
+        )
+        return nonrestaurants, restaurants
+
     def _variants(
         self,
         items: list[dict[str, Any]],
@@ -638,9 +675,10 @@ class DayPlanner:
         required = set(brief.must_include_ids) | set(brief.locked_ids)
         if len(required) > count:
             return []
-        restaurants = [x for x in items if x["kind"] == "restaurant"]
-        nonrestaurants = [x for x in items if x["kind"] != "restaurant"]
-        candidate_pool = nonrestaurants[:18] + restaurants[:PLANNER_RESTAURANT_SHORTLIST]
+        nonrestaurants, restaurants = self._shortlisted_candidates(
+            items, brief, preferred_ids
+        )
+        candidate_pool = nonrestaurants + restaurants
         plans: list[dict[str, Any]] = []
         for combo in itertools.combinations(candidate_pool, count):
             ids = {row["id"] for row in combo}
