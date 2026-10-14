@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-14",
+  "scope": "Exact Warsaw restaurant entity IDs observed through the live Qloo API during bounded production coverage probes. Only exact venue identity matches are retained; unresolved venues are not inferred.",
+  "entries": [
+    {
+      "id": "warsaw:osm:node:4730432126",
+      "expected_name": "Kieliszki na Próżnej",
+      "expected_address": "Próżna 12, Warsaw",
+      "qloo_entity_id": "160E56C3-13E4-47B7-BB40-9C843FCD10E9"
+    },
+    {
+      "id": "warsaw:osm:way:1005658204",
+      "expected_name": "Mąka i woda",
+      "expected_address": "Duchnicka 3, Warsaw",
+      "qloo_entity_id": "AE5A272A-7F40-47F9-907F-D8B7230399FA"
+    }
+  ]
+}

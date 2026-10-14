@@ -232,6 +232,30 @@ class WarsawPilotDataTests(unittest.TestCase):
         self.assertTrue(provider.pool_sizes)
         self.assertGreater(max(provider.pool_sizes), 28)
 
+    def test_bounded_live_qloo_matches_are_loaded_only_for_exact_verified_venues(self):
+        engine = build_engine("baseline", "real")
+        by_id = {place.id: place for place in engine.places}
+        evidence = json.loads(
+            (ROOT / "data" / "qloo_verified_place_ids_20261014.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(evidence["schema_version"], 1)
+        self.assertEqual(evidence["checked_at"], "2026-10-14")
+        self.assertEqual(len(evidence["entries"]), 2)
+        self.assertEqual(len({entry["qloo_entity_id"] for entry in evidence["entries"]}), 2)
+        for entry in evidence["entries"]:
+            place = by_id[entry["id"]]
+            self.assertEqual(place.name, entry["expected_name"])
+            self.assertEqual(place.address, entry["expected_address"])
+            self.assertEqual(place.qloo_entity_id, entry["qloo_entity_id"])
+        self.assertEqual(
+            by_id["warsaw:osm:node:4730432126"].qloo_entity_id,
+            "160E56C3-13E4-47B7-BB40-9C843FCD10E9",
+        )
+        self.assertEqual(
+            by_id["warsaw:osm:way:1005658204"].qloo_entity_id,
+            "AE5A272A-7F40-47F9-907F-D8B7230399FA",
+        )
+
     def test_live_mode_keeps_qloo_window_at_ten(self):
         class RecordingLiveProvider:
             mode = "live"
