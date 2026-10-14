@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "checked_at": "2026-10-14",
-  "scope": "Individually verified operator-published regular weekly hours for 21 branch-specific Warsaw restaurants, plus two ORZO branches' named-dish prices. Holiday exceptions, table availability, unpriced meals and real-time opening status are not verified.",
+  "scope": "Source-reviewed regular weekly schedules for 23 exact Warsaw restaurant branches: 21 operator-confirmed hour schedules and 2 deliberately provisional 360° branches with conflicting official pages. Two ORZO named-dish prices are documented, not full-meal estimates. Exceptions and table availability unknown.",
   "entries": [
     {
       "id": "warsaw:osm:node:314590527",
@@ -620,35 +620,35 @@
       "id": "warsaw:osm:node:3621635056",
       "expected_name": "360°",
       "expected_address": "Chłodna 2/18, Warsaw",
-      "source_url": "https://360pizza.pl/",
+      "source_url": "https://360pizza.pl/kontakt-chlodna",
       "hours": {
         "0": [
           [
-            "12:00",
-            "22:00"
+            "12:30",
+            "21:30"
           ]
         ],
         "1": [
           [
-            "12:00",
-            "22:00"
+            "12:30",
+            "21:30"
           ]
         ],
         "2": [
           [
-            "12:00",
-            "22:00"
+            "12:30",
+            "21:30"
           ]
         ],
         "3": [
           [
-            "12:00",
-            "22:00"
+            "12:30",
+            "21:30"
           ]
         ],
         "4": [
           [
-            "12:00",
+            "12:30",
             "22:00"
           ]
         ],
@@ -661,33 +661,35 @@
         "6": [
           [
             "12:00",
-            "22:00"
+            "21:00"
           ]
         ]
-      }
+      },
+      "hours_status": "estimated",
+      "conflict_note": "Official Chłodna contact/home pages list 12:00–22:00 every day, but its branch menu page lists narrower weekday and Sunday hours. Use the conservative intersection and verify before visiting: https://360pizza.pl/360-menu-chlodna"
     },
     {
       "id": "warsaw:osm:node:6421840214",
       "expected_name": "360°",
       "expected_address": "Franciszka Klimczaka 5, Warsaw",
-      "source_url": "https://360pizza.pl/",
+      "source_url": "https://360pizza.pl/kontakt",
       "hours": {
         "0": [
           [
             "12:30",
-            "22:00"
+            "21:00"
           ]
         ],
         "1": [
           [
             "12:30",
-            "22:00"
+            "21:00"
           ]
         ],
         "2": [
           [
             "12:30",
-            "22:00"
+            "21:00"
           ]
         ],
         "3": [
@@ -711,10 +713,12 @@
         "6": [
           [
             "12:30",
-            "22:00"
+            "21:00"
           ]
         ]
-      }
+      },
+      "hours_status": "estimated",
+      "conflict_note": "Official Klimczaka contact page lists Sunday–Wednesday 12:30–21:00 and Thursday–Saturday 12:30–22:00; its menu/home and gallery pages disagree on weekday closing. Keep the conservative intersection: https://360pizza.pl/galeria"
     },
     {
       "id": "warsaw:osm:node:4004769301",
@@ -1062,6 +1066,106 @@
           [
             "11:00",
             "00:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:5073937636",
+      "expected_name": "Ciao Napoli",
+      "expected_address": "Wąski Dunaj 4/6/8, Warsaw",
+      "source_url": "https://www.ciaonapoli.pl/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "23:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "23:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:4834770520",
+      "expected_name": "Art Sushi",
+      "expected_address": "Nowogrodzka 56, Warsaw",
+      "source_url": "https://online.artsushi.pl/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:15"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:15"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:15"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:15"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "22:15"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "22:30"
+          ]
+        ],
+        "6": [
+          [
+            "13:00",
+            "21:15"
           ]
         ]
       }
