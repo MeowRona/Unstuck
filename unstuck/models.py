@@ -53,6 +53,7 @@ class SearchBrief:
     categories: tuple[str, ...]
     taste_refs: tuple[str, ...]
     meal_required: bool
+    second_taste_refs: tuple[str, ...] = ()
     negotiable_extra_travel_minutes: int = 0
     negotiable_stay_reduction_minutes: int = 0
     allow_category_change: bool = False
@@ -87,6 +88,13 @@ class SearchBrief:
                 if isinstance(x, str) and x.strip()
             )
         )
+        second_taste_refs = tuple(dict.fromkeys(
+            x.strip()
+            for x in payload.get("second_taste_refs", [])
+            if isinstance(x, str) and x.strip()
+        ))
+        if second_taste_refs and (not taste_refs or len(taste_refs) > 2 or len(second_taste_refs) > 2):
+            raise ValueError("Good for both requires one or two taste references from each person")
         try:
             budget = float(payload.get("budget_total", 0))
         except (TypeError, ValueError) as exc:
@@ -134,6 +142,7 @@ class SearchBrief:
             categories=categories,
             taste_refs=taste_refs,
             meal_required=bool(payload.get("meal_required", goal == "meal")),
+            second_taste_refs=second_taste_refs,
             negotiable_extra_travel_minutes=_as_int(
                 payload.get("negotiable_extra_travel_minutes", 0),
                 name="negotiable_extra_travel_minutes",
@@ -175,6 +184,7 @@ class SearchBrief:
             "max_one_way_minutes": self.max_one_way_minutes,
             "categories": list(self.categories),
             "taste_refs": list(self.taste_refs),
+            "second_taste_refs": list(self.second_taste_refs),
             "meal_required": self.meal_required,
             "negotiable_extra_travel_minutes": self.negotiable_extra_travel_minutes,
             "negotiable_stay_reduction_minutes": self.negotiable_stay_reduction_minutes,
