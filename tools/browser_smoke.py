@@ -269,6 +269,80 @@ def planner_route_conflict_retry_flow():
         driver.quit()
 
 
+def taste_picker_flow():
+    """Exercise the browser's real selection UI without calling live Qloo."""
+    driver = driver_for(1440, 900)
+    try:
+        driver.get(BASE)
+        wait = WebDriverWait(driver, 35)
+        driver.execute_script("""
+            const originalFetch = window.fetch.bind(window);
+            window.__tastePickerProbe = {requests: [], resolvePending: null};
+            window.fetch = function(url, opts) {
+              if (String(url).includes('/api/taste-entities')) {
+                const request = JSON.parse(opts.body);
+                window.__tastePickerProbe.requests.push(request);
+                const payload = {available:true, options:[
+                  {id:'artist:first', name:'Radiohead', kind:'artist'},
+                  {id:'artist:second', name:'Radiohead', kind:'artist'}
+                ]};
+                if (request.query === 'Delayed') {
+                  return new Promise(resolve => window.__tastePickerProbe.resolvePending = () =>
+                    resolve(new Response(JSON.stringify(payload), {
+                      status:200,headers:{'Content-Type':'application/json'}
+                    }))
+                  );
+                }
+                return Promise.resolve(new Response(JSON.stringify(payload), {
+                  status:200,headers:{'Content-Type':'application/json'}
+                }));
+              }
+              return originalFetch(url, opts);
+            };
+        """)
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerModeButton"))).click()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerSurface")))
+        picker = driver.execute_script(
+            "return document.querySelector('#plannerTasteRefs').closest('label').nextElementSibling"
+        )
+        assert "qloo-picker" in picker.get_attribute("class")
+        assert driver.execute_script(
+            "return document.querySelector('#editorForm [name=\\\"taste_refs\\\"]').dataset.qlooPickerMounted"
+        ) == "true", "Rescue editor did not mount the shared picker"
+        field = driver.find_element(By.ID, "plannerTasteRefs")
+        field.clear()
+        field.send_keys("artist: Radiohead")
+        assert driver.execute_script("return window.__tastePickerProbe.requests.length") == 0, (
+            "taste lookup must never fire on typing alone"
+        )
+        picker.find_element(By.CSS_SELECTOR, ".qloo-picker-find").click()
+        wait.until(lambda d: len(picker.find_elements(By.CSS_SELECTOR, ".qloo-picker-option")) == 2)
+        assert driver.execute_script("return window.__tastePickerProbe.requests[0].kind") == "artist"
+        picker.find_elements(By.CSS_SELECTOR, ".qloo-picker-option")[1].click()
+        assert field.get_attribute("value") == "qloo-id:artist:second|artist|Radiohead"
+        assert len(picker.find_elements(By.CSS_SELECTOR, ".qloo-picker-chip")) == 1
+
+        # A slower response for an older query must not overwrite newer input.
+        field.clear()
+        field.send_keys("artist: Delayed")
+        picker.find_element(By.CSS_SELECTOR, ".qloo-picker-find").click()
+        wait.until(lambda d: d.execute_script(
+            "return typeof window.__tastePickerProbe.resolvePending === 'function'"
+        ))
+        field.clear()
+        field.send_keys("artist: Changed")
+        driver.execute_script("window.__tastePickerProbe.resolvePending()")
+        wait.until(lambda d: picker.find_element(By.CSS_SELECTOR, ".qloo-picker-find").is_enabled())
+        assert field.get_attribute("value") == "artist: Changed"
+        assert not picker.find_elements(By.CSS_SELECTOR, ".qloo-picker-option"), (
+            "stale Qloo matches must be dropped after the query changes"
+        )
+        assert driver.execute_script("return window.__tastePickerProbe.requests.length") == 2
+        assert_no_severe_console(driver)
+    finally:
+        driver.quit()
+
+
 def planner_mobile_flow():
     driver = driver_for(390, 844)
     try:
@@ -297,6 +371,7 @@ def main():
     mobile_flow()
     planner_flow()
     planner_route_conflict_retry_flow()
+    taste_picker_flow()
     planner_mobile_flow()
     print("browser smoke: rescue + planner desktop and 390x844 mobile flows PASS")
 

@@ -490,6 +490,32 @@ class QlooContractTests(unittest.TestCase):
             if old is not None:
                 os.environ["QLOO_API_KEY"] = old
 
+    def test_public_entity_picker_has_an_independent_rolling_quota(self):
+        class FakeTransport:
+            def request_scope(self, max_calls=18):
+                from contextlib import nullcontext
+                return nullcontext()
+            def get_json(self, path, params=None):
+                return {"results": []}
+        provider = RealQlooProvider(FakeTransport())
+        with patch("unstuck.providers.time.monotonic", side_effect=(
+            [100] * 12 + [100] + [161] * 12 +
+            [222] * 12 + [283] * 12 + [344] * 12 + [405] * 12 +
+            [466, 3701]
+        )):
+            for _ in range(12):
+                self.assertEqual(provider.suggest_taste_entities("Radiohead", "artist"), [])
+            with self.assertRaisesRegex(RuntimeError, "QLOO_PICKER_RATE_LIMITED"):
+                provider.suggest_taste_entities("Another", "artist")
+            # A minute later the short window renews; later batches consume
+            # the independent 72/h public-lookup ceiling.
+            for _batch in range(5):
+                for _ in range(12):
+                    provider.suggest_taste_entities("Different", "movie")
+            with self.assertRaisesRegex(RuntimeError, "QLOO_PICKER_RATE_LIMITED"):
+                provider.suggest_taste_entities("Beyond hourly cap", "movie")
+            self.assertEqual(provider.suggest_taste_entities("After the window", "book"), [])
+
     def test_taste_picker_uses_one_typed_api_search_with_no_autoselection(self):
         class SearchTransport:
             def __init__(self):
