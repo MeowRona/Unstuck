@@ -54,7 +54,13 @@ def _money(raw: dict[str, Any] | None, people: int) -> dict[str, Any]:
         minimum = float(minimum)
     if maximum is not None:
         maximum = float(maximum)
-    if basis in {"per_person", "per_person_dish_only"}:
+    quoted_dish_total = None
+    if basis == "per_person_dish_only":
+        # Sample menu dish, NOT a minimum/maximum for the whole visit.
+        # It may be ordered by each diner, shared, or skipped entirely.
+        quoted_dish_total = minimum * people if minimum is not None else None
+        minimum = maximum = None
+    elif basis == "per_person":
         minimum = minimum * people if minimum is not None else None
         maximum = maximum * people if maximum is not None else None
     return {
@@ -63,6 +69,7 @@ def _money(raw: dict[str, Any] | None, people: int) -> dict[str, Any]:
         "min": minimum,
         "max": maximum,
         "basis": basis,
+        "quoted_dish_total": quoted_dish_total,
         "note": str(raw.get("note") or ""),
     }
 
@@ -938,25 +945,24 @@ class DayPlanner:
                 continue
             row = step["activity"]
             price = _money(row.get("price"), brief.people)
-            if price["min"] is None or price["max"] is None:
+            if price["basis"] == "per_person_dish_only":
+                # A quoted example does NOT lower-bound a stranger's actual
+                # meal and must never be counted in known-cost feasibility.
+                unknown_cost += 1
+                quote = price.get("quoted_dish_total")
+                example = f"{quote:.2f} {price['currency']} for {brief.people} copies" if quote is not None else "unknown"
+                checks.append(
+                    f"Example item at {row['title']}: {example}. {price.get('note') or ''} "
+                    "Different dishes can cost less or more; the whole-meal total "
+                    "and locked budget cannot be guaranteed."
+                )
+            elif price["min"] is None or price["max"] is None:
                 unknown_cost += 1
                 checks.append(f"Price for {row['title']} is unknown.")
             else:
                 has_known_cost = True
                 known_min += price["min"]
                 known_max += price["max"]
-                if row["kind"] == "restaurant" and price.get("note"):
-                    # An independently verified MENU ITEM is not a verified
-                    # whole-meal bill. Price can be used as a documented
-                    # minimum for the named item, never as a guaranteed total.
-                    # Mark the additional spend unknown so a user budget is
-                    # always explicitly provisional in this case.
-                    unknown_cost += 1
-                    checks.append(
-                        f"Price at {row['title']} is for a named dish only: {price['note']} "
-                        "Other menu selections, drinks and extras are unverified; "
-                        "total meal cost cannot be guaranteed."
-                    )
             if row.get("availability") == "unknown" and row["kind"] == "event":
                 checks.append(f"Ticket availability for {row['title']} is not confirmed.")
             if row.get("end_status") == "unknown" and row["kind"] == "event":
@@ -1007,7 +1013,9 @@ class DayPlanner:
             }
             if row.get("end_status") == "unknown" and row["kind"] == "event":
                 item["checks"].append("Actual event end time is unknown.")
-            if price["status"] == "unknown":
+            if price["basis"] == "per_person_dish_only":
+                item["checks"].append("Only one sample dish price is published; your actual meal bill is unknown.")
+            elif price["status"] == "unknown":
                 item["checks"].append("Price is unknown.")
             if row.get("availability") == "unknown" and row["kind"] == "event":
                 item["checks"].append("Ticket availability is unknown.")
