@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "checked_at": "2026-10-14",
-  "scope": "Source-reviewed regular weekly schedules for 23 exact Warsaw restaurant branches: 21 operator-confirmed hour schedules and 2 deliberately provisional 360° branches with conflicting official pages. Two ORZO named-dish prices are documented, not full-meal estimates. Exceptions and table availability unknown.",
+  "scope": "Source-reviewed regular weekly schedules for 32 exact Warsaw restaurant branches: 30 operator-confirmed hour schedules and 2 deliberately provisional 360° branches with conflicting official pages. Four independently documented named-dish prices are not full-meal estimates. Holiday exceptions and live table availability remain unknown.",
   "entries": [
     {
       "id": "warsaw:osm:node:314590527",
@@ -1184,6 +1184,451 @@
           [
             "13:00",
             "21:15"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:1285589018",
+      "expected_name": "Sushi Zushi",
+      "expected_address": "Żurawia 6/12, Warsaw",
+      "source_url": "https://sushizushi.pl/kontakt",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "23:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "23:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:5062561421",
+      "expected_name": "Shuk",
+      "expected_address": "Grójecka 107, Warsaw",
+      "source_url": "https://www.shuk.pl/kontakt",
+      "hours": {
+        "0": [
+          [
+            "09:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "09:00",
+            "23:00"
+          ]
+        ],
+        "2": [
+          [
+            "09:00",
+            "23:00"
+          ]
+        ],
+        "3": [
+          [
+            "09:00",
+            "23:00"
+          ]
+        ],
+        "4": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "5": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "6": [
+          [
+            "10:00",
+            "22:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:4369986677",
+      "expected_name": "Pełną Parą",
+      "expected_address": "Nowowiejska 10, Warsaw",
+      "source_url": "https://pelnapara.pl/index.php/kontakt/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:11035383264",
+      "expected_name": "Pełną Parą",
+      "expected_address": "Olkuska 7, Warsaw",
+      "source_url": "https://pelnapara.pl/index.php/kontakt/",
+      "hours": {
+        "0": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:9773126020",
+      "expected_name": "Lupo",
+      "expected_address": "Chmielna 132/134, Warsaw",
+      "source_url": "https://lupopasta.com/",
+      "hours": {
+        "0": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "1": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "2": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "3": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "4": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "5": [
+          [
+            "09:00",
+            "00:00"
+          ]
+        ],
+        "6": [
+          [
+            "09:00",
+            "23:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:4408894491",
+      "expected_name": "Specjały Regionalne",
+      "expected_address": "Nowy Świat 44, Warsaw",
+      "source_url": "https://www.specjalyregionalne.pl/sklepy-stacjonarne/",
+      "hours": {
+        "0": [
+          [
+            "11:30",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "11:30",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "11:30",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "11:30",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "11:30",
+            "23:00"
+          ]
+        ],
+        "5": [
+          [
+            "11:30",
+            "23:00"
+          ]
+        ],
+        "6": [
+          [
+            "11:30",
+            "22:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:9327944759",
+      "expected_name": "Koneser Grill",
+      "expected_address": "Ząbkowska 29, Warsaw",
+      "source_url": "https://konesergrillwarszawa.pl/",
+      "hours": {
+        "0": [],
+        "1": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "5": [
+          [
+            "12:00",
+            "22:00"
+          ]
+        ],
+        "6": [
+          [
+            "12:00",
+            "20:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:327614538",
+      "expected_name": "Otto Pompieri",
+      "expected_address": "Plac Bankowy 1, Warsaw",
+      "source_url": "https://ottopompieri.pl/kontakt-waw",
+      "hours": {
+        "0": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "1": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "2": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "3": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "4": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "5": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ],
+        "6": [
+          [
+            "10:00",
+            "00:00"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "warsaw:osm:node:3582751797",
+      "expected_name": "Manekin",
+      "expected_address": "Marszałkowska 140, Warsaw",
+      "source_url": "https://www.1w.manekin.pl/nalesnikarnia/warszawa-marszalkowska/",
+      "hours": {
+        "0": [
+          [
+            "09:00",
+            "22:00"
+          ]
+        ],
+        "1": [
+          [
+            "09:00",
+            "22:00"
+          ]
+        ],
+        "2": [
+          [
+            "09:00",
+            "22:00"
+          ]
+        ],
+        "3": [
+          [
+            "09:00",
+            "22:00"
+          ]
+        ],
+        "4": [
+          [
+            "09:00",
+            "23:00"
+          ]
+        ],
+        "5": [
+          [
+            "09:00",
+            "23:00"
+          ]
+        ],
+        "6": [
+          [
+            "09:00",
+            "22:00"
           ]
         ]
       }
