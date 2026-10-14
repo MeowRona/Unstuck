@@ -30,6 +30,7 @@ jobs:
         run: |
           node --check static/app.js
           node --check static/planner.js
+          node --check static/taste-picker.js
       - name: Test
         run: python -m unittest discover -s tests -q
 
@@ -105,3 +106,11 @@ jobs:
         run: |
           curl --fail --silent --show-error --max-time 30 https://unstuck-city-compass.onrender.com/ >/dev/null
           python tools/production_smoke.py
+
+      # This extra real-Qloo probe is deliberately NOT run on every deployment.
+      # Only the one specifically tagged acceptance commit invokes it.
+      - name: One-off two-profile Qloo acceptance
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[pair-smoke]')
+        env:
+          UNSTUCK_PUBLIC_URL: https://unstuck-city-compass.onrender.com
+        run: python tools/two_profile_live_smoke.py
