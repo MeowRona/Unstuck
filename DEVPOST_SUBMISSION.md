@@ -1,237 +1,142 @@
-﻿# Devpost submission draft — Unstuck
+# Unstuck — Devpost submission draft and judge script
 
-> Status (2026-10-14): stable public deployment uses live Qloo; production smoke verifies Rescue and limited restaurant-only Plan a Day, but **do not final-submit until final clean-browser/mobile checks, accurate coverage disclosure, latest deadline/rules verification and submission preflight are complete**. No human preference improvement has been shown.
+> **Not submitted.** Last technical review: **14 October 2026**. Official event: [Qloo Agentic Hackathon](https://qloo.devpost.com/rules). Submission closes **30 October 2026, 23:45 Eastern Time**. Keep this draft aligned with the final public build before submitting. The organizer's published requirements prevail if they change.
 
-## Project name
+## Required submission fields
 
-Unstuck
+**Name:** Unstuck
 
-## Elevator pitch
+**Tagline:** The plan failed. Unstuck changes as little as possible.
 
-An agent that rescues broken real-world plans by finding the smallest acceptable change — preserving hard constraints first, then using Qloo to choose the best cultural fit among feasible alternatives.
+**Live demo:** https://unstuck-city-compass.onrender.com/
 
-## One-line positioning
+**Open-source repository:** https://github.com/MeowRona/Unstuck — MIT `LICENSE` at repository root, README, startup instructions and full source.
 
-**The plan failed. Unstuck changes as little as possible.**
+**Built with:** Python (standard library), JavaScript, HTML, CSS, Qloo API, Leaflet, OpenStreetMap, scheduled Warsaw GTFS/WTP, Valhalla pedestrian routing, Nominatim fallback, GitHub Actions and Render.
 
-## Inspiration
+**Started:** 4 October 2026, during the competition period. Earlier separate prototype ideas informed the design; Unstuck is a separately built product, not a relabeled submission.
 
-Most recommendation products start from a blank page: “What should I do?” Real life often starts somewhere harder: the plan already exists, then one thing breaks.
+**Testing:** Public browser demo, no login. Qloo credential lives only in the server's environment, not in the repository or browser.
 
-The restaurant is closed. The replacement is too expensive. The museum closes too early. A new option would get us home too late. At that point the user does not want another endless discovery feed — they want to save the original plan without renegotiating everything.
+## Short description — for the Devpost project page
 
-Unstuck treats this as a constrained recovery problem. The goal is not to find the highest-scoring place in the city. The goal is to preserve the parts of the plan that still matter and change only what must change.
+Most city planning tools help you start a plan. **Unstuck helps when the plan breaks.**
 
-Warsaw is the first auditable pilot dataset, not the product thesis. The underlying problem — recovering an infeasible plan under time, cost, activity and taste constraints — is city-independent.
+A restaurant closes, the trip takes too long, or a replacement breaks your return deadline. Users want to preserve what still matters, not start over. Unstuck asks what is *locked* (budget, time, required meal or event), what may *change* (a limited travel extension, a shorter stay, optionally the category), and what each person *likes*.
 
-## What it does
+Its agent filters for operational feasibility, then uses **live Qloo taste signals** to rank the **same feasible restaurant shortlist**. It can reject suggestions with a reason, undo them, check routes, and revise the plan without silently relaxing locked conditions. A second mode builds and repairs a multi-stop day around a fixed event. A reproducible two-stage dinner-failure demo keeps the concert locked while replacing the unavailable dinner, and visibly reports what changed.
 
-The user describes a plan that failed and separates the brief into three layers:
+Qloo's role is measurable: a same-pool comparison shows the top itinerary **with and without Qloo**, rather than treating a successful API call as proof of improvement. The first pilot city is **Warsaw**, with local transit schedules and a source-aware venue catalog.
 
-- **Locked constraints**: conditions Unstuck cannot violate unless the user explicitly changes them, such as total budget, required activity, minimum stay and return time.
-- **Negotiable constraints**: a precise amount of extra travel, a shorter stay, or an optional category change that the user is willing to accept only if necessary.
-- **Preferences**: taste references used to distinguish between alternatives that already pass feasibility.
+This is a working, deliberately constrained product—not a claim that any restaurant has live table availability or that Qloo has scored every museum or concert.
 
-Unstuck then:
+## The real-world problem
 
-1. removes the failed place and previously rejected options;
-2. evaluates the current candidate pool against cost, timing, opening-window, activity and travel constraints;
-3. uses Qloo to rank the **same feasible place pool** against the user's cultural taste signals;
-4. tries the strict brief first;
-5. only if strict search fails, applies the next explicitly allowed compromise;
-6. removes dominated compromises with Pareto filtering instead of mixing money, minutes and affinity into one opaque score;
-7. returns at most three alternatives with explicit **Keep**, **Change**, **Why this fits**, and **Needs checking** sections;
-8. remembers rejected places and changed conditions in the next round.
+When a plan is already partially committed, generic recommendation feeds offer unrelated options and hide the trade-offs. An evening has dependencies: opening windows, travel time, fixed events, people, price, and a deadline to return. A new suggestion can be attractive and still impossible.
 
-If no candidate can satisfy the checked facts and allowed compromises, Unstuck stops and explains the blockers instead of silently breaking a locked condition.
+Unstuck treats that as a **constrained plan-repair problem**, not just a generic place search. Success means preserving the original intent and changing only the minimum explicitly acceptable parts.
 
-## How Qloo is used
+## What the app actually does
 
-The intended live flow is:
+### Rescue a Plan
 
-`taste names -> /search -> Qloo entity IDs -> fixed place candidate pool -> /v2/insights with filter.results.entities -> affinity ordering + explainability -> feasibility-preserving result cards`
+1. Accept the failed place, goal, date, location and return time.
+2. Keep the user's **locked conditions** immutable until the user edits them.
+3. Exclude the failed venue and prior rejections.
+4. Test local restaurants against open windows, cost confidence, trip duration, required activity and return feasibility. Unknown facts remain unknown.
+5. Prefer strict solutions. Try only the user's explicitly permitted extra travel, stay reduction or category change when needed.
+6. Use Qloo to rank **up to ten operationally feasible place options** by recognized cultural interests.
+7. Return no more than three non-dominated suggestions with **Keep / Change / Needs checking**, route details, provenance and a baseline-vs-Qloo explanation.
+8. Allow **Too far / Not my vibe / Been there / skip**, undo, precise preference changes and another search without losing the rejected-place state.
 
-Unstuck uses Qloo for a specific step that operational rules alone cannot solve well: **which of several feasible substitutes is the strongest cultural fit for this user's taste**.
+Optional **Good for both** takes two separately supplied taste profiles, requests independent Qloo rankings of the same feasible shortlist, and uses a transparent minimax compromise in rank *positions*. If fewer than two venues are ranked in both lists, the feature honestly falls back to operational recommendations; it **does not claim** a verified compromise.
 
-The operational facts — price, hours, travel estimate, budget and return time — remain separate from Qloo. Qloo does not decide whether a place is open or affordable. It ranks the same already-defined place pool by cultural affinity, and the UI only surfaces explainability evidence when Qloo actually returns it.
+### Plan a Day
 
-That separation is intentional. A generic LLM could generate plausible venue names, but it would not provide the same grounded cross-domain cultural graph and controlled same-pool ranking that the decision policy can inspect.
+- Month/date selection, attractions, museums, restaurants and a **small manually sourced event snapshot**.
+- One to four stops, a fixed-event arrival buffer, sequential travel and a return deadline.
+- Up to three alternative itineraries; automatic next-option route check when a route proves conflicting, capped at three.
+- The **Try a full-evening rescue** button performs **two simulated reported dinner failures** on the actual plan-repair path, keeping a booked concert locked and showing before/after stops and time shifts.
+- Saved browser-local plans and full-plan / activity calendar `.ics` export.
+- In live mode, Qloo ranks **eligible restaurants only**. The code does not infer Qloo affinity for museum exhibits, events or concert tickets.
 
-## How I built it
+### How Qloo makes a difference
 
-Unstuck is a lightweight Python web application with a deterministic, stateful decision engine and a responsive HTML/CSS/JavaScript interface.
+The actual integration is:
 
-The backend models:
+`named taste → bounded Qloo /search or user-picked exact entity → resolved Qloo IDs → filtered feasible venues → /v2/insights → restaurant ordering`
 
-- a validated `SearchBrief`;
-- persistent session state with rejected places and updated constraints;
-- hard feasibility checks;
-- explicitly ordered relaxation strategies;
-- Pareto dominance for compromise minimality;
-- separate taste providers for fixture, no-taste baseline and live Qloo modes.
+Qloo ranks a **fixed operational candidate pool**; it never overrides a locked budget, closed hours or a route conflict. The interface displays recognized/unrecognized signals, how many of ten candidates resolved, how many actually received ranks, and whether the **same-pool no-taste baseline** chose another top restaurant/itinerary.
 
-The current Warsaw pilot has:
+A production acceptance run verified live Qloo in Rescue and Plan a Day, **2 ranked restaurants out of 10 candidates** in the sampled planner scenario, and a changed top plan when Qloo was used. This is **one sample**, not evidence of statistically significant user satisfaction or 100% catalog coverage. A two-profile production probe returned **insufficient shared coverage**, so the app rightly did not claim a verified Good for both compromise.
 
-- 1,993 Warsaw destination places, including 1,982 restaurants from the recorded 2026-10-04 OpenStreetMap snapshot plus curated overrides; provisional operational facts are clearly distinguished;
-- 158 saved starting locations across all 18 Warsaw districts;
-- 6,049 locally indexed Warsaw street names and 125,217 exact OpenStreetMap addresses, plus browser Current Location inside the pilot bounds;
-- scheduled Warsaw public-transport routing with departure/arrival times, line numbers, transfers, stop lists and map geometry;
-- pedestrian street routing through Valhalla/OpenStreetMap;
-- per-field provenance/status for material place facts;
-- diacritic-insensitive start-location matching for international testers;
-- deterministic fixtures for local development;
-- a feasibility-only baseline for later controlled Qloo comparison.
+**Why this is agentic:** Unstuck retains state; enforces immutable constraints; iteratively tests strict, relaxed and rejected candidate sets; calls external ranking and routing tools; checks tool results; retries bounded alternative routes; and stops transparently when no feasible action exists. The agent has visible actions and testable outputs, not fabricated reasoning.
 
-The live Qloo adapter uses server-side `X-Api-Key` authentication, bounded retries for temporary errors/429s, request timeouts, a process-level network-call budget, response-size protection and a short-lived RAM-only cache. Qloo responses are not bulk-downloaded into a local database.
+## Architecture, data and provenance
 
-## Agent behavior
+The deployment is a lightweight Python standard-library backend plus vanilla responsive browser frontend. The Warsaw pilot contains approximately **1,993 locations**, including **1,982 restaurants**, 158 curated starting landmarks, and a local address/street index. Operational routing uses OpenStreetMap-based walking geometry or **scheduled** GTFS/WTP transit, not realtime train/bus positions.
 
-The agent makes concrete, observable decisions rather than running one static recommendation query:
+A separately audited overlay covers **32 individually identified restaurant branches**: 30 operator-confirmed regular weekly-hour schedules, and 2 schedules intentionally marked provisional due to conflicting sources. Six branches include examples of a **published named-dish price**. The app explicitly refuses to treat an optional dish quote as a whole dinner price or a guaranteed minimum bill. Holiday exceptions, actual availability, other menu costs and ticket stock are not asserted.
 
-- construct the current candidate pool;
-- exclude the failed place and prior vetoes;
-- test the strict brief first;
-- decide whether the next allowed compromise is necessary;
-- stop once a non-dominated feasible set exists;
-- preserve rejected places across rounds;
-- recompute when the user changes a condition;
-- return no result instead of inventing a compromise outside the brief.
+The event list is a **manual snapshot**, not a citywide live events API. Some dates have no verified session time and are discoverable but cannot be inserted into an itinerary. The user can inspect sources and verification dates.
 
-The UI exposes a compact action log so these decisions can be inspected without exposing hidden chain-of-thought.
+Qloo requests use a server-side API key, explicit request limits, short-lived in-memory cache, bounded timeouts and retries. Google Places enrichment is configured but **disabled** during judging-preparation work to avoid wasting quota; the app does not present unsourced ratings or images as authentic Google data.
 
-## Challenges I ran into
+## Technical challenges and lessons
 
-### 1. Defining “smallest change” without a fake universal score
+**Minimal compromise without false math.** We do not add PLN to minutes to produce a single pseudo-scientific score. The planner respects a strict relaxation ladder, and candidates are Pareto-compared on explicit change dimensions.
 
-The tempting implementation is to turn price, time, distance and taste into one weighted number. That makes ranking easy but the units are not naturally comparable: five minutes and 20 PLN do not have a universal exchange rate.
+**Incomplete city data.** It is easy to make an impressive but inaccurate demo by inventing opening hours, menu prices or event availability. Unknowns are marked as requiring confirmation; a single named-dish quote is never passed off as proof the whole meal fits a hard budget.
 
-Unstuck keeps these dimensions separate and uses Pareto filtering. An option is removed when another option is at least as good on every compromise dimension and strictly better on at least one.
+**Qloo coverage and exact cultural identities.** Names like films and artists can be ambiguous. The optional entity picker lets the user explicitly select an artist, film, book or show. Catalog places that do not resolve against Qloo keep their operational ranking; the API may be temporarily unavailable or return insufficient coverage.
 
-### 2. Keeping unknown operational data honest
+**Real repair instead of rearranging static cards.** A rejected restaurant is excluded on the next round. A simulated failed dinner is replaced through the same day-planning API, preserving the fixed concert. Checked route conflicts trigger bounded re-validation of the next generated variants, not a silently optimistic itinerary.
 
-A recommendation system can look polished while hiding uncertainty. In Unstuck, missing or weak price/hour data never becomes a confirmed PASS. The UI marks the result as requiring checking instead of manufacturing certainty.
+## Judge-friendly demonstration — ~100–120 seconds
 
-### 3. Making Qloo important without letting it override reality
+**0–15 s:** Open the live demo. Explain the failed plan and the difference between locked conditions and allowed changes. No Warsaw knowledge is required.
 
-Qloo is strongest as a cultural taste layer, not as a substitute for opening hours, budgets or transport. The architecture therefore makes feasibility a gate and uses Qloo inside the surviving candidate pool. This also creates a clean no-taste baseline for measuring Qloo's real contribution later.
+**15–35 s:** In **Rescue a Plan**, use **Try a rescue · 60 sec** (or the judge demo preset). Compare the three results. Show the **Keep / Change / Needs checking** evidence and a transit route. Reject an option and observe the next round without it.
 
-### 4. Making a one-city beta understandable to an international jury
+**35–50 s:** Expand Qloo evidence. Show recognized cultural entities, actual ranked venue count and the same-pool baseline. If coverage is missing, say so; don't claim Qloo improved anything unless the evidence says the top actually changed.
 
-The first dataset is Warsaw because it can be audited deeply. The UI therefore translates every local fact into universal quantities — cost, minutes, hours and preserved/changed constraints — and includes a judge-friendly preset so no knowledge of Warsaw is required to understand whether the rescue is valid.
+**50–80 s:** Switch to **Plan a Day → Try a full-evening rescue**. The fixed **17 October 2026** scenario builds an evening with a locked concert. Two separate restaurant unavailability reports are **simulated**. Show how the real repair tool preserves the concert and excludes both failed restaurants.
 
-## Accomplishments that I am proud of
+**80–105 s:** Review the changed timeline, route-check evidence, sources, unknown ticket/meal availability, and the same-pool Qloo-versus-operational comparison. Demonstrate `.ics` export if the plan has no checked route conflict.
 
-- The engine never allows a strong taste signal to override a hard budget or required activity.
-- Unknown price/hour facts cannot become confirmed feasibility.
-- Rejected places persist into later rounds.
-- A budget or constraint change recomputes the same session instead of restarting from scratch.
-- Cross-midnight opening windows and return-time calculations are covered by tests.
-- Compromise minimality is tested directly with Pareto dominance cases.
-- The Warsaw pilot supports 158 saved start points, 6,049 street names, 125,217 exact addresses and browser Current Location inside Warsaw.
-- Selecting a result builds a real pedestrian street route or scheduled Warsaw transit itinerary; transit output includes departure/arrival, lines, transfers and stops and is explicitly labelled as scheduled rather than realtime.
-- The discovery catalog now contains 1,982 restaurants. The recorded 2026-10-04 OpenStreetMap snapshot returned 1,979 restaurant features; curated records replace two duplicates. Places with insufficient price/hour evidence are shown as provisional instead of being silently treated as hard-constraint passes.
-- The Qloo adapter evaluates an explicitly fixed place pool through `filter.results.entities` instead of comparing unrelated discovery queries.
-- The current automated suite passes **40/40 tests**, including HTTP end-to-end state flow, large Warsaw data coverage, address lookup and routing checks.
-- Fixture taste data is clearly labelled and never presented as live Qloo output.
+**105–120 s:** State the product thesis: *preserve the plan, not just the venue*. Note the Warsaw pilot and the constraints on actual Qloo entity coverage.
 
-## What I learned
+**Important:** The demonstration's reported restaurant failures are simulated; the app has no reservation or closure-detection feed. On a future judging date, the 17 October scenario is historical and should be described that way.
 
-Recommendation and recovery are different product problems.
+## What is NOT proven
 
-When a plan is already partially specified, the useful question is often not “what is best?” but “what is the smallest acceptable change that keeps the rest true?” That shifts the architecture from pure ranking toward constraint reasoning, explicit uncertainty and persistent state.
+- No broad claim that Qloo recognizes all Warsaw restaurants; one sample ranked only **2/10**.
+- No validated two-person Qloo preference compromise in the sampled live case; the Good for both option returned insufficient shared coverage.
+- No survey outcome or statistically validated human preference improvement. The app has an optional anonymous, client-local A/B study interface and CSV export, but **no 6–10 actual volunteer results** have been collected.
+- No realtime opening, queue, restaurant table, ticket inventory, live GTFS delay, or complete concert/museum Qloo personalization.
+- No guarantee of restaurant-specific price and exact date hours beyond documented sources.
+- No guarantee that a proposed venue is bookable right now.
 
-I also learned that Qloo is easier to evaluate credibly when its role is isolated. If operational facts, taste and agent policy are separated, I can compare live Qloo against the exact same feasible candidate pool with a no-taste baseline instead of claiming that a higher affinity score automatically means a better human outcome.
+## Deployment and quality evidence
 
-## Potential impact
+- Public source and MIT license: https://github.com/MeowRona/Unstuck
+- Live app: https://unstuck-city-compass.onrender.com/
+- Automated tests / exact-commit Render production smoke: https://github.com/MeowRona/Unstuck/actions?query=branch%3Amain
+- Baseline comparison and human-study protocol: [JUDGE_DEMO_AND_VALIDATION.md](JUDGE_DEMO_AND_VALIDATION.md)
+- Qloo integration details: [QLOO_INTEGRATION.md](QLOO_INTEGRATION.md)
 
-The immediate use case is everyday local planning: dinner, coffee, a cultural visit or another short outing where the original plan becomes impossible.
+CI runs Python unit/HTTP tests, JavaScript checks, desktop/mobile browser smoke and an exact-git-SHA live Render smoke on merge. Do **not** copy a stale hardcoded passing-test count into the Devpost entry.
 
-The broader pattern applies to any city where a user already has intent and constraints but one dependency fails. The value is reducing the cost of replanning: keep the budget, keep the return time, keep the purpose of the outing, and change only the smallest necessary part.
+## Final submission checklist (not all complete)
 
-The current submission does not claim global operational coverage or proven satisfaction gains. It demonstrates a concrete recovery policy in one auditable city pilot and is structured so city coverage is a data/provider expansion rather than a redesign of the decision engine.
+- [x] Functional HTTPS demo, public code and MIT license.
+- [x] Live Qloo Rescue + limited Plan a Day verified in production.
+- [x] Reproducible judge scenario, route/repair and same-pool Qloo evidence.
+- [x] English source docs and user interface.
+- [ ] Record a short honest walkthrough video or screenshots; the rules permit judging from text and images, so a polished optional demo is valuable.
+- [ ] Run one clean-session mobile and desktop acceptance check against the **final exact SHA**.
+- [ ] Refresh operational/event data if materially stale, or state the current snapshot dates.
+- [ ] Conduct the voluntary anonymous A/B test **if consenting real testers are available**; never invent results.
+- [ ] Register/enter required fields and **submit** on Devpost by the official deadline. This is a user/account action, not completed by the repository.
 
-## What's next
-
-Before final submission:
-
-1. verify the already configured Render-secret `QLOO_API_KEY` still works, run the live smoke test against the final public SHA and never print or commit the key;
-2. verify live Qloo entity resolution for the Warsaw candidate catalog;
-3. verify the exact live explainability structure;
-4. compare live Qloo against the no-taste baseline using identical briefs and candidate pools;
-5. recheck the already live public Render deployment at the exact final commit; API key remains server-side and Google Places remains disabled unless intentionally enabled and tested;
-6. test the public URL from a clean browser session;
-7. capture final live screenshots;
-8. re-run the complete submission preflight before Devpost submission.
-
-After the hackathon, the next product step would be a second city using the same engine to demonstrate portability, followed by richer live availability/transport integrations where reliable sources permit it.
-
-## Built with
-
-Python, JavaScript, HTML, CSS, Qloo API, REST API, Leaflet, OpenStreetMap, Valhalla, Warsaw GTFS/WTP data, Nominatim fallback, Git, Render
-
-## Testing instructions for judges
-
-1. Open the public demo URL.
-2. Click **Load a judge-friendly demo**. No Warsaw knowledge is required.
-3. Inspect the locked constraints: two people, total budget, return time, minimum stay and maximum one-way travel. The preset runs immediately and uses the nearest sensible evening rather than a stale fixed date.
-4. Select different A/B/C cards. The map marker and detailed route must change with the selected result.
-5. In transit mode, inspect scheduled departure/arrival times, line number(s), transfers and stop list. Switch to walking mode to see the routed pedestrian street path.
-6. Open **Review conditions** and enter **Chmielna 26** as the start point. It should resolve from the bundled Warsaw address index without per-keystroke network autocomplete.
-7. Reject the top option. The next round must keep that place excluded. Change the budget or lock one of the offered compromises to recompute the same session.
-8. Toggle dark mode and, if physically inside Warsaw, optionally test **Current location**.
-9. For final live judging, the status badge must show the verified live-Qloo mode rather than fixture taste.
-
-No login is required. The Qloo API key is server-side.
-
-## Devpost form values
-
-### Project name
-
-`Unstuck`
-
-### Elevator pitch / tagline
-
-`An agent that rescues broken real-world plans by finding the smallest acceptable change — preserving hard constraints first, then using Qloo to choose the best cultural fit among feasible alternatives.`
-
-### Project start date
-
-`October 4, 2026`
-
-### Existing project / prior work
-
-`N/A — Unstuck was started as a new project for this hackathon. An earlier separate hackathon prototype (CommonGround) was not reused as the Unstuck product; only general lessons and selectively reusable API patterns informed development.`
-
-### Built with
-
-`Python, JavaScript, HTML, CSS, Qloo API, REST API, OpenStreetMap Nominatim, Git, Render`
-
-### Source code
-
-`https://github.com/MeowRona/Unstuck`
-
-### Demo URL
-
-**https://unstuck-city-compass.onrender.com**
-
-Deployment smoke: root and `/api/health` returned HTTP 200, and a public `search -> reject all first 3 -> next alternatives` flow passed. Live Qloo Rescue ranking was verified in production on 2026-10-13. Coverage is shown per request, and planner Qloo ranking is limited to comparable eligible restaurants.
-
-### Video
-
-Not required by the current Qloo hackathon submission baseline. If an optional short video is added later, show: failed plan -> judge demo -> result Keep/Change -> rejection -> second round -> live Qloo badge.
-
-## Public links
-
-- Repository: https://github.com/MeowRona/Unstuck
-- Demo: https://unstuck-city-compass.onrender.com
-
-## Final release gate
-
-Do **not** final-submit while any of these is true:
-
-- real Qloo ranking is unavailable in the final public demonstration;
-- public demo cannot show a verified live Qloo call and distinguish no-coverage or API failures;
-- a live Qloo request cannot resolve the chosen taste references/candidate places;
-- a rejected result can reappear in the next round;
-- an unknown material fact is displayed as confirmed;
-- the public repository is missing source, README, license or run instructions;
-- the public deployment has not been tested from a clean session.
+**Official judging criteria:** Technological Implementation, Design, Potential Impact and Quality of the Idea are **equally weighted**. The entry must offer a functional demo, public open-source repo with license, and English description; video is not listed as a mandatory standalone element in the published baseline rules. See https://qloo.devpost.com/rules.
