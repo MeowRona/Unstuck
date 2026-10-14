@@ -581,6 +581,20 @@ class QlooContractTests(unittest.TestCase):
                 provider.suggest_taste_entities("Beyond hourly cap", "movie")
             self.assertEqual(provider.suggest_taste_entities("After the window", "book"), [])
 
+    def test_non_live_good_for_both_trace_preserves_both_profiles(self):
+        engine = load_fixture_engine()
+        result = engine.search(SearchState(brief(
+            taste_refs=["film: Amelie"],
+            second_taste_refs=["artist: Radiohead"],
+        )))
+        audit = result["taste_audit"]
+        self.assertEqual(audit["status"], "no_coverage")
+        self.assertEqual(audit["pair_status"], "not_live")
+        self.assertEqual(audit["input_references"], ["film: Amelie"])
+        self.assertEqual(audit["second_input_references"], ["artist: Radiohead"])
+        self.assertEqual(audit["profile_a_ranked_count"], 0)
+        self.assertEqual(audit["profile_b_ranked_count"], 0)
+
     def test_good_for_both_uses_independent_same_pool_ranks_and_minimax(self):
         class FakeTransport:
             pass

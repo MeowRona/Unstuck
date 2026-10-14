@@ -628,6 +628,11 @@ class UnstuckEngine:
                         "status": "no_coverage",
                         "pair_status": "not_live",
                         "pair_reason": "The two-profile Qloo feature is not available in this mode.",
+                        "input_references": list(brief.taste_refs),
+                        "second_input_references": list(brief.second_taste_refs),
+                        "recognized_signals": [],
+                        "profile_a_ranked_count": 0,
+                        "profile_b_ranked_count": 0,
                         "insights_called": False,
                         "ranked_entity_count": 0,
                     })
