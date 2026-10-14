@@ -556,6 +556,7 @@ class DayPlanner:
             "candidate_count": len(places),
             "resolved_count": trace.get("candidate_entity_count", 0),
             "unresolved_candidate_ids": trace.get("unresolved_candidate_ids", []),
+            "resolved_candidates": trace.get("resolved_candidates", []),
             "ranked_count": len(ranks),
             "insights_called": bool(trace.get("insights_called")),
         }
