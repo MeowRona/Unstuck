@@ -55,6 +55,7 @@ function makeDefaultBrief() {
   max_one_way_minutes: 20,
   categories: ['restaurant'],
   taste_refs: [],
+  second_taste_refs: [],
   meal_required: true,
   negotiable_extra_travel_minutes: 10,
   negotiable_stay_reduction_minutes: 15,
@@ -1217,6 +1218,10 @@ originInput.addEventListener('blur', () => {
   }, 80);
 });
 
+editorForm.elements.good_for_both.addEventListener('change', () => {
+  $('#secondTasteWrap').classList.toggle('hidden', !editorForm.elements.good_for_both.checked);
+});
+
 function fillEditor(brief) {
   const fields = ['goal','people','budget_total','date','origin','travel_mode','failed_place','failure_reason'];
   fields.forEach(name => { if (editorForm.elements[name]) editorForm.elements[name].value = brief[name] ?? ''; });
@@ -1228,6 +1233,11 @@ function fillEditor(brief) {
     originResolution.textContent = 'Saved landmarks work instantly; street autocomplete is local and exact addresses are geocoded only after you submit.';
   }
   editorForm.elements.taste_refs.value = (brief.taste_refs || []).join(', ');
+  editorForm.elements.second_taste_refs.value = (brief.second_taste_refs || []).join(', ');
+  editorForm.elements.good_for_both.checked = Boolean(brief.second_taste_refs?.length);
+  $('#secondTasteWrap').classList.toggle('hidden', !editorForm.elements.good_for_both.checked);
+  editorForm.elements.taste_refs.dispatchEvent(new Event('input', {bubbles:true}));
+  editorForm.elements.second_taste_refs.dispatchEvent(new Event('input', {bubbles:true}));
   editorForm.elements.allow_category_change.checked = Boolean(brief.allow_category_change);
   $$('#editorForm input[name="category"]').forEach(input => { input.checked = (brief.categories || []).includes(input.value); });
   timeWheelSetters.get('start_time')?.(brief.start_time);
@@ -1261,6 +1271,9 @@ function editorPayload() {
     max_one_way_minutes: Number(fd.get('max_one_way_minutes')),
     categories: $$('#editorForm input[name="category"]:checked').map(input => input.value),
     taste_refs: String(fd.get('taste_refs') || '').split(',').map(item => item.trim()).filter(Boolean),
+    second_taste_refs: editorForm.elements.good_for_both.checked
+      ? String(fd.get('second_taste_refs') || '').split(',').map(item => item.trim()).filter(Boolean)
+      : [],
     meal_required: goal === 'meal',
     negotiable_extra_travel_minutes: Number(fd.get('negotiable_extra_travel_minutes')),
     negotiable_stay_reduction_minutes: Number(fd.get('negotiable_stay_reduction_minutes')),
@@ -1274,6 +1287,11 @@ function validateEditor(brief) {
   if (!brief.categories.length && brief.goal !== 'flexible') return 'Choose at least one preferred category.';
   if (!(brief.people >= 1 && brief.people <= 12)) return 'People must be between 1 and 12.';
   if (!(brief.budget_total > 0)) return 'Budget must be greater than zero.';
+  if (editorForm.elements.good_for_both.checked &&
+      (!brief.taste_refs.length || brief.taste_refs.length > 2 ||
+       !brief.second_taste_refs.length || brief.second_taste_refs.length > 2)) {
+    return 'Good for both requires one or two taste references for each person.';
+  }
   return '';
 }
 
