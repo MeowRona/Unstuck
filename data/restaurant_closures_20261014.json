@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-14",
+  "scope": "Exclude only independently confirmed operator-reported permanent closures. Do not infer closure from missing hours, missing prices or a review.",
+  "entries": [
+    {
+      "id": "warsaw:osm:node:778266828",
+      "expected_name": "AleGloria",
+      "expected_address": "Plac Trzech Krzyży 3, Warsaw",
+      "status": "operator_reports_closed",
+      "source_url": "https://www.alegloria.pl/",
+      "note": "The venue operator announces the restaurant's closure after its lease ended. Exact closure date is not published on this page; recheck before restoring."
+    }
+  ]
+}
