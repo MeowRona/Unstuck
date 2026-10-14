@@ -696,6 +696,11 @@
           esc(plan.taste_audit.recognized_signals?.length || 0) + ' taste signal(s) recognized. ' +
           (plan.taste_audit.insights_called ? 'Insights API called.' : 'Insights API not called.') +
           '</p>' : '') +
+      (plan?.taste_audit?.resolved_candidates?.length
+        ? '<p><strong>Qloo venue matches:</strong> ' +
+          plan.taste_audit.resolved_candidates.map(row => esc(row.name || row.place_id)).join(', ') +
+          '. These are exact catalog identities used in this request, not inferred preferences.</p>'
+        : '') +
       (plan?.taste_audit?.same_pool_comparison
         ? '<section class="planner-qloo-comparison"><h4>What did Qloo change?</h4>' +
           '<p><strong>Without taste:</strong> ' + esc(plan.taste_audit.same_pool_comparison.baseline_restaurant || 'no restaurant') + '</p>' +
