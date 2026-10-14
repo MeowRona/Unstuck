@@ -156,6 +156,42 @@ class DayPlannerTests(unittest.TestCase):
         cls.catalog = PlannerCatalog(engine.places)
         cls.planner = DayPlanner(cls.catalog)
 
+    def test_explicitly_pinned_last_catalog_restaurant_can_be_scheduled(self):
+        # Without pin prioritization a 32nd discovered restaurant was excluded
+        # by the shared ten-venue candidate limit before scheduling began.
+        chosen = self.catalog.restaurant_rows[-1]
+        self.assertGreaterEqual(len(self.catalog.restaurant_rows), 25)
+        loc = chosen["venue"]
+        b = brief(
+            activity_count=1, date="2026-10-17", start_time="12:00", end_time="22:30",
+            people=2, budget_total=1000, include_meal=True,
+            interests=[], taste_refs=[],
+            origin_lat=loc["lat"], origin_lon=loc["lon"],
+            return_lat=loc["lat"], return_lon=loc["lon"],
+            must_include_ids=[chosen["id"]], locked_ids=[chosen["id"]],
+        )
+        _other, shortlist = self.planner._shortlisted_candidates(
+            self.catalog.activities_for_date(date(2026, 10, 17)), b
+        )
+        self.assertIn(chosen["id"], [row["id"] for row in shortlist])
+        self.assertLessEqual(len(shortlist), 10)
+        result = self.planner.generate(b)
+        self.assertTrue(result["plans"], result.get("explanation"))
+        self.assertEqual(result["plans"][0]["items"][0]["activity_id"], chosen["id"])
+
+    def test_preferred_and_locked_venues_remain_in_fixed_shortlist(self):
+        restaurants = self.catalog.restaurant_rows
+        a, b = restaurants[-1]["id"], restaurants[-2]["id"]
+        selected = brief(activity_count=2, locked_ids=[a], must_include_ids=[a])
+        _other, places = self.planner._shortlisted_candidates(
+            self.catalog.activities_for_date(date(2026, 10, 17)),
+            selected, preferred_ids=(b,)
+        )
+        ids = [row["id"] for row in places]
+        self.assertEqual(ids[0], a)
+        self.assertEqual(ids[1], b)
+        self.assertEqual(len(ids), 10)
+
     def test_tenth_restaurant_is_a_real_schedulable_choice_not_just_qloo_overhead(self):
         # Regression: Qloo ranked the first TEN eligible restaurants, but the
         # planner previously only scheduled the first EIGHT. Keep the same pool.
@@ -492,6 +528,42 @@ class PlannerLiveTasteTests(unittest.TestCase):
                             if item["kind"] == "restaurant"))
         for plan in result["plans"]:
             self.assertIn("Concerts and museums", plan["taste_note"])
+
+    def test_pinned_restaurant_uses_same_ten_options_for_live_qloo_and_planner(self):
+        from unstuck.providers import TasteResult, TasteResults
+
+        class FakeProvider:
+            mode = "live"
+            def __init__(self):
+                self.pool = []
+            def rank_with_context(self, places, taste_refs, *, failed_place):
+                self.pool = list(places)
+                return TasteResults(
+                    [TasteResult(p.id, .9 - .01 * i, i + 1, (), "qloo")
+                     for i, p in enumerate(places)],
+                    trace={"status": "live", "insights_called": True}
+                )
+
+        engine = build_engine("fixture", "real")
+        catalog = PlannerCatalog(engine.places)
+        selected = catalog.restaurant_rows[-1]
+        loc = selected["venue"]
+        provider = FakeProvider()
+        planner = DayPlanner(catalog, provider)
+        chosen_brief = brief(
+            activity_count=1, include_meal=True, budget_total=5000,
+            date="2026-10-17", start_time="12:00", end_time="22:30",
+            must_include_ids=[selected["id"]], locked_ids=[selected["id"]],
+            origin_lat=loc["lat"], origin_lon=loc["lon"],
+            return_lat=loc["lat"], return_lon=loc["lon"],
+        )
+        result = planner.generate(chosen_brief)
+        self.assertTrue(result["plans"])
+        self.assertEqual(len(provider.pool), 10)
+        self.assertIn(selected["id"].split(":", 1)[1],
+                      [p.id for p in provider.pool])
+        self.assertEqual(result["plans"][0]["items"][0]["activity_id"], selected["id"])
+        self.assertEqual(result["taste_audit"]["candidate_count"], len(provider.pool))
 
     def test_missing_planner_qloo_does_not_invent_live_taste(self):
         class UnavailableProvider:
