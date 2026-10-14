@@ -499,7 +499,7 @@ class QlooContractTests(unittest.TestCase):
                 return {"results": []}
         provider = RealQlooProvider(FakeTransport())
         with patch("unstuck.providers.time.monotonic", side_effect=(
-            [100] * 12 + [100, 161] + [161] * 11 +
+            [100] * 12 + [100] + [161] * 12 +
             [222] * 12 + [283] * 12 + [344] * 12 + [405] * 12 +
             [466, 3701]
         )):
@@ -509,7 +509,7 @@ class QlooContractTests(unittest.TestCase):
                 provider.suggest_taste_entities("Another", "artist")
             # A minute later the short window renews; later batches consume
             # the independent 72/h public-lookup ceiling.
-            for _batch in range(4):
+            for _batch in range(5):
                 for _ in range(12):
                     provider.suggest_taste_entities("Different", "movie")
             with self.assertRaisesRegex(RuntimeError, "QLOO_PICKER_RATE_LIMITED"):
