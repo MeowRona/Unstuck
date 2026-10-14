@@ -515,11 +515,19 @@ class UnstuckEngine:
                 place.price.maximum is not None
                 and place.price.unit == brief.currency
                 and place.price.status in {"confirmed", "fixture"}
+                and place.price.basis != "per_person_dish_only"
                 and place.price.maximum * brief.people > brief.budget_total
             ):
                 continue
             category_penalty = 0 if not brief.categories or place.category in brief.categories else 1
-            fact_penalty = int(place.price.status not in {"confirmed", "fixture"}) + int(
+            # A confirmed quote for ONE named dish is not a confirmed meal
+            # budget for arbitrary menu selections. Keep the place eligible
+            # but do not give the quote the confidence of a whole-meal price.
+            has_meal_price = (
+                place.price.status in {"confirmed", "fixture"}
+                and place.price.basis != "per_person_dish_only"
+            )
+            fact_penalty = int(not has_meal_price) + int(
                 place.hours_status not in {"confirmed", "fixture"}
             )
             prefiltered.append(((category_penalty, fact_penalty, travel, place.name.casefold()), place))
