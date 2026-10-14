@@ -334,10 +334,10 @@ class ConstraintTests(unittest.TestCase):
                             stay_minutes=75, category_relaxed=False)
         self.assertTrue(ev.viable)
         self.assertFalse(ev.confirmed)
-        self.assertEqual(ev.estimated_total_min, 98)
+        self.assertIsNone(ev.estimated_total_min)
         self.assertIsNone(ev.estimated_total_max)
         self.assertNotIn("Budget", ev.preserved)
-        self.assertTrue(any("named menu item" in reason for reason in ev.needs_checking))
+        self.assertTrue(any("example menu dish" in reason for reason in ev.needs_checking))
         budget = next(x for x in _constraint_checks(ev, sample) if x["field"] == "budget")
         self.assertEqual(budget["status"], "unknown")
 
@@ -347,8 +347,10 @@ class ConstraintTests(unittest.TestCase):
                         return_by="23:30", taste_refs=[]),
             None, allowed_travel_minutes=120, stay_minutes=75, category_relaxed=False,
         )
-        self.assertFalse(over_budget.viable)
-        self.assertTrue(any("named dish alone" in reason for reason in over_budget.hard_failures))
+        self.assertTrue(over_budget.viable, "a pricier sample dish does not prove every menu choice exceeds budget")
+        self.assertIsNone(over_budget.estimated_total_min)
+        self.assertNotIn("Budget", over_budget.preserved)
+        self.assertTrue(any("whole-dinner" in reason for reason in over_budget.needs_checking))
 
     def test_estimated_hours_are_not_confirmed(self):
         engine = load_fixture_engine()
