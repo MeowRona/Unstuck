@@ -129,6 +129,24 @@ class DayPlannerTests(unittest.TestCase):
         cls.catalog = PlannerCatalog(engine.places)
         cls.planner = DayPlanner(cls.catalog)
 
+    def test_tenth_restaurant_is_a_real_schedulable_choice_not_just_qloo_overhead(self):
+        # Regression: Qloo ranked the first TEN eligible restaurants, but the
+        # planner previously only scheduled the first EIGHT. Keep the same pool.
+        from unstuck.planner import PLANNER_RESTAURANT_SHORTLIST
+        self.assertEqual(PLANNER_RESTAURANT_SHORTLIST, 10)
+        chosen = self.catalog.restaurant_rows[9]
+        pos = chosen["venue"]
+        result = self.planner.generate(brief(
+            date="2026-10-17", start_time="12:00", end_time="22:30",
+            people=2, budget_total=5000, activity_count=1,
+            include_meal=True, interests=[], taste_refs=[],
+            origin=pos["name"], origin_lat=pos["lat"], origin_lon=pos["lon"],
+            return_origin=pos["name"], return_lat=pos["lat"], return_lon=pos["lon"],
+            must_include_ids=[chosen["id"]], locked_ids=[chosen["id"]],
+        ))
+        self.assertTrue(result["plans"], "tenth restaurant must be considered in generated schedules")
+        self.assertEqual(result["plans"][0]["items"][0]["activity_id"], chosen["id"])
+
     def test_plan_uses_fixed_concert_time_without_inventing_end(self):
         result = self.planner.generate(
             brief(
