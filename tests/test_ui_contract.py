@@ -68,6 +68,7 @@ class UiContractTests(unittest.TestCase):
         self.assertIn('id="plannerRescueDemo"', self.html)
         self.assertIn("SIMULATED DINNER FAILURE", planner_js)
         self.assertIn("Actual Qloo coverage:", planner_js)
+        self.assertIn("Qloo venue matches:", planner_js)
         self.assertIn("What did Qloo change?", planner_js)
         self.assertIn("Same feasibility pool:", planner_js)
         self.assertIn('id="plannerStudyStart"', self.html)

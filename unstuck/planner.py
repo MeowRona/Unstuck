@@ -557,6 +557,17 @@ class DayPlanner:
             return {}, {"status": "unavailable", "error_code": str(exc)[:100],
                         "note": "Qloo could not rank restaurants; operational planning remains available."}
         trace = dict(getattr(results, "trace", {}) or {})
+        resolved_candidates = []
+        for candidate in trace.get("resolved_candidates", []):
+            if not isinstance(candidate, dict):
+                continue
+            place_id = str(candidate.get("place_id") or "")
+            place = self._places_by_id.get(place_id)
+            resolved_candidates.append({
+                "place_id": place_id,
+                "name": place.name if place is not None else place_id,
+                "entity_id": candidate.get("entity_id"),
+            })
         ranks = {f"restaurant:{row.place_id}": int(row.rank) for row in results if row.rank is not None}
         verified = (trace.get("status") == "live" and len(ranks) >= 2 and len({row.rank for row in results if row.rank is not None}) >= 2)
         return (ranks if verified else {}), {
@@ -569,7 +580,7 @@ class DayPlanner:
             "candidate_count": len(places),
             "resolved_count": trace.get("candidate_entity_count", 0),
             "unresolved_candidate_ids": trace.get("unresolved_candidate_ids", []),
-            "resolved_candidates": trace.get("resolved_candidates", []),
+            "resolved_candidates": resolved_candidates,
             "ranked_count": len(ranks),
             "insights_called": bool(trace.get("insights_called")),
         }

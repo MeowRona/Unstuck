@@ -555,6 +555,10 @@ class PlannerLiveTasteTests(unittest.TestCase):
                         "insights_called": True,
                         "recognized_signals": [{"input": "Radiohead", "name": "Radiohead",
                                                  "entity_id": "artist:test", "kind": "taste_reference"}],
+                        "resolved_candidates": [
+                            {"place_id": p.id, "entity_id": f"place:test:{i}"}
+                            for i, p in enumerate(places[:2], start=1)
+                        ],
                     },
                 )
 
@@ -565,6 +569,10 @@ class PlannerLiveTasteTests(unittest.TestCase):
         self.assertEqual(result["taste_status"], "live_restaurants")
         self.assertTrue(result["taste_audit"]["insights_called"])
         self.assertGreaterEqual(result["taste_audit"]["ranked_count"], 2)
+        self.assertEqual(
+            [row["name"] for row in result["taste_audit"]["resolved_candidates"]],
+            [place.name for place in provider.last_places[:2]],
+        )
         self.assertTrue(result["plans"])
         comparison = result["taste_audit"]["same_pool_comparison"]
         self.assertEqual(comparison["method"], "same_feasible_plan_pool")
