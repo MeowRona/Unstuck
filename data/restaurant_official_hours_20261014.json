@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "checked_at": "2026-10-14",
-  "scope": "Source-reviewed regular weekly schedules for 32 exact Warsaw restaurant branches: 30 operator-confirmed hour schedules and 2 deliberately provisional 360° branches with conflicting official pages. Four independently documented named-dish prices are not full-meal estimates. Holiday exceptions and live table availability remain unknown.",
+  "scope": "Source-reviewed regular weekly schedules for 32 exact Warsaw restaurant branches: 30 operator-confirmed and 2 deliberately provisional conflicting sources. Six source-confirmed *named-dish menu quotes* are recorded as optional item examples, never a restaurant-wide minimum, entire meal estimate, or ticket/table availability claim. Holiday exceptions remain unknown.",
   "entries": [
     {
       "id": "warsaw:osm:node:314590527",
@@ -1236,6 +1236,15 @@
             "22:00"
           ]
         ]
+      },
+      "price": {
+        "min": 42,
+        "max": 42,
+        "currency": "PLN",
+        "status": "confirmed",
+        "source_url": "https://sushizushi.pl/menu",
+        "basis": "per_person",
+        "item_note": "One six-piece vegetarian futomaki roll listed at 42 PLN on Sushi Zushi Gold's own menu. This is one optional menu item, not a minimum whole-meal price; drinks, additional rolls, tips and extras are excluded."
       }
     },
     {
@@ -1286,6 +1295,15 @@
             "22:00"
           ]
         ]
+      },
+      "price": {
+        "min": 42,
+        "max": 42,
+        "currency": "PLN",
+        "status": "confirmed",
+        "source_url": "https://www.shuk.pl/menu/menu",
+        "basis": "per_person",
+        "item_note": "One Falafel & hummus plate listed at 42 PLN on Shuk's own online ordering menu (six falafels, hummus and sides). The in-restaurant price may differ; beverages, extra plates, tips and other selections are excluded."
       }
     },
     {

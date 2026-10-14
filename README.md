@@ -97,7 +97,7 @@ A whole plan or one activity can be downloaded as `.ics`. Events use stable UIDs
 
 ### Planner data scope
 
-The bundled attraction/planner baseline was checked **2026-10-06**, with selected future Warsaw events manually refreshed **2026-10-14** (not an always-live feed). The restaurant overlay adds **30 operator-confirmed weekly-hour schedules**, two conservatively provisional schedules where operator pages conflict, and **four narrowly verified dish prices** (ORZO x2, Stary Dom, Akademia). Dish quotes are examples for a **specific optional menu item**, not lower bounds for every possible meal; neither planning mode excludes a restaurant or certifies affordability solely from that item price. Unknown ticket availability, extras and unpublished holiday hours remain unknown.
+The bundled attraction/planner baseline was checked **2026-10-06**, with selected future Warsaw events manually refreshed **2026-10-14** (not an always-live feed). The restaurant overlay adds **30 operator-confirmed weekly-hour schedules**, two conservatively provisional schedules where operator pages conflict, and **six narrowly verified dish price examples** (ORZO x2, Stary Dom, Akademia, Shuk, Sushi Zushi). Dish quotes are examples for a **specific optional menu item**, not lower bounds for every possible meal; neither planning mode excludes a restaurant or certifies affordability solely from that item price. Unknown ticket availability, extras and unpublished holiday hours remain unknown.
 
 It is **not** marketed as every Warsaw event. Source/coverage semantics and refresh rules are documented in [PLANNER_DATA.md](PLANNER_DATA.md).
 

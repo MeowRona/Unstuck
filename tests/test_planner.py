@@ -69,6 +69,16 @@ class DishPriceEvidenceTests(unittest.TestCase):
         self.assertEqual(akademia["price"]["basis"], "per_person_dish_only")
         self.assertEqual(akademia["price"]["min"], 69)
         self.assertIn("12.5-percent service", akademia["price"]["note"])
+        for restaurant_id, expected_fragment in [
+            ("restaurant:warsaw:osm:node:5062561421", "Falafel & hummus"),
+            ("restaurant:warsaw:osm:node:1285589018", "vegetarian futomaki"),
+        ]:
+            item = next(row for row in catalog.restaurant_rows
+                        if row["id"] == restaurant_id)
+            self.assertEqual(item["price"]["min"], 42)
+            self.assertEqual(item["price"]["basis"], "per_person_dish_only")
+            self.assertIn(expected_fragment, item["price"]["note"])
+
 
 
 class PlannerCatalogTests(unittest.TestCase):
