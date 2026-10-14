@@ -98,7 +98,9 @@ class WarsawPilotDataTests(unittest.TestCase):
                 self.assertEqual(place.price.status, "confirmed")
                 self.assertEqual(place.price.minimum, 49.0)
                 self.assertEqual(place.price.maximum, 49.0)
-                self.assertIn("Bigoli carbonara", place.price.basis)
+                self.assertEqual(place.price.basis, "per_person")
+                self.assertIn("Bigoli carbonara", place.source_note)
+                self.assertIn("not an all-inclusive meal", place.source_note)
                 self.assertEqual(place.price.source_url, entry["price"]["source_url"])
                 self.assertEqual(place.price.checked_at, "2026-10-14")
             else:
