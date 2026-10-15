@@ -267,6 +267,101 @@ class DayPlannerTests(unittest.TestCase):
         self.assertTrue(result["plans"], "tenth restaurant must be considered in generated schedules")
         self.assertEqual(result["plans"][0]["items"][0]["activity_id"], chosen["id"])
 
+    def test_already_out_resume_keeps_completed_history_and_replans_only_future(self):
+        locked_event = "event:simple-plan-2026-10-17"
+        original_brief = brief(
+            activity_count=3,
+            include_meal=True,
+            taste_refs=[],
+            budget_total=1000,
+            must_include_ids=[locked_event],
+            locked_ids=[locked_event],
+        )
+        generated = self.planner.generate(original_brief)
+        self.assertTrue(generated["plans"])
+        original = generated["plans"][0]
+        self.assertGreaterEqual(len(original["items"]), 2)
+        first = original["items"][0]
+        self.assertNotEqual(first["activity_id"], locked_event)
+        resumed = self.planner.resume(
+            original,
+            original_brief,
+            (first["activity_id"],),
+            current_time=first["display_end"],
+            current_origin=first["venue"]["name"],
+            current_lat=first["venue"]["lat"],
+            current_lon=first["venue"]["lon"],
+            remaining_budget_total=450,
+        )
+        self.assertEqual(resumed["resume"]["mode"], "already_out")
+        self.assertTrue(resumed["resume"]["history_locked"])
+        self.assertEqual(resumed["resume"]["completed_ids"], [first["activity_id"]])
+        self.assertEqual(resumed["resume"]["completed_items"][0]["start"], first["start"])
+        self.assertEqual(resumed["resume"]["completed_items"][0]["end"], first["end"])
+        self.assertEqual(resumed["brief"]["activity_count"], len(original["items"]) - 1)
+        self.assertEqual(resumed["brief"]["budget_total"], 450)
+        self.assertIn(first["activity_id"], resumed["brief"]["excluded_ids"])
+        self.assertTrue(resumed["plans"], resumed.get("explanation"))
+        future_ids = {row["activity_id"] for row in resumed["plans"][0]["items"]}
+        self.assertNotIn(first["activity_id"], future_ids)
+        self.assertIn(locked_event, future_ids)
+        self.assertIn(locked_event, resumed["brief"]["locked_ids"])
+        self.assertEqual(resumed["plans"][0]["resume"]["budget_scope"], "remaining_plan_only")
+
+    def test_already_out_can_replace_one_newly_failed_future_stop(self):
+        locked_event = "event:simple-plan-2026-10-17"
+        original_brief = brief(
+            activity_count=3,
+            include_meal=True,
+            taste_refs=[],
+            budget_total=1000,
+            must_include_ids=[locked_event],
+            locked_ids=[locked_event],
+        )
+        generated = self.planner.generate(original_brief)
+        self.assertTrue(generated["plans"])
+        original = generated["plans"][0]
+        first = original["items"][0]
+        future = original["items"][1:]
+        failed = next(item for item in future if item["activity_id"] != locked_event)
+        resumed = self.planner.resume(
+            original,
+            original_brief,
+            (first["activity_id"],),
+            current_time=first["display_end"],
+            current_origin=first["venue"]["name"],
+            current_lat=first["venue"]["lat"],
+            current_lon=first["venue"]["lon"],
+            remaining_budget_total=600,
+            removed_id=failed["activity_id"],
+        )
+        self.assertEqual(resumed["resume"]["removed_id"], failed["activity_id"])
+        self.assertIn(failed["activity_id"], resumed["brief"]["excluded_ids"])
+        self.assertTrue(resumed["plans"], resumed.get("explanation"))
+        future_ids = {row["activity_id"] for row in resumed["plans"][0]["items"]}
+        self.assertNotIn(first["activity_id"], future_ids)
+        self.assertNotIn(failed["activity_id"], future_ids)
+        self.assertIn(locked_event, future_ids)
+
+    def test_already_out_resume_rejects_non_prefix_history(self):
+        original_brief = brief(activity_count=3, taste_refs=[], budget_total=1000)
+        generated = self.planner.generate(original_brief)
+        self.assertTrue(generated["plans"])
+        original = generated["plans"][0]
+        self.assertGreaterEqual(len(original["items"]), 2)
+        second = original["items"][1]
+        with self.assertRaisesRegex(ValueError, "chronological prefix"):
+            self.planner.resume(
+                original,
+                original_brief,
+                (second["activity_id"],),
+                current_time=second["display_end"],
+                current_origin=second["venue"]["name"],
+                current_lat=second["venue"]["lat"],
+                current_lon=second["venue"]["lon"],
+                remaining_budget_total=400,
+            )
+
     def test_plan_uses_fixed_concert_time_without_inventing_end(self):
         result = self.planner.generate(
             brief(

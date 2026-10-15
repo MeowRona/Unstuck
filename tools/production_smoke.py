@@ -187,6 +187,44 @@ def main() -> int:
         if comparison.get("study_with_qloo", {}).get("id") != comparison.get("with_qloo_top_plan_id"):
             raise RuntimeError("blind experiment taste option must be the genuine same-pool Qloo plan")
 
+    # "Already out" acceptance: preserve completed history and only rebuild
+    # the future suffix. Disable taste for this extra acceptance call so this
+    # check consumes no additional live Qloo ranking quota.
+    locked_event_id = "event:simple-plan-2026-10-17"
+    event_index = next(
+        (index for index, row in enumerate(planner_plan["items"])
+         if row["activity_id"] == locked_event_id),
+        None,
+    )
+    completed_count = 1
+    if event_index is not None and event_index > 1:
+        completed_count = event_index
+    completed_items = planner_plan["items"][:completed_count]
+    last_completed = completed_items[-1]
+    resumed = post_json(
+        "/api/planner/resume",
+        {
+            "brief": {**planner_brief, "taste_refs": []},
+            "plan": planner_plan,
+            "completed_ids": [row["activity_id"] for row in completed_items],
+            "current_time": last_completed["display_end"],
+            "current_origin": last_completed["venue"]["name"],
+            "current_lat": last_completed["venue"]["lat"],
+            "current_lon": last_completed["venue"]["lon"],
+            "remaining_budget_total": 400,
+        },
+    )
+    if resumed.get("resume", {}).get("mode") != "already_out" or not resumed.get("plans"):
+        raise RuntimeError("public Already-out planner resume did not produce a remaining itinerary")
+    completed_id_set = {row["activity_id"] for row in completed_items}
+    resumed_ids = {row["activity_id"] for row in resumed["plans"][0]["items"]}
+    if completed_id_set & resumed_ids:
+        raise RuntimeError("Already-out resume replanned a completed stop")
+    if locked_event_id not in completed_id_set and locked_event_id not in resumed_ids:
+        raise RuntimeError("Already-out resume lost the future locked event")
+    if resumed.get("resume", {}).get("budget_scope") != "remaining_plan_only":
+        raise RuntimeError("Already-out resume did not scope the budget to the remaining plan")
+
     removable = next(
         row["activity_id"]
         for row in planner_plan["items"]
@@ -247,6 +285,7 @@ def main() -> int:
                 "qloo_status": first.get("taste_audit", {}).get("status"),
                 "planner_stops": len(planner_plan["items"]),
                 "planner_repair": True,
+                "planner_already_out_resume": True,
                 "planner_ics": True,
                 "future_official_recital_scheduled": True,
                 "planner_same_pool_changed_top": ((planner_result.get("taste_audit") or {}).get("same_pool_comparison") or {}).get("top_plan_changed"),

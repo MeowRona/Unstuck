@@ -570,6 +570,30 @@ class Handler(BaseHTTPRequestHandler):
                 brief = PlannerBrief.from_payload(raw_brief)
                 self._json(200, self.app_state.day_planner.repair(raw_plan, brief, removed_id))
                 return
+            if path == "/api/planner/resume":
+                raw_brief = payload.get("brief")
+                raw_plan = payload.get("plan")
+                completed_ids = payload.get("completed_ids") or []
+                if not isinstance(raw_brief, dict) or not isinstance(raw_plan, dict):
+                    raise ValueError("planner resume requires brief and plan")
+                if not isinstance(completed_ids, list):
+                    raise ValueError("planner resume completed_ids must be a list")
+                brief = PlannerBrief.from_payload(raw_brief)
+                self._json(
+                    200,
+                    self.app_state.day_planner.resume(
+                        raw_plan,
+                        brief,
+                        tuple(str(x) for x in completed_ids),
+                        current_time=str(payload.get("current_time") or "").strip(),
+                        current_origin=str(payload.get("current_origin") or "Current location"),
+                        current_lat=float(payload.get("current_lat")),
+                        current_lon=float(payload.get("current_lon")),
+                        remaining_budget_total=payload.get("remaining_budget_total"),
+                        removed_id=str(payload.get("removed_id") or "").strip(),
+                    ),
+                )
+                return
             if path == "/api/planner/route-check":
                 raw_brief = payload.get("brief")
                 raw_plan = payload.get("plan")

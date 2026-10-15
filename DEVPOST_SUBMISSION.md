@@ -58,6 +58,7 @@ Optional **Good for both** takes two separately supplied taste profiles, request
 - Up to three alternative itineraries; automatic next-option route check when a route proves conflicting, capped at three.
 - The **Try a full-evening rescue** button performs **two simulated reported dinner failures** on the actual plan-repair path, keeping a booked concert locked and showing before/after stops and time shifts.
 - Saved browser-local plans and full-plan / activity calendar `.ics` export.
+- **Already out?** can freeze the completed prefix as immutable history and replan only what remains from the user's current time and current/last-stop location. The user supplies the **budget left** for the rest of the day; a newly failed future stop can be excluded in the same action.
 - In live mode, Qloo ranks **eligible restaurants only**. The code does not infer Qloo affinity for museum exhibits, events or concert tickets.
 
 ### How Qloo makes a difference

@@ -220,6 +220,63 @@ def planner_flow():
 
 
 
+def planner_already_out_flow():
+    """Completed history stays immutable while only the remaining day is replanned."""
+    driver = driver_for(1440, 900)
+    try:
+        driver.get(BASE)
+        wait = WebDriverWait(driver, 45)
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerModeButton"))).click()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerSurface")))
+        wait.until(lambda d: "Loading" not in d.find_element(By.ID, "plannerCoverageStatus").text)
+        driver.find_element(By.ID, "plannerDemo").click()
+        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".timeline-activity")) >= 3)
+
+        before = driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")
+        completed_id = before[0].get_attribute("data-plan-item")
+        completed_title = before[0].find_element(By.CSS_SELECTOR, "h3").text.split(". ", 1)[-1]
+        locked_event = "event:simple-plan-2026-10-17"
+        if completed_id == locked_event:
+            raise AssertionError("already-out smoke needs the fixed concert to remain in the future")
+
+        toggle = wait.until(EC.element_to_be_clickable((By.ID, "plannerAlreadyOut")))
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", toggle)
+        toggle.click()
+        wait.until(EC.visibility_of_element_located((By.ID, "plannerResumePanel")))
+        through = driver.find_element(By.ID, "plannerCompletedThrough")
+        if through.get_attribute("value") != "1":
+            driver.execute_script("arguments[0].value='1'; arguments[0].dispatchEvent(new Event('change',{bubbles:true}));", through)
+        budget = driver.find_element(By.ID, "plannerResumeBudget")
+        budget.clear()
+        budget.send_keys("350")
+        driver.find_element(By.ID, "plannerResumeBuild").click()
+
+        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, ".planner-completed-history")))
+        history = driver.find_element(By.CSS_SELECTOR, ".planner-completed-history").text
+        if "immutable history" not in history.lower() or completed_title not in history:
+            raise AssertionError(f"completed history was not preserved: {history!r}")
+        wait.until(lambda d: "Already out mode:" in d.find_element(By.ID, "plannerRepairNote").text)
+        remaining_ids = [
+            row.get_attribute("data-plan-item")
+            for row in driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")
+        ]
+        if completed_id in remaining_ids:
+            raise AssertionError("completed stop was replanned into the future itinerary")
+        if locked_event not in remaining_ids:
+            raise AssertionError(f"already-out replan lost the future locked concert: {remaining_ids}")
+        summary = driver.find_element(By.CSS_SELECTOR, ".plan-summary-bar").text.lower()
+        if "remaining" not in summary or "remaining budget" not in summary:
+            raise AssertionError(f"already-out summary does not scope the remaining plan: {summary!r}")
+
+        wait.until(EC.element_to_be_clickable((By.ID, "plannerSavePlan"))).click()
+        saved = driver.execute_script("return localStorage.getItem('unstuck-planner-saved-v1')")
+        if not saved or completed_id not in saved or '"resume"' not in saved:
+            raise AssertionError("saved in-progress plan did not persist completed history")
+        assert_no_severe_console(driver)
+    finally:
+        driver.quit()
+
+
 def planner_route_conflict_retry_flow():
     """Mock only route-check response to exercise the browser's bounded tool retry."""
     driver = driver_for(1440, 900)
@@ -426,6 +483,7 @@ def main():
     desktop_flow()
     mobile_flow()
     planner_flow()
+    planner_already_out_flow()
     planner_route_conflict_retry_flow()
     taste_picker_flow()
     good_for_both_ui_flow()
