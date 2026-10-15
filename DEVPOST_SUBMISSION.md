@@ -79,7 +79,7 @@ The deployment is a lightweight Python standard-library backend plus vanilla res
 
 A separately audited overlay covers **32 individually identified restaurant branches**: 30 operator-confirmed regular weekly-hour schedules, and 2 schedules intentionally marked provisional due to conflicting sources. Six branches include examples of a **published named-dish price**. The app explicitly refuses to treat an optional dish quote as a whole dinner price or a guaranteed minimum bill. Holiday exceptions, actual availability, other menu costs and ticket stock are not asserted.
 
-The event list is a **manual snapshot**, not a citywide live events API. Some dates have no verified session time and are discoverable but cannot be inserted into an itinerary. The user can inspect sources and verification dates.
+The event list is a **manual snapshot**, not a citywide live events API. The current selected-source window reaches **28 November 2026** and includes dated sessions from official Go2Warsaw and Polish National Opera listings. Some records still have no verified session time and are discoverable but cannot be inserted into an itinerary. The user can inspect sources and verification dates.
 
 Qloo requests use a server-side API key, explicit request limits, short-lived in-memory cache, bounded timeouts and retries. Google Places enrichment is configured but **disabled** during judging-preparation work to avoid wasting quota; the app does not present unsourced ratings or images as authentic Google data.
 

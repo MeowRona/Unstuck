@@ -154,8 +154,11 @@ class PlannerCatalogTests(unittest.TestCase):
             ("2026-10-29", "event:fado-gala-relax-2026-10-29", "20:00"),
             ("2026-11-04", "event:nigel-kennedy-2026-11-04", "20:00"),
             ("2026-11-08", "event:fryderyk-chopin-recital-2026-11-08", "17:00"),
+            ("2026-11-20", "event:kult-stodola-2026-11-20", "19:00"),
+            ("2026-11-21", "event:juvenalia-5-2026-11-21-1800", "18:00"),
+            ("2026-11-28", "event:salome-2026-11-28", "19:00"),
         ]
-        self.assertEqual(self.catalog.payload["coverage"]["last_manual_refresh"], "2026-10-14")
+        self.assertEqual(self.catalog.payload["coverage"]["last_manual_refresh"], "2026-10-15")
         for when, event_id, start in expected:
             rows = self.catalog.activities_for_date(date.fromisoformat(when))
             row = next(x for x in rows if x["id"] == event_id)
@@ -200,10 +203,24 @@ class PlannerCatalogTests(unittest.TestCase):
         self.assertFalse(row["schedulable"])
         self.assertIn("Session time", row["unschedulable_reason"])
 
+    def test_late_november_salome_has_published_duration(self):
+        row = next(
+            x for x in self.catalog.activities_for_date(date(2026, 11, 28))
+            if x["id"] == "event:salome-2026-11-28"
+        )
+        self.assertTrue(row["schedulable"])
+        self.assertEqual(row["start_time"], "19:00")
+        self.assertEqual(row["end_time"], "20:50")
+        self.assertEqual(row["end_status"], "confirmed")
+        self.assertEqual(row["duration_minutes_estimate"], 110)
+        self.assertEqual(row["duration_status"], "published")
+        self.assertEqual(row["availability"], "unknown")
+        self.assertEqual(row["price"]["status"], "unknown")
+
     def test_event_coverage_distinguishes_not_loaded_dates(self):
         payload = self.catalog.public_catalog("2027-01-15")
         coverage = payload["coverage"]
-        self.assertEqual(coverage["event_sources_loaded_through"], "2026-11-09")
+        self.assertEqual(coverage["event_sources_loaded_through"], "2026-11-28")
 
 
 class DayPlannerTests(unittest.TestCase):

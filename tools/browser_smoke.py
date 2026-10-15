@@ -232,9 +232,17 @@ def planner_already_out_flow():
         driver.find_element(By.ID, "plannerDemo").click()
         wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".timeline-activity")) >= 3)
 
-        before = driver.find_elements(By.CSS_SELECTOR, ".timeline-activity")
-        completed_id = before[0].get_attribute("data-plan-item")
-        completed_title = before[0].find_element(By.CSS_SELECTOR, "h3").text.split(". ", 1)[-1]
+        first_snapshot = driver.execute_script("""
+            const row = document.querySelector('.timeline-activity');
+            return row ? {
+              id: row.dataset.planItem,
+              title: (row.querySelector('h3')?.textContent || '').replace(/^[0-9]+[.] */, '')
+            } : null;
+        """)
+        if not first_snapshot or not first_snapshot.get("id"):
+            raise AssertionError("already-out smoke could not snapshot the first timeline stop")
+        completed_id = first_snapshot["id"]
+        completed_title = first_snapshot["title"]
         locked_event = "event:simple-plan-2026-10-17"
         if completed_id == locked_event:
             raise AssertionError("already-out smoke needs the fixed concert to remain in the future")

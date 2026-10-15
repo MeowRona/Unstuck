@@ -244,34 +244,36 @@ def main() -> int:
     if "text/calendar" not in content_type or b"BEGIN:VCALENDAR" not in ics_body:
         raise RuntimeError("planner ICS export failed")
 
-    # Regression for the upcoming judge window: a dated official event after
-    # the original Oct 17 demo must be present and actually schedulable.
-    recital_id = "event:fryderyk-chopin-recital-2026-11-08"
-    future_catalog = get_json("/api/planner/catalog?date=2026-11-08")
-    recital_listing = next((row for row in future_catalog.get("items", [])
-                            if row.get("id") == recital_id), None)
-    if not recital_listing or not recital_listing.get("schedulable"):
-        raise RuntimeError("future official event was missing or not schedulable in public catalog")
-    if recital_listing.get("availability") != "unknown" or recital_listing.get("price", {}).get("status") != "unknown":
+    # Regression for the upcoming judge window: a dated official event near
+    # the end of November must be present and actually schedulable.
+    future_event_id = "event:salome-2026-11-28"
+    future_catalog = get_json("/api/planner/catalog?date=2026-11-28")
+    future_listing = next((row for row in future_catalog.get("items", [])
+                           if row.get("id") == future_event_id), None)
+    if not future_listing or not future_listing.get("schedulable"):
+        raise RuntimeError("late-November official event was missing or not schedulable in public catalog")
+    if future_listing.get("start_time") != "19:00" or future_listing.get("end_time") != "20:50":
+        raise RuntimeError("late-November official event lost its published session timing")
+    if future_listing.get("availability") != "unknown" or future_listing.get("price", {}).get("status") != "unknown":
         raise RuntimeError("event ticket inventory or price was presented as verified")
     future_brief = {
         **planner_brief,
-        "date": "2026-11-08",
-        "start_time": "13:00",
-        "end_time": "21:30",
+        "date": "2026-11-28",
+        "start_time": "15:00",
+        "end_time": "22:30",
         "activity_count": 1,
         "include_meal": False,
         "interests": [],
         "taste_refs": [],  # No extra live Qloo quota for checking calendar integrity.
-        "must_include_ids": [recital_id],
-        "locked_ids": [recital_id],
+        "must_include_ids": [future_event_id],
+        "locked_ids": [future_event_id],
     }
     future_plan = post_json("/api/planner/generate", future_brief)
     if not future_plan.get("plans") or not any(
-        item.get("activity_id") == recital_id
+        item.get("activity_id") == future_event_id
         for item in future_plan["plans"][0].get("items", [])
     ):
-        raise RuntimeError("dated official recital did not survive future-day planning")
+        raise RuntimeError("late-November official event did not survive future-day planning")
 
     print(
         json.dumps(
@@ -287,7 +289,7 @@ def main() -> int:
                 "planner_repair": True,
                 "planner_already_out_resume": True,
                 "planner_ics": True,
-                "future_official_recital_scheduled": True,
+                "late_november_official_event_scheduled": True,
                 "planner_same_pool_changed_top": ((planner_result.get("taste_audit") or {}).get("same_pool_comparison") or {}).get("top_plan_changed"),
                 "planner_taste_status": planner_result.get("taste_status"),
                 "planner_qloo_coverage": {
