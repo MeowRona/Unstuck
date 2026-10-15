@@ -27,6 +27,8 @@
   let routeLayer = null;
   let routeSerial = 0;
   let activeStudyTrial = null;
+  let resumeContext = null;
+  let resumeCoords = null;
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -70,6 +72,19 @@
     const mapParts = {};
     parts.forEach((part) => { mapParts[part.type] = part.value; });
     return mapParts.year + '-' + mapParts.month + '-' + mapParts.day;
+  }
+
+  function warsawTime(now) {
+    const value = now || new Date();
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Warsaw',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(value);
+    const mapParts = {};
+    parts.forEach((part) => { mapParts[part.type] = part.value; });
+    return mapParts.hour + ':' + mapParts.minute;
   }
 
   function addDays(iso, days) {
@@ -221,14 +236,20 @@
         selectedPlan = 0;
         lockedIds = new Set(row.plan.locked_ids || []);
         excludedIds = new Set(currentBrief.excluded_ids || []);
+        resumeContext = row.resume ? structuredClone(row.resume) : null;
+        resumeCoords = null;
         fillForm(currentBrief);
         renderResult({plans: plans, planned_activity_count: row.plan.items.length, taste_status: row.plan.taste_status});
-        showNote('Loaded from this browser. Rebuild the day to re-check source data.');
+        showNote(resumeContext
+          ? 'Loaded an in-progress plan from this browser. Completed history stays separate from the remaining itinerary.'
+          : 'Loaded from this browser. Rebuild the day to re-check source data.');
       } else {
         const flexibleLocks = (row.plan.locked_ids || []).filter((id) => {
           const item = row.plan.items.find((x) => x.activity_id === id);
           return item && item.kind !== 'event';
         });
+        resumeContext = null;
+        resumeCoords = null;
         const copied = Object.assign({}, row.brief, {
           date: date,
           must_include_ids: flexibleLocks,
@@ -423,8 +444,13 @@
     renderAgenda();
   }
 
-  async function buildDay(explicit) {
+  async function buildDay(explicit, preserveResume) {
     const serial = ++routeSerial; // Invalidate any previous route or generation response.
+    if (!preserveResume) {
+      resumeContext = null;
+      resumeCoords = null;
+      $('#plannerResumePanel').classList.add('hidden');
+    }
     const error = $('#plannerFormError');
     error.classList.add('hidden');
     try {
@@ -457,13 +483,129 @@
     return plan.unknown_cost_components ? base + ' + unknown' : base;
   }
 
+  function resumeDefaultTime(plan, lastCompleted) {
+    const completedEnd = String(lastCompleted?.display_end || currentBrief?.start_time || '12:00');
+    if (plan?.date === warsawDate()) {
+      const now = warsawTime();
+      return now > completedEnd ? now : completedEnd;
+    }
+    return completedEnd;
+  }
+
+  function refreshResumePanel(plan, resetOrigin) {
+    if (!plan || plan.items.length < 2) {
+      $('#plannerResumePanel').classList.add('hidden');
+      return;
+    }
+    const through = $('#plannerCompletedThrough');
+    const previousCount = Number(through.value || 1);
+    through.innerHTML = plan.items.slice(0, -1).map((item, index) =>
+      '<option value="' + (index + 1) + '">' + (index + 1) + '. ' + esc(item.title) + '</option>'
+    ).join('');
+    const count = Math.max(1, Math.min(plan.items.length - 1, previousCount));
+    through.value = String(count);
+    const lastCompleted = plan.items[count - 1];
+    if (resetOrigin || !resumeCoords) {
+      resumeCoords = {
+        lat:Number(lastCompleted.venue.lat),
+        lon:Number(lastCompleted.venue.lon),
+        label:lastCompleted.venue.name || lastCompleted.title,
+      };
+      $('#plannerResumeTime').value = resumeDefaultTime(plan, lastCompleted);
+    }
+    if (!$('#plannerResumeBudget').value) {
+      $('#plannerResumeBudget').value = String(currentBrief?.budget_total || plan.budget_total || 1);
+    }
+    const failed = $('#plannerResumeFailed');
+    const previousFailed = failed.value;
+    const future = plan.items.slice(count).filter((item) => !lockedIds.has(item.activity_id));
+    failed.innerHTML = '<option value="">Nothing ? just continue from here</option>' +
+      future.map((item) => '<option value="' + esc(item.activity_id) + '">' + esc(item.title) + '</option>').join('');
+    if (future.some((item) => item.activity_id === previousFailed)) failed.value = previousFailed;
+    $('#plannerResumeOrigin').textContent =
+      'Resume location: ' + (resumeCoords.label || 'current position') +
+      '. Budget below applies only to the remaining plan.';
+  }
+
+  async function resumeRemainingDay() {
+    const plan = plans[selectedPlan];
+    if (!plan || !currentBrief || plan.items.length < 2) return;
+    refreshResumePanel(plan, false);
+    const count = Number($('#plannerCompletedThrough').value || 1);
+    const completed = plan.items.slice(0, count).map((item) => item.activity_id);
+    const serial = ++routeSerial;
+    const previousHistory = resumeContext ? structuredClone(resumeContext) : null;
+    try {
+      const result = await post('/api/planner/resume', {
+        brief: currentBrief,
+        plan: plan,
+        completed_ids: completed,
+        current_time: $('#plannerResumeTime').value,
+        current_origin: resumeCoords?.label || 'Current location',
+        current_lat: resumeCoords?.lat,
+        current_lon: resumeCoords?.lon,
+        remaining_budget_total: Number($('#plannerResumeBudget').value),
+        removed_id: $('#plannerResumeFailed').value || '',
+      });
+      if (serial !== routeSerial) return;
+      const nextResume = result.resume || null;
+      if (nextResume && previousHistory?.completed_items?.length) {
+        nextResume.completed_items = [
+          ...previousHistory.completed_items,
+          ...(nextResume.completed_items || []),
+        ];
+        nextResume.completed_ids = [
+          ...(previousHistory.completed_ids || []),
+          ...(nextResume.completed_ids || []),
+        ];
+        nextResume.completed_count = nextResume.completed_items.length;
+        nextResume.previous_plan_id = previousHistory.previous_plan_id || nextResume.previous_plan_id;
+      }
+      resumeContext = nextResume;
+      resumeCoords = null;
+      currentBrief = result.brief || currentBrief;
+      lockedIds = new Set(currentBrief.locked_ids || []);
+      excludedIds = new Set(currentBrief.excluded_ids || []);
+      plans = result.plans || [];
+      selectedPlan = 0;
+      fillForm(currentBrief);
+      $('#plannerResumePanel').classList.add('hidden');
+      renderResult(result);
+      if (plans.length) {
+        showNote(
+          'Already out mode: ' + (resumeContext?.completed_count || completed.length) +
+          ' completed stop(s) are immutable history. Only the remaining itinerary was replanned from ' +
+          (resumeContext?.current_time || currentBrief.start_time) + '.'
+        );
+        await checkRoutes();
+      }
+    } catch (err) {
+      if (serial === routeSerial) showNote(err.message);
+    }
+  }
+
   function renderTimeline(plan) {
+    const completedHistory = resumeContext?.completed_items || [];
+    const stopLabel = resumeContext ? plan.items.length + ' remaining' : plan.items.length + ' stops';
+    const budgetLabel = resumeContext ? 'remaining budget ' : 'budget ';
     let html = '<div class="plan-summary-bar">' +
-      '<div><strong>' + plan.items.length + ' stops</strong><span>' + esc(labelDate(plan.date)) + '</span></div>' +
-      '<div><strong>' + esc(costLabel(plan)) + '</strong><span>budget ' + esc(plan.budget_total) + ' PLN</span></div>' +
-      '<div><strong>' + esc(plan.total_travel_minutes) + ' min</strong><span>travel · ' + esc(plan.route_status) + '</span></div>' +
+      '<div><strong>' + esc(stopLabel) + '</strong><span>' + esc(labelDate(plan.date)) + '</span></div>' +
+      '<div><strong>' + esc(costLabel(plan)) + '</strong><span>' + budgetLabel + esc(plan.budget_total) + ' PLN</span></div>' +
+      '<div><strong>' + esc(plan.total_travel_minutes) + ' min</strong><span>travel ? ' + esc(plan.route_status) + '</span></div>' +
       '<div><span class="plan-feasibility ' + esc(plan.feasibility) + '">' + esc(plan.feasibility.replaceAll('_',' ')) + '</span>' +
       '<span>' + plan.unknown_cost_components + ' unknown cost component' + (plan.unknown_cost_components === 1 ? '' : 's') + '</span></div></div>';
+
+    if (completedHistory.length) {
+      html += '<section class="planner-completed-history"><strong>Completed earlier ? immutable history</strong>' +
+        completedHistory.map((item, index) =>
+          '<div class="planner-completed-row"><div class="timeline-time">' +
+          esc(item.display_start) + '<br><span>' + esc(item.display_end) + '</span></div>' +
+          '<div class="timeline-body"><h3>? ' + (index + 1) + '. ' + esc(item.title) + '</h3><p>' +
+          esc(item.venue && item.venue.name) + ' ? ' + esc(item.venue && item.venue.address) +
+          '</p><div class="timeline-meta"><span class="timeline-chip">completed</span>' +
+          '<span class="timeline-chip">not replanned</span></div></div></div>'
+        ).join('') + '</section>';
+    }
 
     plan.items.forEach((item, index) => {
       const leg = plan.travel_legs[index];
@@ -518,7 +660,9 @@
   function renderSelected() {
     const plan = plans[selectedPlan];
     $('#plannerPlanActions').classList.toggle('hidden', !plan);
+    $('#plannerAlreadyOut').disabled = !plan || plan.items.length < 2;
     if (!plan) {
+      $('#plannerResumePanel').classList.add('hidden');
       $('#plannerTimeline').innerHTML = '<div class="planner-empty"><strong>No feasible plan.</strong><span>Change one condition or choose another must-do.</span></div>';
       drawMap(null);
       return;
@@ -526,8 +670,65 @@
     $('#plannerTimeline').innerHTML = renderTimeline(plan);
     bindTimeline();
     drawMap(plan);
+    if (!$('#plannerResumePanel').classList.contains('hidden')) refreshResumePanel(plan, false);
     $$('[data-plan-index]').forEach((button) => button.classList.toggle('active', Number(button.dataset.planIndex) === selectedPlan));
   }
+
+  $('#plannerAlreadyOut').addEventListener('click', () => {
+    const plan = plans[selectedPlan];
+    if (!plan || plan.items.length < 2) {
+      showNote('Already-out replanning needs at least two remaining stops.');
+      return;
+    }
+    const panel = $('#plannerResumePanel');
+    const opening = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !opening);
+    if (opening) {
+      resumeCoords = null;
+      $('#plannerResumeTime').value = '';
+      $('#plannerResumeBudget').value = String(currentBrief?.budget_total || plan.budget_total || 1);
+      refreshResumePanel(plan, true);
+    }
+  });
+
+  $('#plannerCompletedThrough').addEventListener('change', () => {
+    const plan = plans[selectedPlan];
+    if (!plan) return;
+    resumeCoords = null;
+    $('#plannerResumeTime').value = '';
+    refreshResumePanel(plan, true);
+  });
+
+  $('#plannerResumeCurrentLocation').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      showNote('This browser does not provide geolocation. Resume from the last completed stop instead.');
+      return;
+    }
+    const button = $('#plannerResumeCurrentLocation');
+    button.disabled = true;
+    button.textContent = 'Reading location?';
+    navigator.geolocation.getCurrentPosition((position) => {
+      const lat = Number(position.coords.latitude);
+      const lon = Number(position.coords.longitude);
+      button.disabled = false;
+      button.textContent = 'Use current location';
+      if (!(lat >= 52.05 && lat <= 52.40 && lon >= 20.75 && lon <= 21.35)) {
+        showNote('Current location is outside the Warsaw-only pilot. Resume from the last completed stop instead.');
+        return;
+      }
+      resumeCoords = {lat:lat, lon:lon, label:'Current location'};
+      const accuracy = Math.round(Number(position.coords.accuracy || 0));
+      $('#plannerResumeOrigin').textContent =
+        'Resume location: current GPS position' + (accuracy ? ' ? ?' + accuracy + ' m' : '') +
+        '. Budget below applies only to the remaining plan.';
+    }, () => {
+      button.disabled = false;
+      button.textContent = 'Use current location';
+      showNote('Current location could not be read. Resume from the last completed stop instead.');
+    }, {enableHighAccuracy:true, timeout:12000, maximumAge:30000});
+  });
+
+  $('#plannerResumeBuild').addEventListener('click', resumeRemainingDay);
 
   function studyComparison() {
     return plans[selectedPlan]?.taste_audit?.same_pool_comparison || null;
@@ -758,7 +959,7 @@
         if (lockedIds.has(id)) lockedIds.delete(id); else lockedIds.add(id);
         currentBrief.locked_ids = Array.from(lockedIds);
         currentBrief.must_include_ids = Array.from(new Set((currentBrief.must_include_ids || []).concat(Array.from(lockedIds))));
-        await buildDay(currentBrief);
+        await buildDay(currentBrief, Boolean(resumeContext));
         return;
       }
       if (action === 'replace') { await repair(id); return; }
@@ -768,7 +969,7 @@
         currentBrief.activity_count = Math.max(1, Number(currentBrief.activity_count) - 1);
         currentBrief.excluded_ids = Array.from(excludedIds);
         $('#plannerActivityCount').value = String(currentBrief.activity_count);
-        await buildDay(currentBrief);
+        await buildDay(currentBrief, Boolean(resumeContext));
       }
     }));
   }
@@ -891,9 +1092,13 @@
       id: id,
       saved_at: new Date().toISOString(),
       date: plan.date,
-      title: plan.items.map((item) => item.title).join(' → '),
+      title: [
+        ...(resumeContext?.completed_items || []).map((item) => item.title),
+        ...plan.items.map((item) => item.title),
+      ].join(' → '),
       brief: currentBrief,
       plan: plan,
+      resume: resumeContext ? structuredClone(resumeContext) : null,
     };
     const index = store.plans.findIndex((x) => x.id === id);
     if (index >= 0) store.plans[index] = row; else store.plans.unshift(row);

@@ -622,6 +622,139 @@ class DayPlanner:
             }
         return result
 
+    def resume(
+        self,
+        plan: dict[str, Any],
+        brief: PlannerBrief,
+        completed_ids: tuple[str, ...],
+        *,
+        current_time: str,
+        current_origin: str,
+        current_lat: float,
+        current_lon: float,
+        remaining_budget_total: float | None = None,
+        removed_id: str = "",
+    ) -> dict[str, Any]:
+        """Replan only the unfinished suffix of an itinerary.
+
+        Completed stops are immutable history and are intentionally kept outside
+        the newly generated plan. The existing planner, Qloo ranking and route
+        checking therefore operate only on the future portion from the user's
+        current time/location.
+        """
+        original_items = [dict(item) for item in plan.get("items", [])]
+        original_ids = [str(item.get("activity_id") or "") for item in original_items]
+        completed_ids = tuple(dict.fromkeys(str(x).strip() for x in completed_ids if str(x).strip()))
+        if len(original_items) < 2:
+            raise ValueError("Already-out replanning needs at least two stops in the current plan")
+        if not completed_ids:
+            raise ValueError("Select at least one completed stop")
+        if len(completed_ids) >= len(original_ids):
+            raise ValueError("The whole plan is already completed")
+        if tuple(original_ids[:len(completed_ids)]) != completed_ids:
+            raise ValueError("Completed stops must be a chronological prefix of the current plan")
+
+        day = date.fromisoformat(brief.date)
+        try:
+            _clock(current_time)
+        except Exception as exc:
+            raise ValueError("current_time must use HH:MM") from exc
+        current_dt = _dt(day, current_time)
+        last_completed = original_items[len(completed_ids) - 1]
+        last_end = datetime.fromisoformat(str(last_completed["end"]))
+        if last_end.tzinfo is None:
+            last_end = last_end.replace(tzinfo=WARSAW_TZ)
+        if current_dt < last_end:
+            raise ValueError("Current time cannot be before the end of the last completed stop")
+
+        current_lat = float(current_lat)
+        current_lon = float(current_lon)
+        if not (52.05 <= current_lat <= 52.40 and 20.75 <= current_lon <= 21.35):
+            raise ValueError("Current location must stay inside the Warsaw pilot area")
+        current_origin = str(current_origin or "Current location").strip() or "Current location"
+
+        budget = brief.budget_total if remaining_budget_total is None else float(remaining_budget_total)
+        if budget <= 0:
+            raise ValueError("Remaining budget must be positive")
+
+        future_ids = original_ids[len(completed_ids):]
+        removed_id = str(removed_id or "").strip()
+        if removed_id and removed_id not in future_ids:
+            raise ValueError("The failed stop must be in the unfinished part of the plan")
+
+        future_set = set(future_ids)
+        locked_source = tuple(dict.fromkeys([*brief.locked_ids, *plan.get("locked_ids", [])]))
+        locked_ids = tuple(x for x in locked_source if x in future_set)
+        if removed_id and removed_id in locked_ids:
+            raise ValueError("Unlock the failed future stop before replacing it")
+        must_include_ids = tuple(
+            dict.fromkeys(
+                x for x in [*brief.must_include_ids, *locked_ids]
+                if x in future_set and x != removed_id
+            )
+        )
+        excluded_ids = tuple(dict.fromkeys([
+            *brief.excluded_ids,
+            *completed_ids,
+            *([removed_id] if removed_id else []),
+        ]))
+        meal_already_done = any(
+            str(item.get("kind")) == "restaurant"
+            for item in original_items[:len(completed_ids)]
+        )
+        patched = PlannerBrief(
+            **{
+                **brief.__dict__,
+                "start_time": current_time,
+                "origin": current_origin,
+                "origin_lat": current_lat,
+                "origin_lon": current_lon,
+                "budget_total": budget,
+                "activity_count": len(future_ids),
+                "include_meal": bool(brief.include_meal and not meal_already_done),
+                "must_include_ids": must_include_ids,
+                "locked_ids": locked_ids,
+                "excluded_ids": excluded_ids,
+            }
+        )
+        preferred_ids = tuple(x for x in future_ids if x != removed_id)
+        result = self.generate(patched, preferred_ids=preferred_ids)
+        resume_meta = {
+            "mode": "already_out",
+            "previous_plan_id": plan.get("id"),
+            "completed_ids": list(completed_ids),
+            "completed_items": original_items[:len(completed_ids)],
+            "completed_count": len(completed_ids),
+            "original_remaining_ids": future_ids,
+            "current_time": current_time,
+            "current_origin": current_origin,
+            "current_lat": current_lat,
+            "current_lon": current_lon,
+            "remaining_budget_total": budget,
+            "budget_scope": "remaining_plan_only",
+            "removed_id": removed_id or None,
+            "history_locked": True,
+        }
+        result["resume"] = resume_meta
+        prefix = (
+            f"Already out: kept {len(completed_ids)} completed stop"
+            f"{'s' if len(completed_ids) != 1 else ''} as immutable history and replanned only the remainder."
+        )
+        result["explanation"] = (
+            prefix if not result.get("explanation")
+            else prefix + " " + str(result["explanation"])
+        )
+        for candidate in result.get("plans", []):
+            candidate["resume"] = {
+                "mode": "already_out",
+                "completed_count": len(completed_ids),
+                "current_time": current_time,
+                "current_origin": current_origin,
+                "budget_scope": "remaining_plan_only",
+                "removed_id": removed_id or None,
+            }
+        return result
+
     def _eligible(self, items: list[dict[str, Any]], brief: PlannerBrief) -> tuple[list[dict[str, Any]], list[str]]:
         out: list[dict[str, Any]] = []
         blockers: list[str] = []

@@ -346,6 +346,30 @@ class HttpFlowTests(unittest.TestCase):
         self.assertIn("event:simple-plan-2026-10-17", repaired_ids)
         self.assertNotIn(removable, repaired_ids)
 
+        first_done = plan["items"][0]
+        resumed = self.post_json(
+            "/api/planner/resume",
+            {
+                "brief": payload,
+                "plan": plan,
+                "completed_ids": [first_done["activity_id"]],
+                "current_time": first_done["display_end"],
+                "current_origin": first_done["venue"]["name"],
+                "current_lat": first_done["venue"]["lat"],
+                "current_lon": first_done["venue"]["lon"],
+                "remaining_budget_total": 350,
+            },
+        )
+        self.assertEqual(resumed["resume"]["mode"], "already_out")
+        self.assertEqual(resumed["resume"]["completed_ids"], [first_done["activity_id"]])
+        self.assertIn(first_done["activity_id"], resumed["brief"]["excluded_ids"])
+        self.assertEqual(resumed["brief"]["budget_total"], 350)
+        self.assertTrue(resumed["plans"])
+        self.assertNotIn(
+            first_done["activity_id"],
+            {row["activity_id"] for row in resumed["plans"][0]["items"]},
+        )
+
         headers, body = self.post_raw("/api/planner/ics", {"plan": plan})
         self.assertTrue(headers.get_content_type().startswith("text/calendar"))
         text = body.decode("utf-8")

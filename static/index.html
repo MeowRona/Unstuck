@@ -269,11 +269,37 @@
               <span id="plannerResultsMeta">Pick a date and build the day.</span>
             </div>
             <div id="plannerPlanActions" class="planner-plan-actions hidden">
+              <button id="plannerAlreadyOut" class="secondary-button compact" type="button">Already out?</button>
               <button id="plannerSavePlan" class="secondary-button compact" type="button">Save plan</button>
               <button id="plannerExportIcs" class="secondary-button compact" type="button">Download .ics</button>
             </div>
           </div>
           <div id="plannerVariantTabs" class="planner-variant-tabs hidden"></div>
+          <section id="plannerResumePanel" class="planner-resume-panel hidden" aria-label="Continue an in-progress plan">
+            <div class="planner-resume-copy">
+              <strong>Already out? Replan only what is left.</strong>
+              <span>Completed stops stay immutable. Qloo, routing and constraints run only on the remaining plan.</span>
+            </div>
+            <div class="planner-resume-grid">
+              <label>Completed through
+                <select id="plannerCompletedThrough"></select>
+              </label>
+              <label>Current time
+                <input id="plannerResumeTime" type="time" step="300">
+              </label>
+              <label>Budget left (PLN)
+                <input id="plannerResumeBudget" type="number" min="1" step="1">
+              </label>
+              <label>What failed now? <span class="field-hint">optional</span>
+                <select id="plannerResumeFailed"><option value="">Nothing ? just continue from here</option></select>
+              </label>
+            </div>
+            <div class="planner-resume-actions">
+              <span id="plannerResumeOrigin" class="field-hint">Resume location: last completed stop.</span>
+              <button id="plannerResumeCurrentLocation" class="secondary-button compact" type="button">Use current location</button>
+              <button id="plannerResumeBuild" class="primary-button compact" type="button">Repair remaining day</button>
+            </div>
+          </section>
           <div id="plannerTimeline" class="planner-timeline">
             <div class="planner-empty"><strong>No plan yet.</strong><span>Use the form or load the demo day.</span></div>
           </div>

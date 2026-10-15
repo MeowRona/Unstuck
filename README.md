@@ -56,7 +56,7 @@ Unknown data never becomes a confirmed PASS. A result with unknown price/hours o
 
 ## Plan a day
 
-**One-click whole-evening repair:** in Plan a day, choose **Try a full-evening rescue · 90 sec**. This runs the real generation/repair/routing flow against a clearly labeled 17 Oct 2026 sample and simulates a user reporting dinner unavailable. The Simple Plan concert remains locked. The UI shows before/after stops and time shifts, or a truthful no-solution state. See [JUDGE_DEMO_AND_VALIDATION.md](JUDGE_DEMO_AND_VALIDATION.md) for the walkthrough, limitations and not-yet-conducted human evaluation protocol.
+**One-click whole-evening repair:** in Plan a day, choose **Try a full-evening rescue · 110 sec**. This runs the real generation/repair/routing flow against a clearly labeled 17 Oct 2026 sample and simulates a user reporting dinner unavailable. The Simple Plan concert remains locked. The UI shows before/after stops and time shifts, or a truthful no-solution state. See [JUDGE_DEMO_AND_VALIDATION.md](JUDGE_DEMO_AND_VALIDATION.md) for the walkthrough, limitations and not-yet-conducted human evaluation protocol.
 
 The City Compass now has two product modes:
 
@@ -90,6 +90,10 @@ Saved plans use versioned browser `localStorage`; there is no account sync. Copy
 ### Repair this day
 
 Each stop can be locked, replaced or removed. Repair preserves locked stops—especially a fixed event such as a concert—and searches for the smallest replacement around them. A logistical rejection does not become a taste signal.
+
+### Already out
+
+For an itinerary that is already in progress, **Already out?** turns the completed prefix into immutable history and replans only the remaining stops. The user chooses which stop has just been completed, the current time, the **budget left** for the rest of the day, and optionally a remaining stop that just failed. Replanning starts from the last completed venue by default or from browser Current Location inside the Warsaw pilot. Completed stops are never silently moved back into the future plan; future locks, Qloo restaurant ranking and bounded route checking continue on the remaining suffix.
 
 ### Calendar export
 
