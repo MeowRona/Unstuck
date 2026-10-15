@@ -5,10 +5,10 @@
   "checked_at": "2026-10-14",
   "coverage": {
     "event_sources_loaded_from": "2026-10-06",
-    "event_sources_loaded_through": "2026-11-09",
+    "event_sources_loaded_through": "2026-11-28",
     "scope": "Selected verified Warsaw Tourism Office listings plus selected official institution schedules; not a complete Warsaw events feed.",
     "no_results_meaning": "Within the coverage window, no matching record was loaded from the selected sources. Outside it, event data is not loaded.",
-    "last_manual_refresh": "2026-10-14"
+    "last_manual_refresh": "2026-10-15"
   },
   "sources": [
     {
@@ -51,6 +51,13 @@
       "name": "Fryderyk Concert Hall official ticket calendar",
       "url": "https://fryderyk.events/evtic/2026/11",
       "kind": "official_venue_schedule",
+      "ingestion": "manual_verified_snapshot"
+    },
+    {
+      "id": "teatr-wielki",
+      "name": "Teatr Wielki - Polish National Opera",
+      "url": "https://teatrwielki.pl/en/calendar/",
+      "kind": "official_institution_schedule",
       "ingestion": "manual_verified_snapshot"
     }
   ],
@@ -207,6 +214,20 @@
       "id": "venue:roma",
       "name": "Teatr Muzyczny ROMA",
       "address": "Nowogrodzka 49, Warszawa"
+    },
+    {
+      "id": "venue:teatr-wielki",
+      "name": "Teatr Wielki - Polish National Opera",
+      "address": "Plac Teatralny 1, Warszawa",
+      "category": "opera_house",
+      "source_id": "teatr-wielki",
+      "lat": 52.2432594,
+      "lon": 21.009371,
+      "location_source": {
+        "name": "OpenStreetMap Overpass local address snapshot",
+        "url": "https://www.openstreetmap.org/copyright",
+        "checked_at": "2026-10-04"
+      }
     }
   ],
   "attractions": [
@@ -1027,6 +1048,312 @@
         "drumming",
         "japanese music",
         "performance"
+      ]
+    },
+    {
+      "id": "event:kult-stodola-2026-11-20",
+      "title": "KULT — Trasa Pomarańczowa",
+      "category": "concert",
+      "venue_id": "venue:stodola",
+      "description": "Warsaw Tourism Office lists KULT at Klub Stodo?a at 19:00 as part of the annual Trasa Pomara?czowa. The listing describes close-to-three-hour performances; ticket inventory and exact end time must still be checked.",
+      "date": "2026-11-20",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 170,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/events/kult-2/",
+      "info_url": "https://go2warsaw.pl/events/kult-2/",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "rock",
+        "polish rock",
+        "concert",
+        "live music"
+      ]
+    },
+    {
+      "id": "event:kult-stodola-2026-11-21",
+      "title": "KULT — Trasa Pomarańczowa",
+      "category": "concert",
+      "venue_id": "venue:stodola",
+      "description": "Warsaw Tourism Office lists KULT at Klub Stodo?a at 19:00 as part of the annual Trasa Pomara?czowa. The listing describes close-to-three-hour performances; ticket inventory and exact end time must still be checked.",
+      "date": "2026-11-21",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 170,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "go2warsaw",
+      "source_url": "https://go2warsaw.pl/events/kult-2/",
+      "info_url": "https://go2warsaw.pl/events/kult-2/",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "rock",
+        "polish rock",
+        "concert",
+        "live music"
+      ]
+    },
+    {
+      "id": "event:juvenalia-5-2026-11-19-1900",
+      "title": "Juvenalia 5 — Polish National Ballet Junior",
+      "category": "ballet",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera calendar session for Juvenalia 5 in the M?ynarski Auditorium. The official listing confirms the session time; exact running time and ticket inventory remain to be checked.",
+      "date": "2026-11-19",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 100,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "info_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "ballet",
+        "dance",
+        "performance",
+        "classical"
+      ]
+    },
+    {
+      "id": "event:juvenalia-5-2026-11-20-1900",
+      "title": "Juvenalia 5 — Polish National Ballet Junior",
+      "category": "ballet",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera calendar session for Juvenalia 5 in the M?ynarski Auditorium. The official listing confirms the session time; exact running time and ticket inventory remain to be checked.",
+      "date": "2026-11-20",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 100,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "info_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "ballet",
+        "dance",
+        "performance",
+        "classical"
+      ]
+    },
+    {
+      "id": "event:juvenalia-5-2026-11-21-1200",
+      "title": "Juvenalia 5 — Polish National Ballet Junior",
+      "category": "ballet",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera calendar session for Juvenalia 5 in the M?ynarski Auditorium. The official listing confirms the session time; exact running time and ticket inventory remain to be checked.",
+      "date": "2026-11-21",
+      "start_time": "12:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 100,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "info_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "ballet",
+        "dance",
+        "performance",
+        "classical"
+      ]
+    },
+    {
+      "id": "event:juvenalia-5-2026-11-21-1800",
+      "title": "Juvenalia 5 — Polish National Ballet Junior",
+      "category": "ballet",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera calendar session for Juvenalia 5 in the M?ynarski Auditorium. The official listing confirms the session time; exact running time and ticket inventory remain to be checked.",
+      "date": "2026-11-21",
+      "start_time": "18:00",
+      "doors_time": null,
+      "end_time": null,
+      "end_status": "unknown",
+      "planning_duration_minutes": 100,
+      "planning_duration_status": "estimate",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "info_url": "https://teatrwielki.pl/kalendarium/2026-2027/juvenalia-5/",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "ballet",
+        "dance",
+        "performance",
+        "classical"
+      ]
+    },
+    {
+      "id": "event:salome-2026-11-22",
+      "title": "Salome — Richard Strauss",
+      "category": "opera",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera performance of Richard Strauss's Salome in the Moniuszko Auditorium. The official calendar states a running time of about 1 hour 50 minutes with no intermission; ticket inventory remains unknown.",
+      "date": "2026-11-22",
+      "start_time": "18:00",
+      "doors_time": null,
+      "end_time": "19:50",
+      "end_status": "confirmed",
+      "planning_duration_minutes": 110,
+      "planning_duration_status": "published",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/en/calendar/2026-2027/salome",
+      "info_url": "https://teatrwielki.pl/en/calendar/2026-2027/salome",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "opera",
+        "classical",
+        "strauss",
+        "theatre"
+      ]
+    },
+    {
+      "id": "event:salome-2026-11-26",
+      "title": "Salome — Richard Strauss",
+      "category": "opera",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera performance of Richard Strauss's Salome in the Moniuszko Auditorium. The official calendar states a running time of about 1 hour 50 minutes with no intermission; ticket inventory remains unknown.",
+      "date": "2026-11-26",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": "20:50",
+      "end_status": "confirmed",
+      "planning_duration_minutes": 110,
+      "planning_duration_status": "published",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/en/calendar/2026-2027/salome",
+      "info_url": "https://teatrwielki.pl/en/calendar/2026-2027/salome",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "opera",
+        "classical",
+        "strauss",
+        "theatre"
+      ]
+    },
+    {
+      "id": "event:salome-2026-11-28",
+      "title": "Salome — Richard Strauss",
+      "category": "opera",
+      "venue_id": "venue:teatr-wielki",
+      "description": "Official Polish National Opera performance of Richard Strauss's Salome in the Moniuszko Auditorium. The official calendar states a running time of about 1 hour 50 minutes with no intermission; ticket inventory remains unknown.",
+      "date": "2026-11-28",
+      "start_time": "19:00",
+      "doors_time": null,
+      "end_time": "20:50",
+      "end_status": "confirmed",
+      "planning_duration_minutes": 110,
+      "planning_duration_status": "published",
+      "status": "planned",
+      "availability": "unknown",
+      "price": {
+        "status": "unknown",
+        "currency": "PLN",
+        "min": null,
+        "max": null,
+        "basis": "per_person"
+      },
+      "source_id": "teatr-wielki",
+      "source_url": "https://teatrwielki.pl/en/calendar/2026-2027/salome",
+      "info_url": "https://teatrwielki.pl/en/calendar/2026-2027/salome",
+      "ticket_url": null,
+      "checked_at": "2026-10-15",
+      "tags": [
+        "opera",
+        "classical",
+        "strauss",
+        "theatre"
       ]
     }
   ]

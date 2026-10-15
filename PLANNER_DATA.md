@@ -2,7 +2,7 @@
 
 The **Plan a day** beta is intentionally narrower than a city-wide event search engine. It combines the existing Unstuck restaurant catalog with a small verified Warsaw attraction/event snapshot and the existing routing stack.
 
-Attraction/hours base snapshot checked: **2026-10-06**. Selected future event occurrences refreshed from official listings: **2026-10-14**. Event refresh does not re-verify the older attraction facts.
+Attraction/hours base snapshot checked: **2026-10-06**. Selected future event occurrences refreshed from official listings: **2026-10-15**, with the loaded event window extended through **2026-11-28**. The refresh includes official Go2Warsaw and Polish National Opera sessions; it does not re-verify the older attraction facts.
 
 ## Coverage semantics
 
